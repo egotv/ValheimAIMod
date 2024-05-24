@@ -36,24 +36,16 @@ namespace ValheimAIModLoader
             var skeleton_npc_assetBundle = GetAssetBundleFromResources("skeleton_npc");
             SkeletonNPCPrefab = skeleton_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/SkeletonNPC.prefab");
 
-            /*var playerNpcScript = PlayerNPCPrefab.GetComponent<Player>();
-
-            if (playerNpcScript != null)
-            {
-                //GameObject.DestroyImmediate(playerNpcScript);
-                Object.Destroy(playerNpcScript);
-            }*/
-
-            //PlayerNPC playerNPC_comp = PlayerNPCPrefab.AddComponent<PlayerNPC>();
-            //MonsterAI monsterAI_comp = PlayerNPCPrefab.AddComponent<MonsterAI>();
-
 
             if (PlayerNPCPrefab) Debug.Log("PlayerNPCPrefab loaded"); 
             else Debug.Log("PlayerNPCPrefab not loaded");
+            if (PlayerClassNPCPrefab) Debug.Log("PlayerClassNPCPrefab loaded");
+            else Debug.Log("PlayerClassNPCPrefab not loaded");
             if (SkeletonNPCPrefab) Debug.Log("SkeletonNPCPrefab loaded");
             else Debug.Log("SkeletonNPCPrefab not loaded");
 
             player_npc_assetBundle.Unload(false);
+            playerclass_npc_assetBundle.Unload(false);
             skeleton_npc_assetBundle.Unload(false);
 
             //Debug.Log("Initialized config and debugging");
@@ -98,12 +90,10 @@ namespace ValheimAIModLoader
         }
 
 
-        [HarmonyPatch(typeof(PlayerController), "FixedUpdate")]
+        /*[HarmonyPatch(typeof(PlayerController), "FixedUpdate")]
         static class PlayerController_FixedUpdate_Patch
         {
-            /*
-             Destroy PlayerController for non locally controlled players
-             */
+            // Destroy PlayerController for non locally controlled players
             static bool Prefix(PlayerController __instance)
             {
                 if (Player.m_localPlayer != __instance.m_character)
@@ -116,14 +106,13 @@ namespace ValheimAIModLoader
 
                 return true;
             }
-        }
+        }*/
 
-        [HarmonyPatch(typeof(Player), "FixedUpdate")]
+        /*[HarmonyPatch(typeof(Player), "FixedUpdate")]
         static class Player_FixedUpdate_Patch
         {
             static bool Prefix(Player __instance)
             {
-                /*Debug.Log("Player_FixedUpdate_Patch");*/
                 float fixedDeltaTime = Time.fixedDeltaTime;
                 __instance.UpdateAwake(fixedDeltaTime);
                 if (__instance.m_nview.GetZDO() == null)
@@ -165,9 +154,8 @@ namespace ValheimAIModLoader
                     AudioMan.instance.SetIndoor(__instance.InShelter() || ShieldGenerator.IsInsideShield(__instance.transform.position));
                 }
 
-                //Debug.Log("Player FixedUpdate override");
                 return false;
             }
-        }
+        }*/
     }
 }

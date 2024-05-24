@@ -22,8 +22,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLivePatch", "..
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLoader", "..\ValheimAIModLoader\ValheimAIModLoader.csproj", "{D47E3316-6632-4C43-8296-A64AB0C0D703}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimModOne", "..\ValheimModOne\ValheimModOne.csproj", "{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|AnyCPU = Debug|AnyCPU
@@ -62,10 +60,6 @@ Global
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Release|AnyCPU.Build.0 = Release|Any CPU
-		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -42,42 +42,20 @@ namespace ValheimAIModLivePatch
         [HarmonyPatch(typeof(Player), "Update")]
         private static void PlayerUpdate_Postfix(Player __instance)
         {
-            //Debug.Log("playerupdate postfix");
-            // Check if the spawn companion key is pressed
+            /* Detect input */
             if (instance.spawnCompanionKey.Value.IsDown())
             {
                 instance.SpawnCompanion(__instance);
             }
         }
 
-        /*[HarmonyPrefix]
-        [HarmonyPatch(typeof(Character), "UpdateEyeRotation")]
-        private static bool Character_UpdateEyeRotation_Postfix(Character __instance)
-        {
-            if (!__instance)
-            {
-                Debug.Log("Character_UpdateEyeRotation_Postfix instance invalid");
-                return false;
-            }
-            if (!__instance.m_eye)
-            {
-                Debug.Log("Character_UpdateEyeRotation_Postfix eye invalid");
-                __instance.m_eye.localPosition = new Vector3();
-                return false;
-            }
-            //Debug.Log("Character_UpdateEyeRotation_Postfix both valid m_lookDir " + __instance.m_lookDir.ToString());
-            return true;
-        }*/
-
-        
-
         private void SpawnCompanion(Player player)
         {
             if (player != null)
             {
 
-                //GameObject skeletonPrefab = ZNetScene.instance.GetPrefab("PlayerNPC");
-                GameObject skeletonPrefab = ZNetScene.instance.GetPrefab("PlayerClassNPC");
+                GameObject skeletonPrefab = ZNetScene.instance.GetPrefab("PlayerNPC");
+                //GameObject skeletonPrefab = ZNetScene.instance.GetPrefab("PlayerClassNPC");
                 //GameObject skeletonPrefab = ZNetScene.instance.GetPrefab("SkeletonNPC");
 
                 if (skeletonPrefab == null)

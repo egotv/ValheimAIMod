@@ -3,14 +3,14 @@
   "WorkspaceRootPath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimilspy\\assembly_valheim\\character.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|solutionrelative:assembly_valheim\\character.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLoader\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\valheimaimodlivepatch.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\valheimaimodloader.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimilspy\\assembly_valheim\\character.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|solutionrelative:assembly_valheim\\character.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\playernpc.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
@@ -31,7 +31,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
@@ -43,8 +43,7 @@
               "RelativeToolTip": "..\\ValheimAIModLoader\\PlayerNPC.cs",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-23T23:33:06.816Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-05-23T23:33:06.816Z"
             },
             {
               "$type": "Document",
@@ -56,8 +55,7 @@
               "RelativeToolTip": "assembly_valheim\\BaseAI.cs",
               "ViewState": "AQIAAHUDAAAAAAAAAAASwIcDAAAsAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-23T22:40:49.847Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-05-23T22:40:49.847Z"
             },
             {
               "$type": "Document",
@@ -69,44 +67,43 @@
               "RelativeToolTip": "assembly_valheim\\MonsterAI.cs",
               "ViewState": "AQIAAI4AAAAAAAAAAAAawHgAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-23T22:07:49.193Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-05-23T22:07:49.193Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 2,
               "Title": "Character.cs",
               "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\Character.cs",
               "RelativeDocumentMoniker": "assembly_valheim\\Character.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\Character.cs",
               "RelativeToolTip": "assembly_valheim\\Character.cs",
-              "ViewState": "AQIAACANAAAAAAAAAAASwDcNAAAYAAAA",
+              "ViewState": "AQIAACANAAAAAAAAAAASwC4NAAAEAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-23T22:35:57.016Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
               "Title": "ValheimAIModLoader.cs",
               "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ViewState": "AQIAAHYAAAAAAAAAAAAiwIQAAAA6AAAA",
+              "ViewState": "AQIAAAcAAAAAAAAAAAAcwBcAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-23T00:01:38.812Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "ValheimAIModLivePatch.cs",
               "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLivePatch.cs",
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAAGMAAAAAAAAAAAAQwEUAAAALAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAFQAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-23T00:14:24.166Z",
               "EditorCaption": ""
