@@ -1,0 +1,24 @@
+public enum GamepadInput
+{
+	None,
+	DPadLeft,
+	DPadRight,
+	DPadDown,
+	DPadUp,
+	FaceButtonA,
+	FaceButtonB,
+	FaceButtonX,
+	FaceButtonY,
+	StickLHorizontal,
+	StickLVertical,
+	StickLButton,
+	StickRHorizontal,
+	StickRVertical,
+	StickRButton,
+	BumperL,
+	BumperR,
+	TriggerL,
+	TriggerR,
+	Select,
+	Start
+}

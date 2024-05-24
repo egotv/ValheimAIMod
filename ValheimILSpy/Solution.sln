@@ -1,0 +1,76 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34902.65
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_valheim", "assembly_valheim\assembly_valheim.csproj", "{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_utils", "assembly_utils\assembly_utils.csproj", "{E88C1651-7183-44EB-BD5C-CB365F314DD1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_googleanalytics", "assembly_googleanalytics\assembly_googleanalytics.csproj", "{6C08830D-AD70-4692-98FB-A28ADD8053FD}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_postprocessing", "assembly_postprocessing\assembly_postprocessing.csproj", "{F1E0F0DB-8408-4679-A2AF-4DEF9D86C960}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_guiutils", "assembly_guiutils\assembly_guiutils.csproj", "{5F419DA9-A28F-4123-9894-22885B2B405C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_sunshafts", "assembly_sunshafts\assembly_sunshafts.csproj", "{27EF492D-0655-4484-AF3E-03FC3614C6A4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_simplemeshcombine", "assembly_simplemeshcombine\assembly_simplemeshcombine.csproj", "{29810CE4-2537-4B36-A40E-92CC1B07B0F3}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_lux", "assembly_lux\assembly_lux.csproj", "{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLivePatch", "..\ValheimAIModLoader\ValheimAIModLivePatch.csproj", "{D0F5469C-3DB9-4874-86E8-35B484BF63D1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLoader", "..\ValheimAIModLoader\ValheimAIModLoader.csproj", "{D47E3316-6632-4C43-8296-A64AB0C0D703}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimModOne", "..\ValheimModOne\ValheimModOne.csproj", "{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AnyCPU = Debug|AnyCPU
+		Release|AnyCPU = Release|AnyCPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{E88C1651-7183-44EB-BD5C-CB365F314DD1}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{E88C1651-7183-44EB-BD5C-CB365F314DD1}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{E88C1651-7183-44EB-BD5C-CB365F314DD1}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{6C08830D-AD70-4692-98FB-A28ADD8053FD}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{6C08830D-AD70-4692-98FB-A28ADD8053FD}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{6C08830D-AD70-4692-98FB-A28ADD8053FD}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{F1E0F0DB-8408-4679-A2AF-4DEF9D86C960}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{F1E0F0DB-8408-4679-A2AF-4DEF9D86C960}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{F1E0F0DB-8408-4679-A2AF-4DEF9D86C960}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{5F419DA9-A28F-4123-9894-22885B2B405C}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{5F419DA9-A28F-4123-9894-22885B2B405C}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{5F419DA9-A28F-4123-9894-22885B2B405C}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{27EF492D-0655-4484-AF3E-03FC3614C6A4}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{27EF492D-0655-4484-AF3E-03FC3614C6A4}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{27EF492D-0655-4484-AF3E-03FC3614C6A4}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{29810CE4-2537-4B36-A40E-92CC1B07B0F3}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{29810CE4-2537-4B36-A40E-92CC1B07B0F3}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{29810CE4-2537-4B36-A40E-92CC1B07B0F3}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D4D7707A-E299-4FAB-9CA8-487651CCDE7D}.Release|AnyCPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {04218C6C-77A7-4655-ACFF-437E42ACDE27}
+	EndGlobalSection
+EndGlobal

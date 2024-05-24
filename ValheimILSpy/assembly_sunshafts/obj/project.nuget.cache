@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "bqADOBZVKDYfSWdylI1zC4brMDO+xCjwcOohYGyiT9NcB1ld0C4eREOdh6zf8yC8quK5L4Jw1eJ5ozCPhO9rZg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_sunshafts\\assembly_sunshafts.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net40\\1.0.3\\microsoft.netframework.referenceassemblies.net40.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

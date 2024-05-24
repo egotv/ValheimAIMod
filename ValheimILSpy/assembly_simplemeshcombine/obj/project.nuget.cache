@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "xTKw9SoRIxn70zBvEhqMIphV9TgYqMhEO7SsE2Uj7763dbkWleiL8L1NZIFBtvM/uAfuX6IsP+sHzuJwu59eGw==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_simplemeshcombine\\assembly_simplemeshcombine.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net40\\1.0.3\\microsoft.netframework.referenceassemblies.net40.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

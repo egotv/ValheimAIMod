@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "+AtVKdJwR57VBljK6BaLswcCUbNK5+FKJJES1rboWjspQxB5LKzVLQLXvjUhoKp5XjeeNIJ7E2dQBcwCkUs3Tw==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_googleanalytics\\assembly_googleanalytics.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net40\\1.0.3\\microsoft.netframework.referenceassemblies.net40.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

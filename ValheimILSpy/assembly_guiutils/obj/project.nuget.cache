@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "xReERuoV66zdbAK3HWZ5e1pEQG5rgpu6iPrnxsIsG5QkYU53QBAwm0vQLFa2ibYK2b65K7iugbGOYgg8wokJeg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_guiutils\\assembly_guiutils.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net40\\1.0.3\\microsoft.netframework.referenceassemblies.net40.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
