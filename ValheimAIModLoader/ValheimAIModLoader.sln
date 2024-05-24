@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34902.65
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIMod", "ValheimAIMod.csproj", "{D0F5469C-3DB9-4874-86E8-35B484BF63D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLoader", "ValheimAIModLoader.csproj", "{D0F5469C-3DB9-4874-86E8-35B484BF63D1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
