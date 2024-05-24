@@ -1,0 +1,54 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIMod\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|ValheimAIMod.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimod\\playernpc.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|ValheimAIMod.csproj|solutionrelative:playernpc.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|ValheimAIMod.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimod\\valheimaimod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|ValheimAIMod.csproj|solutionrelative:valheimaimod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "PlayerNPC.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIMod\\PlayerNPC.cs",
+              "RelativeDocumentMoniker": "PlayerNPC.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIMod\\PlayerNPC.cs",
+              "RelativeToolTip": "PlayerNPC.cs",
+              "ViewState": "AQIAAA4AAAAAAAAAAAAAABAAAAAkAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-05-22T23:10:37.912Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ValheimAIMod.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIMod\\ValheimAIMod.cs",
+              "RelativeDocumentMoniker": "ValheimAIMod.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIMod\\ValheimAIMod.cs",
+              "RelativeToolTip": "ValheimAIMod.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAALAAAAAFAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-05-22T20:27:47.488Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
