@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ValheimAIMod</RootNamespace>
-    <AssemblyName>ValheimAIMod</AssemblyName>
+    <AssemblyName>ValheimAIModLivePatch</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -17,10 +17,10 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\ValheimAIModLoader\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <WarningLevel>5</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -44,6 +44,9 @@
     </Reference>
     <Reference Include="BepInEx">
       <HintPath>..\ValheimModOne\Libs\BepInEx.dll</HintPath>
+    </Reference>
+    <Reference Include="Jotunn">
+      <HintPath>..\References\ExternalMods\Jotunn.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -74,14 +77,17 @@
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>..\..\..\..\..\..\Program Files\Unity\Hub\Editor\2022.3.17f1\Editor\Data\Managed\UnityEngine\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
+    <Reference Include="ValheimAIModLoader, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\ValheimAIModLoader.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="PlayerNPC.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ValheimAIMod.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="player_npc" />
+    <Compile Include="ValheimAIModLivePatch.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll" "C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\scripts\"</PostBuildEvent>
+  </PropertyGroup>
 </Project>

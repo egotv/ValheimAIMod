@@ -22,3 +22,4 @@ C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\assem
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\assembly_postprocessing.dll
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\assembly_sunshafts.dll
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\assembly_guiutils.dll
+C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\Jotunn.dll

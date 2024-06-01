@@ -1,178 +1,446 @@
-﻿using BepInEx;
-using HarmonyLib;
-using UnityEngine;
-using BepInEx.Configuration;
-using System.IO;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Collections;
+using BepInEx;
+using BepInEx.Configuration;
+using HarmonyLib;
+/*using Jotunn.Entities;
+using Jotunn.Managers;*/
+using UnityEngine;
 
-namespace ValheimAIMod
+[BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
+[BepInProcess("valheim.exe")]
+public class ValheimAIModLivePatch : BaseUnityPlugin
 {
-    [BepInPlugin("sahejhundal.ValheimAIMod", "Valheim AI NPC Mod", "1.0.0")]
-    [BepInProcess("valheim.exe")]
-    public class ValheimAIMod : BaseUnityPlugin
+
+
+    /*public class SpawnNPCCommand : ConsoleCommand
     {
-        private static ValheimAIMod instance;
-        private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIMod");
+        public override string Name => "ego_spawnNPC";
 
-        private static GameObject PlayerNPCPrefab;
+        public override string Help => "Spawns a friend in the world";
 
-
-        // MOD Awake (loadup code)
-        void Awake()
+        public override void Run(string[] args)
         {
-            instance = this;
+            instance.SpawnCompanion();
+        }
+    }*/
 
-            var assetBundle = GetAssetBundleFromResources("player_npc");
-            PlayerNPCPrefab = assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/PlayerNPC.prefab");
+    private static ValheimAIModLivePatch instance;
+    private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLivePatch");
 
-            var playerNpcScript = PlayerNPCPrefab.GetComponent<Player>();
+    private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
+    private ConfigEntry<KeyboardShortcut> ToggleFollowKey;
+    private ConfigEntry<KeyboardShortcut> ToggleHarvestKey;
+    private ConfigEntry<KeyboardShortcut> InventoryKey;
+    private ConfigEntry<bool> DisableAutoSave;
 
-            if (playerNpcScript != null)
+    private GameObject[] AllPlayerNPCInstances;
+    private float AllPlayerNPCInstancesLastRefresh = 0f;
+    private GameObject[] SmallTrees;
+
+    // NPC VARS
+    private bool bFollowPlayer; // TODO: CONVERT CURRENT MODE TO ENUM
+    private bool bHarvest;
+    private float FollowUntilDistance = 1f;
+    private float RunUntilDistance = 3f;
+
+    private float StaminaExhaustedMinimumBreakTime = 3f;
+    private float MinimumStaminaToRun = 5f;
+
+
+
+
+    private void Awake()
+    {
+        Debug.Log("ValheimAIModLivePatch Awake");
+        instance = this;
+
+        ConfigBindings();
+        RegisterConsoleCommands();
+        
+        harmony.PatchAll(typeof(ValheimAIModLivePatch));
+    }
+
+    private void ConfigBindings()
+    {
+        spawnCompanionKey = Config.Bind<KeyboardShortcut>("Keybinds", "SpawnCompanionKey", new KeyboardShortcut(KeyCode.G), "The key used to spawn an NPC.");
+        ToggleFollowKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleFollowKey", new KeyboardShortcut(KeyCode.F), "The key used to command all NPCs to follow you.");
+        ToggleHarvestKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleHarvestKey", new KeyboardShortcut(KeyCode.H), "The key used to command all NPCs to go harvest.");
+        InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.Y), "The key used to command all NPCs to go harvest.");
+        DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
+    }
+
+    private void RegisterConsoleCommands()
+    {
+        //CommandManager.Instance.AddConsoleCommand((ConsoleCommand)new SpawnNPCCommand());
+    }
+
+    private void OnDestroy()
+    {
+        harmony.UnpatchSelf();
+    }
+
+    private void PrintAllTags()
+    {
+        GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
+        HashSet<string> uniqueTags = new HashSet<string>();
+
+        foreach (GameObject obj in allObjects)
+        {
+            string tag = obj.tag;
+            if (!string.IsNullOrEmpty(tag))
             {
-                //GameObject.DestroyImmediate(playerNpcScript);
-                Object.Destroy(playerNpcScript);
+                uniqueTags.Add(tag);
             }
+        }
 
-            PlayerNPC playerNPC_comp = PlayerNPCPrefab.AddComponent<PlayerNPC>();
-            MonsterAI monsterAI_comp = PlayerNPCPrefab.AddComponent<MonsterAI>();
+        Debug.Log("All tags defined in Valheim:");
+        foreach (string tag in uniqueTags)
+        {
+            Debug.Log(tag);
+        }
+    }
 
-            StartCoroutine(FollowPlayer(monsterAI_comp));
-
-
-            if (PlayerNPCPrefab)
+    private static ValheimAIModLoader.NPCScript IsScriptNPC(Character __instance)
+    {
+        if (__instance.gameObject.name.Contains("ScriptNPC"))
+        {
+            ValheimAIModLoader.NPCScript npcscript_component = __instance.GetComponent<ValheimAIModLoader.NPCScript>();
+            if (npcscript_component)
             {
-                Debug.Log("PlayerNPC loaded");
+                return npcscript_component;
+            }
+        }
+        return null;
+    }
+
+    /*[HarmonyPrefix]
+    [HarmonyPatch(typeof(BaseAI), "MoveTo")]
+    public static void BaseAI_MoveTo_Prefix(BaseAI __instance, ref float dt, ref Vector3 point, ref float dist, ref bool run)
+    {
+        ValheimAIModLoader.NPCScript npcscript_component = IsScriptNPC(__instance.m_character);
+        if (npcscript_component)
+        {
+            if (npcscript_component.m_stamina < 10)
+            {
+                run = false;
+                Debug.Log("MoveTo told ai bot to stop running");
+            }
+        }
+    }*/
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Character), "CheckRun")]
+    public static bool Character_CheckRun_Prefix(Character __instance, Vector3 moveDir, float dt)
+    {
+        // 
+        ValheimAIModLoader.NPCScript npcscript_component = IsScriptNPC(__instance);
+        if (npcscript_component)
+        {
+            if (Time.time - npcscript_component.m_staminaLastBreakTime < instance.StaminaExhaustedMinimumBreakTime)
+            {
+                return false;
+            }
+            else if (npcscript_component.m_stamina < instance.MinimumStaminaToRun)
+            {
+                npcscript_component.m_staminaLastBreakTime = Time.time;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(BaseAI), "Follow")]
+    private static bool BaseAI_Follow_Prefix(BaseAI __instance, GameObject go, float dt)
+    {
+        // EXECUTES ON BASEAI::TICK
+        if (!__instance.name.Contains("ScriptNPC")) return true;
+
+        float num = Vector3.Distance(go.transform.position, __instance.transform.position);
+        bool run = num > instance.RunUntilDistance;
+        if (num < instance.FollowUntilDistance)
+        {
+            __instance.StopMoving();
+        }
+        else
+        {
+            __instance.MoveTo(dt, go.transform.position, 0f, run);
+        }
+
+        return false;
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Tameable), "Interact")]
+    private static void Tameable_Interact_Postfix(Tameable __instance, Humanoid user, bool hold, bool alt, ref bool __result)
+    {
+        // ON TAME/ON PRESS TAME (E) ON FRIEND
+        Debug.Log("tameable interact");
+        //instance.PrintAllTags();
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Character), "GetHoverText")]
+    private static bool Character_GetHoverText_Prefix(Character __instance, ref string __result)
+    {
+        // Display stamina on Character hover widget
+        Tameable component = __instance.GetComponent<Tameable>();
+        if ((bool)component)
+        {
+            __result = component.GetHoverText();
+
+            ValheimAIModLoader.NPCScript npcscript_component = IsScriptNPC(__instance);
+            if (npcscript_component)
+            {
+                __result += "\nStamina: " + npcscript_component.m_stamina;
+            }
+            
+        }
+        return false;
+    }
+
+    /*[HarmonyPostfix]
+    [HarmonyPatch(typeof(Attack), "Start")]
+    private static void Attack_Start_Postfix(Attack __instance)
+    {
+        // TO FIND OUT ANIMATIONS NAMES
+        Debug.Log("Attack anim " + __instance.m_attackAnimation);
+    }*/
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Player), "Update")]
+    private static void Player_Update_Postfix(Player __instance)
+    {
+        KeyboardShortcut value = instance.spawnCompanionKey.Value;
+        if (value.IsDown())
+        {
+            instance.SpawnCompanion();
+            return;
+        }
+        value = instance.ToggleFollowKey.Value;
+        if (value.IsDown())
+        {
+            instance.OnToggleFollowKeyPressed(__instance);
+            return;
+        }
+        value = instance.ToggleHarvestKey.Value;
+        if (value.IsDown())
+        {
+            instance.OnToggleHarvestKeyPressed(__instance);
+            return;
+        }
+        value = instance.InventoryKey.Value;
+        if (value.IsDown())
+        {
+            instance.OnInventoryKeyPressed(__instance);
+            return;
+        }
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Humanoid), "CustomFixedUpdate")]
+    private static void Humanoid_CustomFixedUpdate_Postfix(Humanoid __instance, float fixedDeltaTime)
+    {
+        if (__instance && __instance.name.Contains("ScriptNPC"))
+        {
+            MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
+            Humanoid humanoidcomponent = __instance.GetComponent<Humanoid>();
+
+            if (monsterAIcomponent && monsterAIcomponent.m_follow && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject)
+            {
+                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance && !humanoidcomponent.InAttack())
+                {
+                    //Debug.Log("Close enough");
+                    monsterAIcomponent.LookAt(monsterAIcomponent.m_follow.transform.position);
+                    humanoidcomponent.StartAttack(humanoidcomponent, false);
+                }
+            }
+        }
+    }
+
+    private void OnToggleFollowKeyPressed(Player player)
+    {
+        bFollowPlayer = !bFollowPlayer;
+
+        GameObject[] allNpcs = FindPlayerNPCs();
+        foreach (GameObject npc in allNpcs)
+        {
+            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
+            Humanoid humanoidComponent = npc.GetComponent<Humanoid>();
+            if (monsterAIcomponent != null && humanoidComponent != null)
+            {
+                Debug.Log(("updating npc " + humanoidComponent.GetHoverName()));
+                if (bFollowPlayer)
+                {
+                    monsterAIcomponent.SetFollowTarget(player.gameObject);
+                    Debug.Log("Everyone now following player!");
+                }
+                else
+                {
+                    monsterAIcomponent.SetFollowTarget(null);
+                    Debug.Log("Everyone doing their own thing");
+                }
             }
             else
             {
-                Debug.Log("PlayerNPC not loaded");
+                Debug.Log("monsterAI was null for npc in instance.AllPlayerNPCInstances");
             }
-
-            assetBundle.Unload(false);
-
-            //Debug.Log("Initialized config and debugging");
-            harmony.PatchAll();
-            //Harmony.CreateAndPatchAll(typeof(ValheimAIMod));
         }
+    }
 
-        // MOD OnDestroy (destructor code/unpatch)
-        void OnDestroy()
+    private void OnToggleHarvestKeyPressed(Player player)
+    {
+        bHarvest = !bHarvest;
+
+        GameObject[] allNpcs = FindPlayerNPCs();
+        foreach (GameObject npc in allNpcs)
         {
-            harmony.UnpatchSelf();
-        }
-
-        public static AssetBundle GetAssetBundleFromResources(string fileName)
-        {
-            var execAssembly = Assembly.GetExecutingAssembly();
-
-            var resourceName = execAssembly.GetManifestResourceNames()
-                .Single(str => str.EndsWith(fileName)); 
-
-            using (var  stream = execAssembly.GetManifestResourceStream(resourceName))
+            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
+            Humanoid humanoidComponent = npc.GetComponent<Humanoid>();
+            if (monsterAIcomponent != null && humanoidComponent != null)
             {
-                return AssetBundle.LoadFromStream(stream);
+                GameObject ClosestTree = FindClosestTreeFor(npc);
+
+                // disregard nearby enemies
+                monsterAIcomponent.m_eventCreature = false;
+                monsterAIcomponent.m_targetCreature = null;
+                monsterAIcomponent.m_viewRange = 0f;
+                monsterAIcomponent.m_alerted = false;
+                monsterAIcomponent.m_aggravatable = false;
+                monsterAIcomponent.SetHuntPlayer(false);
+                monsterAIcomponent.m_aggravated = false;
+                monsterAIcomponent.SetFollowTarget(ClosestTree);
+
+                Debug.Log("Everyone harvesting!");
+
+                //TODO: AVOID MULTIPLE NPCS GOING TO CHOP THE SAME TREE
+                //TODO: LOOP FUNCTION TO KEEP HARVESTING RESOURCES UNTIL A CONDITION IS MET
             }
         }
+    }
 
-
-        [HarmonyPatch(typeof(ZNetScene), "Awake")]
-        static class ZNetScene_Awake_Patch
+    private void OnInventoryKeyPressed(Player player)
+    {
+        GameObject[] allNpcs = FindPlayerNPCs();
+        foreach (GameObject npc in allNpcs)
         {
-            public static void Prefix(ZNetScene __instance)
+            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
+            Humanoid humanoidComponent = npc.GetComponent<Humanoid>();
+            if (monsterAIcomponent != null && humanoidComponent != null)
             {
-                if (__instance == null)
-                {
-                    return;
-                }
-                __instance.m_prefabs.Add(PlayerNPCPrefab);
+                Debug.Log("Print out inventory!");
+                PrintInventoryItems(humanoidComponent.m_inventory);
             }
         }
+    }
 
-        private IEnumerator FollowPlayer(MonsterAI monsterAI_comp)
+    private static void PrintInventoryItems(Inventory inventory)
+    {
+        Debug.Log("Character Inventory Items:");
+
+        List<ItemDrop.ItemData> items = inventory.GetAllItems();
+        foreach (ItemDrop.ItemData item in items)
         {
-            while (monsterAI_comp != null)
-            {
-                GameObject playerObject = Player.m_localPlayer.gameObject;
+            Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack})");
+        }
+    }
 
-                float deltaTime = Time.deltaTime;
+    private void SpawnCompanion()
+    {
+        Player localPlayer = Player.m_localPlayer;
 
-                monsterAI_comp.SetFollowTarget(playerObject);
-                monsterAI_comp.MakeTame();
-
-                yield return null;
-            }
+        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("SkeletonNPC");
+        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("Skeleton_Friendly");
+        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("Lox");
+        GameObject npcPrefab = ZNetScene.instance.GetPrefab("ScriptNPC");
+        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
+        if (npcPrefab == null)
+        {
+            Logger.LogError("PlayerNPC prefab not found!");
         }
 
-        [HarmonyPatch(typeof(PlayerController), "FixedUpdate")]
-        static class PlayerController_FixedUpdate_Patch
+        Vector3 spawnPosition = localPlayer.transform.position + localPlayer.transform.forward * 2f;
+        Quaternion spawnRotation = localPlayer.transform.rotation;
+        GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
+        npcInstance.tag = "egoNPC";
+        npcInstance.SetActive(true);
+        MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
+        if (monsterAIcomp != null)
         {
-            /*
-             A PlayerController is spawned whenever a Player is spawned. PlayerController takes input from local player. 
-            Since we are using Player class for our NPCs, we need to destroy the extra spawned PlayerController.
-             */
-            static bool Prefix(PlayerController __instance)
-            {
-                if (Player.m_localPlayer != __instance.m_character)
-                {
-                    //ZNetScene.instance.Destroy(__instance.gameObject);
-                    Debug.Log("DESTROYING PC");
-                    Object.Destroy(__instance);
-                    return false;
-                }
-
-                return true;
-            }
+            //monsterAIcomp.SetFollowTarget(localPlayer.gameObject);
+            monsterAIcomp.MakeTame();
+            //monsterAIcomp.SetHuntPlayer(true);
         }
-
-        /*[HarmonyPatch(typeof(PlayerNPC), "FixedUpdate")]
-        static class Player_FixedUpdate_Patch
+        else
         {
-            static bool Prefix(PlayerNPC __instance)
-            {
-                float fixedDeltaTime = Time.fixedDeltaTime;
-                __instance.UpdateAwake(fixedDeltaTime);
-                if (__instance.m_nview.GetZDO() == null)
-                {
-                    return false;
-                }
-                __instance.UpdateTargeted(fixedDeltaTime);
-                if (!__instance.m_nview.IsOwner())
-                {
-                    return false;
-                }
-                if (!__instance.IsDead())
-                {
-                    __instance.UpdateActionQueue(fixedDeltaTime);
-                    __instance.PlayerAttackInput(fixedDeltaTime);
-                    __instance.UpdateAttach();
-                    __instance.UpdateDoodadControls(fixedDeltaTime);
-                    __instance.UpdateCrouch(fixedDeltaTime);
-                    __instance.UpdateDodge(fixedDeltaTime);
-                    __instance.UpdateCover(fixedDeltaTime);
-                    __instance.UpdateStations(fixedDeltaTime);
-                    __instance.UpdateGuardianPower(fixedDeltaTime);
-                    __instance.UpdateBaseValue(fixedDeltaTime);
-                    __instance.UpdateStats(fixedDeltaTime);
-                    __instance.UpdateTeleport(fixedDeltaTime);
-                    __instance.AutoPickup(fixedDeltaTime);
-                    __instance.EdgeOfWorldKill(fixedDeltaTime);
-                    __instance.UpdateBiome(fixedDeltaTime);
-                    __instance.UpdateStealth(fixedDeltaTime);
+            Logger.LogError("MonsterAI component not found on the instantiated PlayerNPC prefab!");
+        }
+    }
 
+    private IEnumerator FollowPlayer(MonsterAI monsterAI)
+    {
+        while (monsterAI != null)
+        {
+            GameObject playerObject = Player.m_localPlayer.gameObject;
+            AllPlayerNPCInstancesLastRefresh = Time.deltaTime;
 
-                    if (GameCamera.instance != null && __instance.m_attachPointCamera == null && Vector3.Distance(GameCamera.instance.transform.position, __instance.transform.position) < 2f)
-                    {
-                        __instance.SetVisible(visible: false);
-                    }
-                    AudioMan.instance.SetIndoor(__instance.InShelter() || ShieldGenerator.IsInsideShield(__instance.transform.position));
-                }
+            monsterAI.SetFollowTarget(playerObject);
+            monsterAI.MakeTame();
 
-                //Debug.Log("Player FixedUpdate override");
-                return false;
-            }
-        }*/
+            yield return null;
+        }
+    }
+
+    private GameObject[] FindEnemies()
+    {
+        if (Time.time - AllPlayerNPCInstancesLastRefresh < 1f)
+        {
+            return instance.AllPlayerNPCInstances;
+        }
+        instance.AllPlayerNPCInstances = GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.name.StartsWith("PlayerNPC"))
+                .ToArray();
+        AllPlayerNPCInstancesLastRefresh = Time.time;
+        return instance.AllPlayerNPCInstances;
+    }
+
+    private GameObject[] FindPlayerNPCs()
+    {
+        if (Time.time - AllPlayerNPCInstancesLastRefresh < 1f)
+        {
+            return instance.AllPlayerNPCInstances;
+        }
+        instance.AllPlayerNPCInstances = GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.name.StartsWith("ScriptNPC"))
+                .ToArray();
+        AllPlayerNPCInstancesLastRefresh = Time.time;
+        return instance.AllPlayerNPCInstances;
+    }
+
+    private GameObject FindClosestTreeFor(GameObject go, string TreeType = "small")
+    {
+        if (TreeType == "small")
+            return FindSmallTrees().Where(t => t.gameObject.name.StartsWith("Beech_small"))// || t.gameObject.name.StartsWith("Pine"))
+                .OrderBy(t => Vector3.Distance(go.transform.position, t.transform.position))
+                .FirstOrDefault();
+        return null;
+    }
+
+    private static GameObject[] FindSmallTrees()
+    {
+        instance.SmallTrees = GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.name.StartsWith("Beech_small"))
+                .ToArray();
+        return instance.SmallTrees;
+    }
+
+    // Disable auto save
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Game), "UpdateSaving")]
+    private static bool Game_UpdateSaving_Prefix()
+    {
+        return !instance.DisableAutoSave.Value;
     }
 }

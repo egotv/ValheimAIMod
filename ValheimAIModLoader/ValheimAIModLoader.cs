@@ -7,8 +7,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Collections;
+using Jotunn.Managers;
+using Jotunn.Entities;
 
-namespace ValheimAIModLoader
+namespace ValheimAIMod
 {
     [BepInPlugin("sahejhundal.ValheimAIModLoader", "Valheim AI NPC Mod Loader", "1.0.0")]
     [BepInProcess("valheim.exe")]
@@ -17,47 +19,33 @@ namespace ValheimAIModLoader
         private static ValheimAIModLoader instance;
         private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLoader");
 
-        private static GameObject PlayerNPCPrefab;
-        private static GameObject PlayerClassNPCPrefab;
-        private static GameObject SkeletonNPCPrefab;
+        /*private static GameObject HumanoidNPCPrefab;
+        private static GameObject SkeletonNPCPrefab;*/
+        private static GameObject ScriptNPCPrefab;
 
 
-        // MOD Awake (loadup code)
         void Awake()
         {
             instance = this;
 
-            var player_npc_assetBundle = GetAssetBundleFromResources("player_npc");
-            PlayerNPCPrefab = player_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/PlayerNPC.prefab");
-            
-            var playerclass_npc_assetBundle = GetAssetBundleFromResources("playerclass_npc");
-            PlayerClassNPCPrefab = playerclass_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/PlayerClassNPC.prefab");
-            
-            var skeleton_npc_assetBundle = GetAssetBundleFromResources("skeleton_npc");
-            SkeletonNPCPrefab = skeleton_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/SkeletonNPC.prefab");
+            RegisterConsoleCommands();
 
+            var script_npc_assetBundle = GetAssetBundleFromResources("scriptnpc");
+            /*HumanoidNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/HumanoidNPC.prefab");
+            SkeletonNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/SkeletonNPC.prefab");*/
+            ScriptNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/ScriptNPC.prefab");
 
-            if (PlayerNPCPrefab) Debug.Log("PlayerNPCPrefab loaded"); 
-            else Debug.Log("PlayerNPCPrefab not loaded");
-            if (PlayerClassNPCPrefab) Debug.Log("PlayerClassNPCPrefab loaded");
-            else Debug.Log("PlayerClassNPCPrefab not loaded");
-            if (SkeletonNPCPrefab) Debug.Log("SkeletonNPCPrefab loaded");
-            else Debug.Log("SkeletonNPCPrefab not loaded");
+            if (ScriptNPCPrefab) Debug.Log("ScriptNPCPrefab loaded"); 
+            else Debug.Log("ScriptNPCPrefab not loaded");
 
-            player_npc_assetBundle.Unload(false);
-            playerclass_npc_assetBundle.Unload(false);
-            skeleton_npc_assetBundle.Unload(false);
+            script_npc_assetBundle.Unload(false);
 
-            //Debug.Log("Initialized config and debugging");
             harmony.PatchAll();
-            //harmony.PatchAll(typeof(ValheimAIModLoader));
         }
 
-        // MOD OnDestroy (destructor code/unpatch)
         void OnDestroy()
         {
             harmony.UnpatchSelf();
-            //Harmony.UnpatchID(harmony.Id);
         }
 
         public static AssetBundle GetAssetBundleFromResources(string fileName)
@@ -74,6 +62,54 @@ namespace ValheimAIModLoader
         }
 
 
+
+        /* CONSOLE COMMANDS */
+        private void RegisterConsoleCommands()
+        {
+            CommandManager.Instance.AddConsoleCommand((ConsoleCommand)new DespawnAllCommand());
+        }
+
+        public class DespawnAllCommand : ConsoleCommand
+        {
+            public override string Name => "despawn_all";
+
+            public override string Help => "Despawn all __INPUT_TEXT__ game objects";
+
+            public override void Run(string[] args)
+            {
+                instance.DespawnPrefabInstances(args[0]);
+            }
+        }
+
+        private void DespawnPrefabInstances(string prefabName)
+        {
+            List<GameObject> instancesToRemove = new List<GameObject>();
+
+            // Find all instances of the specified prefab
+            foreach (ZNetView view in FindObjectsOfType<ZNetView>())
+            {
+                if (view.gameObject.name.Contains(prefabName))
+                {
+                    instancesToRemove.Add(view.gameObject);
+                }
+            }
+
+            // Despawn the prefab instances
+            foreach (GameObject instance in instancesToRemove)
+            {
+                ZNetView view = instance.GetComponent<ZNetView>();
+                if (view != null)
+                {
+                    view.Destroy();
+                }
+            }
+
+            Console.instance.Print($"Despawned {instancesToRemove.Count} instances of prefab '{prefabName}'");
+        }
+
+
+
+        // Add custom prefabs to game
         [HarmonyPatch(typeof(ZNetScene), "Awake")]
         static class ZNetScene_Awake_Patch
         {
@@ -83,79 +119,10 @@ namespace ValheimAIModLoader
                 {
                     return;
                 }
-                __instance.m_prefabs.Add(PlayerNPCPrefab);
-                __instance.m_prefabs.Add(PlayerClassNPCPrefab);
-                __instance.m_prefabs.Add(SkeletonNPCPrefab);
+                /*__instance.m_prefabs.Add(HumanoidNPCPrefab);
+                __instance.m_prefabs.Add(SkeletonNPCPrefab);*/
+                __instance.m_prefabs.Add(ScriptNPCPrefab);
             }
         }
-
-
-        /*[HarmonyPatch(typeof(PlayerController), "FixedUpdate")]
-        static class PlayerController_FixedUpdate_Patch
-        {
-            // Destroy PlayerController for non locally controlled players
-            static bool Prefix(PlayerController __instance)
-            {
-                if (Player.m_localPlayer != __instance.m_character)
-                {
-                    //ZNetScene.instance.Destroy(__instance.gameObject);
-                    Debug.Log("DESTROYING PC");
-                    Object.Destroy(__instance);
-                    return false;
-                }
-
-                return true;
-            }
-        }*/
-
-        /*[HarmonyPatch(typeof(Player), "FixedUpdate")]
-        static class Player_FixedUpdate_Patch
-        {
-            static bool Prefix(Player __instance)
-            {
-                float fixedDeltaTime = Time.fixedDeltaTime;
-                __instance.UpdateAwake(fixedDeltaTime);
-                if (__instance.m_nview.GetZDO() == null)
-                {
-                    return false;
-                }
-                __instance.UpdateTargeted(fixedDeltaTime);
-                if (!__instance.m_nview.IsOwner())
-                {
-                    return false;
-                }
-                if (!__instance.IsDead())
-                {
-                    __instance.UpdateActionQueue(fixedDeltaTime);
-                    if (Player.m_localPlayer == __instance)
-                    {
-                        __instance.PlayerAttackInput(fixedDeltaTime);
-                    }
-                    __instance.UpdateAttach();
-                    __instance.UpdateDoodadControls(fixedDeltaTime);
-                    __instance.UpdateCrouch(fixedDeltaTime);
-                    __instance.UpdateDodge(fixedDeltaTime);
-                    __instance.UpdateCover(fixedDeltaTime);
-                    __instance.UpdateStations(fixedDeltaTime);
-                    __instance.UpdateGuardianPower(fixedDeltaTime);
-                    __instance.UpdateBaseValue(fixedDeltaTime);
-                    __instance.UpdateStats(fixedDeltaTime);
-                    __instance.UpdateTeleport(fixedDeltaTime);
-                    __instance.AutoPickup(fixedDeltaTime);
-                    __instance.EdgeOfWorldKill(fixedDeltaTime);
-                    __instance.UpdateBiome(fixedDeltaTime);
-                    __instance.UpdateStealth(fixedDeltaTime);
-
-
-                    if (GameCamera.instance != null && __instance.m_attachPointCamera == null && Vector3.Distance(GameCamera.instance.transform.position, __instance.transform.position) < 2f)
-                    {
-                        __instance.SetVisible(visible: false);
-                    }
-                    AudioMan.instance.SetIndoor(__instance.InShelter() || ShieldGenerator.IsInsideShield(__instance.transform.position));
-                }
-
-                return false;
-            }
-        }*/
     }
 }

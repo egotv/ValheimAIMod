@@ -18,9 +18,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_simplemeshcombine"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "assembly_lux", "assembly_lux\assembly_lux.csproj", "{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLivePatch", "..\ValheimAIModLoader\ValheimAIModLivePatch.csproj", "{D0F5469C-3DB9-4874-86E8-35B484BF63D1}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLoader", "..\ValheimAIModLoader\ValheimAIModLoader.csproj", "{D47E3316-6632-4C43-8296-A64AB0C0D703}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLivePatch", "..\ValheimAIModLivePatch\ValheimAIModLivePatch.csproj", "{D0F5469C-3DB9-4874-86E8-35B484BF63D1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -52,14 +52,14 @@ Global
 		{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
 		{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
 		{C94BBA16-C6E7-4D42-A5B9-2FB227F7C900}.Release|AnyCPU.Build.0 = Release|AnyCPU
-		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.Build.0 = Release|Any CPU
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{D47E3316-6632-4C43-8296-A64AB0C0D703}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
