@@ -12,8 +12,6 @@ using UnityEngine;
 [BepInProcess("valheim.exe")]
 public class ValheimAIModLivePatch : BaseUnityPlugin
 {
-
-
     /*public class SpawnNPCCommand : ConsoleCommand
     {
         public override string Name => "ego_spawnNPC";
@@ -32,6 +30,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
     private ConfigEntry<KeyboardShortcut> ToggleFollowKey;
     private ConfigEntry<KeyboardShortcut> ToggleHarvestKey;
+    private ConfigEntry<KeyboardShortcut> ToggleAttackKey;
     private ConfigEntry<KeyboardShortcut> InventoryKey;
     private ConfigEntry<bool> DisableAutoSave;
 
@@ -40,8 +39,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private GameObject[] SmallTrees;
 
     // NPC VARS
-    private bool bFollowPlayer; // TODO: CONVERT CURRENT MODE TO ENUM
-    private bool bHarvest;
+    private ValheimAIModLoader.NPCMode eNPCMode;
+    /*private bool bFollowPlayer; // TODO: CONVERT CURRENT MODE TO ENUM
+    private bool bHarvest;*/
     private float FollowUntilDistance = 1f;
     private float RunUntilDistance = 3f;
 
@@ -67,6 +67,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         spawnCompanionKey = Config.Bind<KeyboardShortcut>("Keybinds", "SpawnCompanionKey", new KeyboardShortcut(KeyCode.G), "The key used to spawn an NPC.");
         ToggleFollowKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleFollowKey", new KeyboardShortcut(KeyCode.F), "The key used to command all NPCs to follow you.");
         ToggleHarvestKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleHarvestKey", new KeyboardShortcut(KeyCode.H), "The key used to command all NPCs to go harvest.");
+        ToggleAttackKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleAttackKey", new KeyboardShortcut(KeyCode.K), "The key used to command all NPCs to attack enemies.");
         InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.Y), "The key used to command all NPCs to go harvest.");
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
@@ -231,6 +232,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             instance.OnToggleHarvestKeyPressed(__instance);
             return;
         }
+        value = instance.ToggleAttackKey.Value;
+        if (value.IsDown())
+        {
+            instance.OnToggleAttackKeyPressed(__instance);
+            return;
+        }
         value = instance.InventoryKey.Value;
         if (value.IsDown())
         {
@@ -260,9 +267,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    private static void SetMonsterAIAggravated(MonsterAI monsterAIcomponent, bool Aggravated)
+    {
+        if (Aggravated)
+        {
+
+        }
+        else
+        {
+            monsterAIcomponent.m_aggravated = false;
+            monsterAIcomponent.m_aggravatable = false;
+            monsterAIcomponent.m_alerted = false;
+
+            monsterAIcomponent.m_eventCreature = false;
+            monsterAIcomponent.m_targetCreature = null;
+            //monsterAIcomponent.m_viewRange = 0f;
+            monsterAIcomponent.SetHuntPlayer(false);
+        }
+    }
+
     private void OnToggleFollowKeyPressed(Player player)
     {
-        bFollowPlayer = !bFollowPlayer;
+        eNPCMode = eNPCMode == ValheimAIModLoader.NPCMode.Follow ? ValheimAIModLoader.NPCMode.Idle : ValheimAIModLoader.NPCMode.Follow;
 
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
@@ -271,9 +297,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Humanoid humanoidComponent = npc.GetComponent<Humanoid>();
             if (monsterAIcomponent != null && humanoidComponent != null)
             {
-                Debug.Log(("updating npc " + humanoidComponent.GetHoverName()));
-                if (bFollowPlayer)
+                //Debug.Log(("updating npc " + humanoidComponent.GetHoverName()));
+                if (eNPCMode == ValheimAIModLoader.NPCMode.Follow)
                 {
+                    SetMonsterAIAggravated(monsterAIcomponent, false);
                     monsterAIcomponent.SetFollowTarget(player.gameObject);
                     Debug.Log("Everyone now following player!");
                 }
@@ -292,7 +319,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnToggleHarvestKeyPressed(Player player)
     {
-        bHarvest = !bHarvest;
+        eNPCMode = ValheimAIModLoader.NPCMode.Harvest;
 
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
@@ -317,6 +344,29 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                 //TODO: AVOID MULTIPLE NPCS GOING TO CHOP THE SAME TREE
                 //TODO: LOOP FUNCTION TO KEEP HARVESTING RESOURCES UNTIL A CONDITION IS MET
+            }
+        }
+    }
+
+    private void OnToggleAttackKeyPressed(Player player)
+    {
+        eNPCMode = ValheimAIModLoader.NPCMode.Attack;
+
+        GameObject[] allNpcs = FindPlayerNPCs();
+        foreach (GameObject npc in allNpcs)
+        {
+            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
+            Humanoid humanoidComponent = npc.GetComponent<Humanoid>();
+            if (monsterAIcomponent != null && humanoidComponent != null)
+            {
+                // disregard nearby enemies
+                monsterAIcomponent.SetFollowTarget(null);
+                monsterAIcomponent.m_viewRange = 50f;
+                monsterAIcomponent.m_alerted = false;
+                monsterAIcomponent.m_aggravatable = true;
+                monsterAIcomponent.SetHuntPlayer(true);
+
+                Debug.Log("Everyone attacking!");
             }
         }
     }
@@ -364,7 +414,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Vector3 spawnPosition = localPlayer.transform.position + localPlayer.transform.forward * 2f;
         Quaternion spawnRotation = localPlayer.transform.rotation;
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
-        npcInstance.tag = "egoNPC";
+        //npcInstance.tag = "egoNPC";
         npcInstance.SetActive(true);
         MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
         if (monsterAIcomp != null)

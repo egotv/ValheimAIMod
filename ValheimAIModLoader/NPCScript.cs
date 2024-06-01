@@ -5,6 +5,14 @@ using UnityEngine;
 
 namespace ValheimAIModLoader
 {
+    public enum NPCMode
+    {
+        Follow,
+        Attack,
+        Harvest,
+        Idle
+    }
+
     public class NPCScript : MonoBehaviour
     {
         protected Humanoid m_humanoid;
