@@ -1,9 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using Jotunn.Managers;
+
 /*using Jotunn.Entities;
 using Jotunn.Managers;*/
 using UnityEngine;
@@ -68,7 +71,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         ToggleFollowKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleFollowKey", new KeyboardShortcut(KeyCode.F), "The key used to command all NPCs to follow you.");
         ToggleHarvestKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleHarvestKey", new KeyboardShortcut(KeyCode.H), "The key used to command all NPCs to go harvest.");
         ToggleAttackKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleAttackKey", new KeyboardShortcut(KeyCode.K), "The key used to command all NPCs to attack enemies.");
-        InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.Y), "The key used to command all NPCs to go harvest.");
+        InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.Y), "The key used to command all NPCs to -");
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
 
@@ -160,6 +163,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (!__instance.name.Contains("ScriptNPC")) return true;
 
         float num = Vector3.Distance(go.transform.position, __instance.transform.position);
+        //Debug.Log("distance " + num);
         bool run = num > instance.RunUntilDistance;
         if (num < instance.FollowUntilDistance)
         {
@@ -257,7 +261,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (monsterAIcomponent && monsterAIcomponent.m_follow && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject)
             {
-                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance && !humanoidcomponent.InAttack())
+                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance + .5f && !humanoidcomponent.InAttack())
                 {
                     //Debug.Log("Close enough");
                     monsterAIcomponent.LookAt(monsterAIcomponent.m_follow.transform.position);
@@ -380,6 +384,29 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Humanoid humanoidComponent = npc.GetComponent<Humanoid>();
             if (monsterAIcomponent != null && humanoidComponent != null)
             {
+                /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
+                if (itemPrefab != null)
+                {
+                    humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 5);
+                    player.GetInventory().AddItem(itemPrefab.gameObject, 5);
+                }
+                else
+                {
+                    Debug.LogError($"itemprefab was null");
+                }*/
+
+                /*ItemDrop.ItemData bread_itemdata = humanoidComponent.GetInventory().GetItem("$item_bread");
+                if (bread_itemdata != null)
+                {
+                    humanoidComponent.UseItem(humanoidComponent.GetInventory(), bread_itemdata, true);
+                }
+                else
+                {
+                    Debug.LogError("bread_itemdata was null");
+                }*/
+
+                humanoidComponent.m_zanim.SetTrigger("eat");
+
                 Debug.Log("Print out inventory!");
                 PrintInventoryItems(humanoidComponent.m_inventory);
             }
@@ -400,22 +427,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void SpawnCompanion()
     {
         Player localPlayer = Player.m_localPlayer;
-
-        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("SkeletonNPC");
-        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("Skeleton_Friendly");
-        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("Lox");
         GameObject npcPrefab = ZNetScene.instance.GetPrefab("ScriptNPC");
-        //GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
         if (npcPrefab == null)
         {
-            Logger.LogError("PlayerNPC prefab not found!");
+            Logger.LogError("ScriptNPC prefab not found!");
         }
 
+        // spawn NPC
         Vector3 spawnPosition = localPlayer.transform.position + localPlayer.transform.forward * 2f;
         Quaternion spawnRotation = localPlayer.transform.rotation;
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
-        //npcInstance.tag = "egoNPC";
         npcInstance.SetActive(true);
+
+        // make the monster tame
         MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
         if (monsterAIcomp != null)
         {
@@ -425,7 +449,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         else
         {
-            Logger.LogError("MonsterAI component not found on the instantiated PlayerNPC prefab!");
+            Logger.LogError("MonsterAI component not found on the instantiated ScriptNPC prefab!");
+        }
+
+        // add item to inventory
+        Humanoid humanoidComponent = npcInstance.GetComponent<Humanoid>();
+        if (humanoidComponent != null)
+        {
+            GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
+            if (itemPrefab != null)
+            {
+                humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 15);
+                HitData hitData = new HitData(100);
+                humanoidComponent.Damage(hitData);
+            }
+            else
+            {
+                Debug.LogError("bread prefab was null");
+            }
+        }
+        else
+        {
+            Logger.LogError("humanoidComponent component not found on the instantiated ScriptNPC prefab!");
         }
     }
 
