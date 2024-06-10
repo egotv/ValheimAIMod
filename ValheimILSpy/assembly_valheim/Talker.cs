@@ -26,7 +26,7 @@ public class Talker : MonoBehaviour
 		m_character = GetComponent<Character>();
 		m_nview.Register<int, UserInfo, string, string>("Say", RPC_Say);
 	}
-
+	0
 	public void Say(Type type, string text)
 	{
 		ZLog.Log("Saying " + type.ToString() + "  " + text);

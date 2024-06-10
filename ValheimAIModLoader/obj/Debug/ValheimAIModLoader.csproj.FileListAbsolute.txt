@@ -25,7 +25,6 @@ C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\assem
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\Jotunn.dll
 C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\ValheimAIModLoader.dll
 C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\ValheimAIModLoader.pdb
-C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.PhysicsModule.xml
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.AnimationModule.xml
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\com.rlabrecque.steamworks.net.dll
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.ClothModule.dll

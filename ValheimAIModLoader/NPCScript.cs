@@ -10,6 +10,7 @@ namespace ValheimAIModLoader
         Follow,
         Attack,
         Harvest,
+        Patrol,
         Idle
     }
 

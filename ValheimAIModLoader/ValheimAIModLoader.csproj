@@ -72,8 +72,15 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\References\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.PhysicsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="HumanoidNPC.cs" />
+    <Compile Include="NPCCommand.cs" />
+    <Compile Include="NPCCommandQueue.cs" />
     <Compile Include="NPCScript.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ValheimAIModLoader.cs" />
@@ -83,6 +90,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\"</PostBuildEvent>
+    <PostBuildEvent>xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\"
+xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PasteThisInValheimGameDirectory\BepInEx\plugins"</PostBuildEvent>
   </PropertyGroup>
 </Project>
