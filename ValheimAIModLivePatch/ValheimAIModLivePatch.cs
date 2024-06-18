@@ -19,8 +19,6 @@ using SimpleJson;
 /*using Jotunn.Entities;
 using Jotunn.Managers;*/
 using UnityEngine;
-using UnityEngine.Networking;
-using UnityEngine.Audio;
 using ValheimAIModLoader;
 using System.IO;
 using System.Net;
@@ -43,6 +41,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private static ValheimAIModLivePatch instance;
     private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLivePatch");
+    private const string brainBaseURL = "http://localhost:5000";
 
     private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
     private ConfigEntry<KeyboardShortcut> TogglePatrolKey;
@@ -54,7 +53,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> PlaybackRecordingKey;
     private ConfigEntry<bool> DisableAutoSave;
 
+
     private static string NPCPrefabName = "HumanoidNPC";
+    
 
     private GameObject[] AllPlayerNPCInstances;
     private float AllPlayerNPCInstancesLastRefresh = 0f;
@@ -226,13 +227,20 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             GameObject followtarget = __instance.m_follow;
 
-            if (followtarget != null && (followtarget.HasAnyComponent("Character") || followtarget.HasAnyComponent("Humanoid"))) return true;
+            if (followtarget != null && (followtarget.HasAnyComponent("Character") || followtarget.HasAnyComponent("Humanoid")))
+            {
+                Debug.Log("follow target is not null and either character or humanoid");
+                Debug.Log(followtarget.name + " " + followtarget.transform.position.DistanceTo(instance.patrol_position));
+                return true;
+            }
 
             if (instance.patrol_harvest)
             {
+                //Debug.Log("patrol harvest");
                 if (followtarget == null || followtarget.transform.position.DistanceTo(instance.patrol_position) > instance.chaseUntilPatrolRadiusDistance ||
                                 (!followtarget.HasAnyComponent("Pickable") && !followtarget.HasAnyComponent("ItemDrop")))
                 {
+                    Debug.Log("new follow");
                     GameObject newfollow;
                     newfollow = FindClosestPickableResource(__instance.gameObject, instance.patrol_position, instance.chaseUntilPatrolRadiusDistance);
                     if (newfollow == null)
@@ -242,10 +250,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         return true;
                     }
 
-                    else if (__instance.transform.position.DistanceTo(instance.patrol_position) < instance.patrol_radius)
+                    else if (newfollow.transform.position.DistanceTo(instance.patrol_position) < instance.chaseUntilPatrolRadiusDistance)
                     {
                         Debug.Log("Going to loot " + newfollow.name + ", distance: " + newfollow.transform.position.DistanceTo(__instance.transform.position));
                         __instance.SetFollowTarget(newfollow);
+                    }
+                    else
+                    {
+                        Debug.Log("distance too far!");
                     }
                 }
             }
@@ -867,7 +879,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                 //humanoidComponent.m_zanim.SetTrigger("eat");
 
-                //Debug.Log(GetNPCGameState(npc));
+                Debug.Log(GetJSONForBrain(npc));
                 PrintInventoryItems(humanoidComponent.m_inventory);
             }
         }
@@ -941,14 +953,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         AudioClip loadedClip = LoadAudioClip(Path.Combine(UnityEngine.Application.persistentDataPath, "dialogue.wav"));
 
-        /*if (!instance.recordedAudioClip)
+        if (!instance.recordedAudioClip)
         {
             Debug.Log("null audio");
             return;
-        }*/
+        }
 
         //CompareAudioFormats(instance.recordedAudioClip, loadedClip);
-        AudioSource.PlayClipAtPoint(loadedClip, Player.m_localPlayer.transform.position, 1f);
+        AudioSource.PlayClipAtPoint(instance.recordedAudioClip, Player.m_localPlayer.transform.position, 1f);
 
 
         Debug.Log("Playing audio");
@@ -1039,6 +1051,55 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    private IEnumerator SendUpdateToBrain(GameObject npc)
+    {
+        string jsonData = GetJSONForBrain(npc);
+
+        // Create a new WebClient
+        WebClient webClient = new WebClient();
+        webClient.Headers.Add("Content-Type", "application/json");
+
+        // Send the POST request
+        string responseJson = webClient.UploadString($"{brainBaseURL}/instruct_agent", jsonData);
+        Debug.Log("Response from /instruct_agent: " + responseJson);
+
+        // Parse the response JSON using SimpleJSON
+        JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
+        string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
+
+        yield return null;
+    }
+
+    private IEnumerator DownloadAudioFile(string audioFileId)
+    {
+        WebClient webClient = new WebClient();
+
+        try
+        {
+            // Download the audio file
+            byte[] audioData = webClient.DownloadData($"{brainBaseURL}/get_audio_file?audio_file_id={audioFileId}");
+
+            // Save the audio file to disk
+            string filePath = "audio.wav";
+            filePath = Path.Combine(UnityEngine.Application.persistentDataPath, filePath);
+            File.WriteAllBytes(filePath, audioData);
+            Debug.Log("Audio file downloaded to: " + filePath);
+        }
+        catch (WebException ex)
+        {
+            if (ex.Response is HttpWebResponse response && response.StatusCode == HttpStatusCode.NotFound)
+            {
+                Debug.LogError("Audio file does not exist.");
+            }
+            else
+            {
+                Debug.LogError("Request failed: " + ex.Message);
+            }
+        }
+
+        yield return null;
+    }
+
     private void SpawnCompanion()
     {
         GameObject[] npcs = FindPlayerNPCs();
@@ -1060,6 +1121,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Vector3 spawnPosition = localPlayer.transform.position + localPlayer.transform.forward * 2f;
         //Vector3 spawnPosition = GetRandomSpawnPosition(10f);
         Quaternion spawnRotation = localPlayer.transform.rotation;
+
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
 
@@ -1146,7 +1208,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static void RefreshPickables()
     {
         GameObject[] pickables = GameObject.FindObjectsOfType<GameObject>(false)
-                .Where(go => go != null && !ZoneSystem.instance.IsBlocked(go.transform.position) && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
+                //.Where(go => go != null && !ZoneSystem.instance.IsBlocked(go.transform.position) && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
+                .Where(go => go != null  && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
                 .ToArray();
         instance.AllPickableInstances.Clear();
         foreach (GameObject pickable in pickables)
@@ -1186,16 +1249,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     {
                         if (result.transform.position.DistanceTo(p_position) < radius)
                         {
-                            if (!ZoneSystem.instance.IsBlocked(result.transform.position))
+                            found = true;
+                            /*if (!ZoneSystem.instance.IsBlocked(result.transform.position))
                             //if (!IsLocationReachable(result.transform.position))
                             {
                                 found = true;
                             }
                             else
                             {
-                                Debug.Log("IsBlocked");
+                                Debug.Log("IsBlocked " + result.name);
                                 i++;
-                            }
+                            }*/
                         }
                         else
                         {
@@ -1313,7 +1377,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return randomDirection;
     }
 
-    public static string GetNPCGameState(GameObject character)
+    public static string GetJSONForBrain(GameObject character)
     {
         Dictionary<string, object> characterData = new Dictionary<string, object>();
 
@@ -1354,10 +1418,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["Time"] = EnvMan.instance.GetDayFraction(),
         };
 
+        //string base64audio = instance.GetBase64AudioData(instance.recordedAudioClip);
+        string base64audio = instance.GetBase64WavFileData("dialogue.wav");
+
         var jsonObject = new JsonObject
         {
             ["player_id"] = humanoidNPC.GetZDOID().ToString(),
             ["game_state"] = gameState,
+            ["player_instruction_audio_file_base64"] = base64audio,
         };
 
         string jsonString = SimpleJson.SimpleJson.SerializeObject(jsonObject);
