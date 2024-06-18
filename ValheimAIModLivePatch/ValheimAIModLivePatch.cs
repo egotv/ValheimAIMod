@@ -41,7 +41,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private static ValheimAIModLivePatch instance;
     private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLivePatch");
-    private const string brainBaseURL = "http://localhost:5000";
+    
+    //private const string brainBaseURL = "http://localhost:5000";
+    private const string brainBaseURL = "https://valheim-agent-brain.fly.dev";
+
+    private string playerDialogueAudioPath;
+    private string npcDialogueAudioPath;
 
     private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
     private ConfigEntry<KeyboardShortcut> TogglePatrolKey;
@@ -53,6 +58,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> PlaybackRecordingKey;
     private ConfigEntry<bool> DisableAutoSave;
 
+    //private Dictionary<string, List<Piece.Requirement>> craftingRequirements = new Dictionary<string, List<Piece.Requirement>>();
+    private Dictionary<string, Piece.Requirement[]> craftingRequirements = new Dictionary<string, Piece.Requirement[]>();
+    private Dictionary<string, List<string>> resourceLocations = new Dictionary<string, List<string>>();
 
     private static string NPCPrefabName = "HumanoidNPC";
     
@@ -98,7 +106,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         ConfigBindings();
 
-        //audioSource = GetComponent<AudioSource>();
+        PopulateCraftingRequirements();
+
+        playerDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "playerdialogue.wav");
+        npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
 
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
@@ -119,6 +130,51 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void OnDestroy()
     {
         harmony.UnpatchSelf();
+    }
+
+    private void PopulateCraftingRequirements()
+    {
+        foreach (GameObject prefab in ObjectDB.instance.m_items)
+        {
+            ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+            if (itemDrop != null)
+            {
+                Recipe recipe = ObjectDB.instance.GetRecipe(itemDrop.m_itemData);
+                if (recipe != null)
+                {
+                    craftingRequirements[itemDrop.m_itemData.m_shared.m_name] = recipe.m_resources;
+                }
+            }
+        }
+    }
+
+    /*private void PopulateResourceLocations()
+    {
+        GameObject prefab = ZNetScene.instance.GetPrefab("Resin");
+        ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+        if (itemDrop != null)
+        {
+            ZoneSystem.ZoneVegetation z = ZoneSystem.instance.m_vegetation.First();
+
+            foreach (ZoneSystem.ZoneVegetation zoneVegetation in ZoneSystem.instance.m_vegetation)
+            {
+                if (zoneVegetation.m_prefab == prefab)
+                {
+                    string biomeName = ZoneSystem.instance.GetZone(zoneVegetation.m_biome).m_name;
+                    resourceLocations[itemName].Add(biomeName);
+                }
+            }
+        }
+    }*/
+
+    //public List<Piece.Requirement> GetCraftingRequirements(string itemName)
+    public Piece.Requirement[] GetCraftingRequirements(string itemName)
+    {
+        if (craftingRequirements.ContainsKey(itemName))
+        {
+            return craftingRequirements[itemName];
+        }
+        return null;
     }
 
     // PROCESS PLAYER INPUT
@@ -189,7 +245,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         value = instance.PlaybackRecordingKey.Value;
         if (value.IsDown())
         {
-            instance.PlayRecordedAudio();
+            //instance.PlayRecordedAudio("");
+            instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
             return;
         }
     }
@@ -777,7 +834,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             string text = "Coming!";
             UserInfo userInfo = new UserInfo();
-            userInfo.Name = "npc";
+            userInfo.Name = "NPC";
 
             Vector3 headPoint = humanoidnpc_component.GetEyePoint();
             Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, text);
@@ -833,6 +890,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnInventoryKeyPressed(Player player)
     {
+        /*Debug.Log(craftingRequirements.Count());
+
+        foreach (KeyValuePair<string, Piece.Requirement[]> s in craftingRequirements.ToArray())
+        {
+            Debug.Log(s.Key);
+            *//*Debug.Log("\n\n" + s.Key + " requires ");
+            foreach (Piece.Requirement x in s.Value)
+            {
+                Debug.Log(x.m_amount + "x " + x.m_resItem.name);
+            }*//*
+        }*/
+        Debug.Log("OnInventoryKeyPressed");
+
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
         {
@@ -879,8 +949,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                 //humanoidComponent.m_zanim.SetTrigger("eat");
 
-                Debug.Log(GetJSONForBrain(npc));
-                PrintInventoryItems(humanoidComponent.m_inventory);
+                //Debug.Log(GetJSONForBrain(npc));
+                //PrintInventoryItems(humanoidComponent.m_inventory);
+
+                Debug.Log("SendUpdateToBrain");
+
+                //StartCoroutine(SendUpdateToBrain(npc));
+                SendUpdateToBrain(npc);
+                
             }
         }
     }
@@ -908,68 +984,175 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void SaveRecordedAudio()
     {
         // Generate a unique file name for the recording
-        string fileName = $"dialogue.wav";
-        string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, fileName);
+        //string fileName = $"dialogue.wav";
+        //string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, fileName);
 
         // Convert the audio clip to WAV format and save it to the file
         float[] audioData = new float[instance.recordedAudioClip.samples * instance.recordedAudioClip.channels];
         instance.recordedAudioClip.GetData(audioData, 0);
-        WriteWAVFile(audioData, instance.recordedAudioClip.channels, instance.recordedAudioClip.frequency, filePath);
+        WriteWAVFile(audioData, instance.recordedAudioClip.channels, instance.recordedAudioClip.frequency, playerDialogueAudioPath);
 
         Debug.Log($"instance.recordedAudioClip.channels: {instance.recordedAudioClip.channels}");
         Debug.Log($"instance.recordedAudioClip.samples: {instance.recordedAudioClip.samples}");
-        Debug.Log($"Recorded audio saved to: {filePath}");
+        Debug.Log($"Recorded audio saved to: {playerDialogueAudioPath}");
     }
 
-    private void WriteWAVFile(float[] audioData, int numChannels, int sampleRate, string filePath)
-    {
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
-        using (var writer = new BinaryWriter(fileStream))
-        {
-            // Write the WAV file header
-            writer.Write("RIFF".ToCharArray());
-            writer.Write(36 + audioData.Length * 4);
-            writer.Write("WAVE".ToCharArray());
-            writer.Write("fmt ".ToCharArray());
-            writer.Write(16);
-            writer.Write((short)3); // IEEE float format
-            writer.Write((short)numChannels);
-            writer.Write(sampleRate);
-            writer.Write(sampleRate * numChannels * 4);
-            writer.Write((short)(numChannels * 4));
-            writer.Write((short)32); // 32-bit float
-            writer.Write("data".ToCharArray());
-            writer.Write(audioData.Length * 4);
+    
 
-            // Write the audio data as 32-bit float values
-            foreach (var sample in audioData)
+    private void SendUpdateToBrain(GameObject npc)
+    {
+        string jsonData = GetJSONForBrain(npc);
+
+        Debug.Log("jsonData\n " + jsonData);
+
+        // Create a new WebClient
+        WebClient webClient = new WebClient();
+        webClient.Headers.Add("Content-Type", "application/json");
+
+        // Send the POST request
+        webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
+        webClient.UploadStringCompleted += OnRequestCompleted;
+    }
+
+    private void OnRequestCompleted(object sender, UploadStringCompletedEventArgs e)
+    {
+        if (e.Error == null)
+        {
+            string responseJson = e.Result;
+            Debug.Log("Response from /instruct_agent: " + responseJson);
+
+            // Parse the response JSON using SimpleJSON's DeserializeObject
+            JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
+            string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
+            string agent_text_response = responseObject["agent_text_response"].ToString();
+
+            // Get the agent_commands array
+            JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
+
+            // Check if agent_commands array exists and has at least one element
+            if (agentCommands != null && agentCommands.Count > 0)
             {
-                writer.Write(sample);
+                // Get the first command object from the array
+                JsonObject commandObject = agentCommands[0] as JsonObject;
+
+                // Get the action_str value from the command object
+                string actionStr = commandObject["action_str"].ToString();
+                Debug.Log("Action String: " + actionStr);
+                ProcessNPCCommand(actionStr);
             }
+            else
+            {
+                Debug.Log("No agent commands found.");
+            }
+
+            GameObject[] npcs = FindPlayerNPCs();
+            if (npcs.Length > 0 && npcs[0])
+            {
+                HumanoidNPC humanoidnpc_component = npcs[0].GetComponent<HumanoidNPC>();
+
+                UserInfo userInfo = new UserInfo();
+                userInfo.Name = "NPC";
+                Vector3 headPoint = humanoidnpc_component.GetEyePoint();
+                Chat.instance.AddInworldText(npcs[0], 0, headPoint, Talker.Type.Shout, userInfo, agent_text_response);
+            }
+
+            // Download the audio file asynchronously
+            DownloadAudioFile(audioFileId);
         }
-    }
-
-    private void PlayRecordedAudio()
-    {
-        AudioClip loadedClip = LoadAudioClip(Path.Combine(UnityEngine.Application.persistentDataPath, "dialogue.wav"));
-
-        if (!instance.recordedAudioClip)
+        else
         {
-            Debug.Log("null audio");
-            return;
+            Debug.LogError("Request failed: " + e.Error.Message);
         }
-
-        //CompareAudioFormats(instance.recordedAudioClip, loadedClip);
-        AudioSource.PlayClipAtPoint(instance.recordedAudioClip, Player.m_localPlayer.transform.position, 1f);
-
-
-        Debug.Log("Playing audio");
     }
 
-    private AudioClip LoadAudioClip(string filePath)
+    private void DownloadAudioFile(string audioFileId)
+    {
+        // Create a new WebClient for downloading the audio file
+        WebClient webClient = new WebClient();
+
+        // Download the audio file asynchronously
+        webClient.DownloadDataAsync(new System.Uri($"{brainBaseURL}/get_audio_file?audio_file_id={audioFileId}"));
+        webClient.DownloadDataCompleted += OnAudioFileDownloaded;
+    }
+
+    private void OnAudioFileDownloaded(object sender, DownloadDataCompletedEventArgs e)
+    {
+        if (e.Error == null)
+        {
+            // Save the audio file to disk
+            string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
+            System.IO.File.WriteAllBytes(audioPath, e.Result);
+            Debug.Log("Audio file downloaded to: " + audioPath);
+
+            byte[] byteData = e.Result;
+            float[] floatData = new float[byteData.Length / 4];
+            Buffer.BlockCopy(byteData, 0, floatData, 0, byteData.Length);
+
+            // Determine the number of channels and sample rate based on the recorded audio clip
+            int numChannels = instance.recordedAudioClip.channels;
+            int sampleRate = instance.recordedAudioClip.frequency;
+
+            // Save the audio file to disk using the WriteWAVFile function
+            WriteWAVFile(floatData, numChannels, sampleRate, npcDialogueAudioPath);
+            Debug.Log("Audio file downloaded and saved to: " + npcDialogueAudioPath);
+
+            LoadAndPlayAudioFromBase64(npcDialogueAudioPath);
+            
+        }
+        else if (e.Error is WebException webException && webException.Status == WebExceptionStatus.ProtocolError && ((HttpWebResponse)webException.Response).StatusCode == HttpStatusCode.NotFound)
+        {
+            Debug.LogError("Audio file does not exist.");
+        }
+        else
+        {
+            Debug.LogError("Download failed: " + e.Error.Message);
+        }
+    }
+
+    private void LoadAndPlayAudioFromBase64(string audioPath)
+    {
+        byte[] audioData = File.ReadAllBytes(audioPath);
+
+        using (MemoryStream ms = new MemoryStream(audioData))
+        {
+            AudioClip audioClip = LoadAudioClipFromStream(ms);
+
+            AudioSource.PlayClipAtPoint(audioClip, Player.m_localPlayer.transform.position);
+        }
+    }
+
+    private AudioClip LoadAudioClipFromStream(MemoryStream stream)
+    {
+        // Read the WAV header
+        byte[] header = new byte[44];
+        stream.Read(header, 0, 44);
+
+        // Extract the audio format information from the header
+        int frequency = BitConverter.ToInt32(header, 24);
+        int channels = BitConverter.ToInt16(header, 22);
+        int samples = BitConverter.ToInt32(header, 40);
+
+        // Read the audio data
+        byte[] audioData = new byte[stream.Length - 44];
+        stream.Read(audioData, 0, audioData.Length);
+
+        // Create a new AudioClip
+        AudioClip audioClip = AudioClip.Create("AudioClip", samples, channels, frequency, false);
+
+        // Set the audio data
+        float[] floatData = new float[audioData.Length / 2];
+        for (int i = 0; i < floatData.Length; i++)
+        {
+            floatData[i] = (short)(audioData[i * 2] | audioData[i * 2 + 1] << 8) / 32768f;
+        }
+        audioClip.SetData(floatData, 0);
+
+        return audioClip;
+    }    
+
+    private AudioClip LoadAudioClip(string audioPath)
     {
         AudioClip loadedClip;
-        string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, filePath);
 
         if (File.Exists(audioPath))
         {
@@ -1001,42 +1184,69 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private void CompareAudioFormats(AudioClip recordedClip, AudioClip loadedClip)
+    private void WriteWAVFile(float[] audioData, int numChannels, int sampleRate, string filePath)
+    {
+        using (var fileStream = new FileStream(filePath, FileMode.Create))
+        using (var writer = new BinaryWriter(fileStream))
+        {
+            // Write the WAV file header
+            writer.Write("RIFF".ToCharArray());
+            writer.Write(36 + audioData.Length * 4);
+            writer.Write("WAVE".ToCharArray());
+            writer.Write("fmt ".ToCharArray());
+            writer.Write(16);
+            writer.Write((short)3); // IEEE float format
+            writer.Write((short)numChannels);
+            writer.Write(sampleRate);
+            writer.Write(sampleRate * numChannels * 4);
+            writer.Write((short)(numChannels * 4));
+            writer.Write((short)32); // 32-bit float
+            writer.Write("data".ToCharArray());
+            writer.Write(audioData.Length * 4);
+
+            // Write the audio data as 32-bit float values
+            foreach (var sample in audioData)
+            {
+                writer.Write(sample);
+            }
+        }
+    }
+
+    private void PlayRecordedAudio(string fileName)
+    {
+        /*string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
+        AudioClip audioClip = LoadAudioClip(audioPath);*/
+        AudioClip recordedClip = LoadAudioClip(playerDialogueAudioPath);
+        AudioClip downloadedClip = LoadAudioClip(npcDialogueAudioPath);
+
+        if (recordedClip && downloadedClip)
+            CompareAudioFormats(recordedClip, downloadedClip);
+
+        if (recordedClip != null)
+            AudioSource.PlayClipAtPoint(recordedClip, Player.m_localPlayer.transform.position, 1f);
+
+        Debug.Log("Playing last recorded clip audio");
+    }
+
+    private void CompareAudioFormats(AudioClip firstClip, AudioClip secondClip)
     {
         // Check the audio format of the recorded clip
-        Debug.Log("Recorded Clip:");
-        Debug.Log("Channels: " + recordedClip.channels);
-        Debug.Log("Frequency: " + recordedClip.frequency);
-        Debug.Log("Samples: " + recordedClip.samples);
-        Debug.Log("Length: " + recordedClip.length);
+        Debug.Log("First Clip:");
+        Debug.Log("Channels: " + firstClip.channels);
+        Debug.Log("Frequency: " + firstClip.frequency);
+        Debug.Log("Samples: " + firstClip.samples);
+        Debug.Log("Length: " + firstClip.length);
 
         // Check the audio format of the loaded clip
-        Debug.Log("Loaded Clip:");
-        Debug.Log("Channels: " + loadedClip.channels);
-        Debug.Log("Frequency: " + loadedClip.frequency);
-        Debug.Log("Samples: " + loadedClip.samples);
-        Debug.Log("Length: " + loadedClip.length);
+        Debug.Log("Second Clip:");
+        Debug.Log("Channels: " + secondClip.channels);
+        Debug.Log("Frequency: " + secondClip.frequency);
+        Debug.Log("Samples: " + secondClip.samples);
+        Debug.Log("Length: " + secondClip.length);
     }
 
-    private string GetBase64AudioData(AudioClip audioClip)
+    private string GetBase64FileData(string audioPath)
     {
-        float[] audioData = new float[audioClip.samples * audioClip.channels];
-        audioClip.GetData(audioData, 0);
-
-        // Convert float array to byte array
-        byte[] byteData = new byte[audioData.Length * 4];
-        Buffer.BlockCopy(audioData, 0, byteData, 0, byteData.Length);
-
-        // Convert byte array to base64 string
-        string base64AudioData = Convert.ToBase64String(byteData);
-
-        return base64AudioData;
-    }
-
-    private string GetBase64WavFileData(string filePath)
-    {
-        string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, filePath);
-
         if (File.Exists(audioPath))
         {
             byte[] audioData = File.ReadAllBytes(audioPath);
@@ -1051,53 +1261,25 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private IEnumerator SendUpdateToBrain(GameObject npc)
+    private void ProcessNPCCommand(string BrainResponseCommand)
     {
-        string jsonData = GetJSONForBrain(npc);
-
-        // Create a new WebClient
-        WebClient webClient = new WebClient();
-        webClient.Headers.Add("Content-Type", "application/json");
-
-        // Send the POST request
-        string responseJson = webClient.UploadString($"{brainBaseURL}/instruct_agent", jsonData);
-        Debug.Log("Response from /instruct_agent: " + responseJson);
-
-        // Parse the response JSON using SimpleJSON
-        JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
-        string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
-
-        yield return null;
-    }
-
-    private IEnumerator DownloadAudioFile(string audioFileId)
-    {
-        WebClient webClient = new WebClient();
-
-        try
+        Player localPlayer = Player.m_localPlayer;
+        if (BrainResponseCommand == "StartFollowingPlayer")
         {
-            // Download the audio file
-            byte[] audioData = webClient.DownloadData($"{brainBaseURL}/get_audio_file?audio_file_id={audioFileId}");
-
-            // Save the audio file to disk
-            string filePath = "audio.wav";
-            filePath = Path.Combine(UnityEngine.Application.persistentDataPath, filePath);
-            File.WriteAllBytes(filePath, audioData);
-            Debug.Log("Audio file downloaded to: " + filePath);
+            instance.StartFollowing(localPlayer);
         }
-        catch (WebException ex)
+        else if (BrainResponseCommand == "StartAttacking")
         {
-            if (ex.Response is HttpWebResponse response && response.StatusCode == HttpStatusCode.NotFound)
-            {
-                Debug.LogError("Audio file does not exist.");
-            }
-            else
-            {
-                Debug.LogError("Request failed: " + ex.Message);
-            }
+            instance.StartAttacking(localPlayer);
         }
-
-        yield return null;
+        else if (BrainResponseCommand == "StartHarvesting")
+        {
+            instance.StartHarvesting(localPlayer);
+        }
+        else if (BrainResponseCommand == "StartPatrolling")
+        {
+            instance.StartPatrol(localPlayer);
+        }
     }
 
     private void SpawnCompanion()
@@ -1158,8 +1340,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             humanoidNpc_Component.SetMaxHealth(300);
             humanoidNpc_Component.SetHealth(300);
 
-            HitData hitData = new HitData(80);
-            humanoidNpc_Component.Damage(hitData);
+            /*HitData hitData = new HitData(80);
+            humanoidNpc_Component.Damage(hitData);*/
 
             /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
             if (itemPrefab != null)
@@ -1312,7 +1494,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static GameObject[] FindSmallTrees()
     {
         instance.SmallTrees = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.StartsWith("Beech_small"))
+                //.Where(go => go.name.StartsWith("Beech_small"))
+                .Where(go => go.HasAnyComponent("TreeBase") || go.HasAnyComponent("Destructible"))
                 .ToArray();
         return instance.SmallTrees;
     }
@@ -1419,7 +1602,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         };
 
         //string base64audio = instance.GetBase64AudioData(instance.recordedAudioClip);
-        string base64audio = instance.GetBase64WavFileData("dialogue.wav");
+        string base64audio = instance.GetBase64FileData(instance.playerDialogueAudioPath);
 
         var jsonObject = new JsonObject
         {

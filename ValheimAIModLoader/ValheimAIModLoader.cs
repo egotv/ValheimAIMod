@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.Networking;
 using BepInEx.Configuration;
 using System.IO;
 using System.Collections.Generic;
@@ -20,7 +21,6 @@ namespace ValheimAIMod
         private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLoader");
 
         private static GameObject HumanoidNPCPrefab;
-
 
         void Awake()
         {
