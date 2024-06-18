@@ -64,6 +64,9 @@ namespace ValheimAIModLoader
         private static readonly int s_crouching = ZSyncAnimation.GetHash("crouching");
         private static readonly int s_animatorTagCrouch = ZSyncAnimation.GetHash("crouch");
 
+        public Vector3 LastPosition;
+        public float LastPositionDelta;
+
         //public ValheimAIModLoader.NPCMode eNPCMode;
         public NPCCommand.CommandType CurrentCommand;
 
@@ -105,12 +108,21 @@ namespace ValheimAIModLoader
         public void SetCurrentCommand(NPCCommand.CommandType NewCommand)
         {
             CurrentCommand = NewCommand;
-            patrol_position = transform.position;
+            if (NewCommand == NPCCommand.CommandType.PatrolArea)
+            {
+                patrol_position = transform.position;
+            }
+            else
+            {
+                patrol_position = Vector3.zero;
+            }
         }
 
         public override bool IsCrouching()
         {
             //return GetCurrentAnimHash() == s_animatorTagCrouch;
+            /*if (m_crouchToggled)
+                Debug.Log("HumanoidNPC IsCrouching " + m_crouchToggled);*/
             return m_crouchToggled;
         }
 
@@ -196,39 +208,39 @@ namespace ValheimAIModLoader
                 {
                     continue;
                 }
-                Debug.Log("autopickup itemdrop is near");
+                //Debug.Log("autopickup itemdrop is near");
                 if (!component.CanPickup())
                 {
-                    Debug.Log("RequestOwn");
+                    //Debug.Log("RequestOwn");
                     component.RequestOwn();
                 }
                 else
                 {
                     if (component.InTar())
                     {
-                        Debug.Log("InTar");
+                        //Debug.Log("InTar");
                         continue;
                     }
                     component.Load();
                     if (!m_inventory.CanAddItem(component.m_itemData) || component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight())
                     {
-                        Debug.Log("CanAddItem");
+                        //Debug.Log("CanAddItem");
                         continue;
                     }
                     float num = Vector3.Distance(component.transform.position, vector);
                     if (num > m_autoPickupRange)
                     {
-                        Debug.Log("num > m_autoPickupRange");
+                        //Debug.Log("num > m_autoPickupRange");
                         continue;
                     }
                     if (num < 0.3f)
                     {
-                        Debug.Log("Pickup");
+                        Debug.Log("Picking up " + component.name);
                         Pickup(component.gameObject);
                         continue;
                     }
 
-                    Debug.Log("floatingTerrainDummy");
+                    //Debug.Log("floatingTerrainDummy");
                     Vector3 vector2 = Vector3.Normalize(vector - component.transform.position);
                     float num2 = 15f;
                     Vector3 vector3 = vector2 * num2 * dt;

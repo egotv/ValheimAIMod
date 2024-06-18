@@ -1,15 +1,15 @@
 ManifestFileVersion: 0
-CRC: 3616383961
+CRC: 3475488049
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: 141880a7cea3cc79f2dac9902324bd72
+    Hash: 76617c7d242449e3459be327567f3462
   TypeTreeHash:
     serializedVersion: 2
-    Hash: ba031194df510ea5230ad2dfbe1461b1
+    Hash: 800d31b9e22432a0d5be38a96cd43844
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: 141880a7cea3cc79f2dac9902324bd72
+    Hash: 76617c7d242449e3459be327567f3462
 HashAppended: 0
 ClassTypes:
 - Class: 1
@@ -65,8 +65,6 @@ ClassTypes:
 - Class: 114
   Script: {fileID: 54271039, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
-  Script: {fileID: 11500000, guid: 8e511a67130b8954f8b367f91fbc1aa8, type: 3}
-- Class: 114
   Script: {fileID: 11500000, guid: f847e42b40beff24fb04266428153db0, type: 3}
 - Class: 114
   Script: {fileID: 647644853, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
@@ -75,19 +73,9 @@ ClassTypes:
 - Class: 114
   Script: {fileID: -1266444067, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
-  Script: {fileID: -1421768954, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
-- Class: 114
-  Script: {fileID: -923427435, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
-- Class: 114
-  Script: {fileID: -1094038755, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
-- Class: 114
-  Script: {fileID: -585565762, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
-- Class: 114
   Script: {fileID: 829610738, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
   Script: {fileID: -2077285929, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
-- Class: 114
-  Script: {fileID: 69470131, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
   Script: {fileID: -1896733076, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
@@ -103,8 +91,6 @@ ClassTypes:
 - Class: 136
   Script: {instanceID: 0}
 - Class: 137
-  Script: {instanceID: 0}
-- Class: 165
   Script: {instanceID: 0}
 - Class: 198
   Script: {instanceID: 0}
@@ -140,13 +126,9 @@ SerializeReferenceClassIdentifiers:
 - AssemblyName: assembly_valheim
   ClassName: ItemDrop/ItemData/SharedData
 - AssemblyName: assembly_valheim
-  ClassName: LevelEffects/LevelSetup
-- AssemblyName: assembly_valheim
   ClassName: Skills/SkillDef
 - AssemblyName: assembly_valheim
   ClassName: VisEquipment/PlayerModel
 Assets:
 - Assets/CustomAssets/HumanoidNPC.prefab
-- Assets/CustomAssets/ScriptNPC_SK.prefab
-- Assets/CustomAssets/ScriptNPC.prefab
 Dependencies: []

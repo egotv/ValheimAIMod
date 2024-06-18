@@ -20,9 +20,6 @@ namespace ValheimAIMod
         private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLoader");
 
         private static GameObject HumanoidNPCPrefab;
-        //private static GameObject SkeletonNPCPrefab;
-        private static GameObject ScriptNPCPrefab;
-        private static GameObject ScriptNPCSKPrefab;
 
 
         void Awake()
@@ -33,12 +30,9 @@ namespace ValheimAIMod
 
             var script_npc_assetBundle = GetAssetBundleFromResources("scriptnpc");
             HumanoidNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/HumanoidNPC.prefab");
-            //SkeletonNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/SkeletonNPC.prefab");
-            ScriptNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/ScriptNPC.prefab");
-            ScriptNPCSKPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/ScriptNPC_SK.prefab");
 
-            if (ScriptNPCPrefab) Debug.Log("ScriptNPCPrefab loaded"); 
-            else Debug.Log("ScriptNPCPrefab not loaded");
+            if (HumanoidNPCPrefab) Debug.Log("HumanoidNPCPrefab loaded"); 
+            else Debug.Log("HumanoidNPCPrefab not loaded");
 
             script_npc_assetBundle.Unload(false);
 
@@ -127,9 +121,6 @@ namespace ValheimAIMod
                     return;
                 }
                 __instance.m_prefabs.Add(HumanoidNPCPrefab);
-                //__instance.m_prefabs.Add(SkeletonNPCPrefab);
-                __instance.m_prefabs.Add(ScriptNPCPrefab);
-                __instance.m_prefabs.Add(ScriptNPCSKPrefab);
             }
         }
     }
