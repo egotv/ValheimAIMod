@@ -1,17 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Management.Instrumentation;
-using System.Reflection;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Runtime.Remoting.Messaging;
-using System.Threading;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using Jotunn;
-using Jotunn.Managers;
 using SimpleJson;
 
 
@@ -22,6 +15,10 @@ using UnityEngine;
 using ValheimAIModLoader;
 using System.IO;
 using System.Net;
+
+using NAudio.Wave;
+using NAudio.Wasapi;
+using System.Threading;
 
 [BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
 [BepInProcess("valheim.exe")]
@@ -47,6 +44,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private string playerDialogueAudioPath;
     private string npcDialogueAudioPath;
+    private string npcDialogueRawAudioPath;
+
+
+    //private AudioSource audioSource;
+
+    private const int NUMBER_OF_CHANNELS = 2;
+    private const int SAMPLE_WIDTH = 2;
+    private const int FRAME_RATE = 48000;
+
+
+    /*private IWavePlayer waveOutDevice;
+    private WaveStream waveStream;*/
 
     private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
     private ConfigEntry<KeyboardShortcut> TogglePatrolKey;
@@ -110,6 +119,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         playerDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "playerdialogue.wav");
         npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
+        npcDialogueRawAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
 
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
@@ -246,7 +256,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (value.IsDown())
         {
             //instance.PlayRecordedAudio("");
-            instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
+            //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
+            instance.PlayWavFile(instance.npcDialogueRawAudioPath);
             return;
         }
     }
@@ -1080,11 +1091,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (e.Error == null)
         {
             // Save the audio file to disk
-            string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
-            System.IO.File.WriteAllBytes(audioPath, e.Result);
-            Debug.Log("Audio file downloaded to: " + audioPath);
+            System.IO.File.WriteAllBytes(npcDialogueRawAudioPath, e.Result);
+            Debug.Log("Audio file downloaded to: " + npcDialogueRawAudioPath);
 
-            byte[] byteData = e.Result;
+            /*byte[] byteData = e.Result;
             float[] floatData = new float[byteData.Length / 4];
             Buffer.BlockCopy(byteData, 0, floatData, 0, byteData.Length);
 
@@ -1094,9 +1104,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             // Save the audio file to disk using the WriteWAVFile function
             WriteWAVFile(floatData, numChannels, sampleRate, npcDialogueAudioPath);
-            Debug.Log("Audio file downloaded and saved to: " + npcDialogueAudioPath);
+            Debug.Log("Audio file downloaded and saved to: " + npcDialogueAudioPath);*/
 
-            LoadAndPlayAudioFromBase64(npcDialogueAudioPath);
+            PlayWavFile(npcDialogueRawAudioPath);
             
         }
         else if (e.Error is WebException webException && webException.Status == WebExceptionStatus.ProtocolError && ((HttpWebResponse)webException.Response).StatusCode == HttpStatusCode.NotFound)
@@ -1184,6 +1194,122 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    
+
+    private void PlayRecordedAudio(string fileName)
+    {
+        /*string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
+        AudioClip audioClip = LoadAudioClip(audioPath);*/
+        AudioClip recordedClip = LoadAudioClip(playerDialogueAudioPath);
+        AudioClip downloadedClip = LoadAudioClip(npcDialogueAudioPath);
+
+        if (recordedClip && downloadedClip)
+            CompareAudioFormats(recordedClip, downloadedClip);
+
+        if (recordedClip != null)
+            AudioSource.PlayClipAtPoint(recordedClip, Player.m_localPlayer.transform.position, 1f);
+
+        Debug.Log("Playing last recorded clip audio");
+    }
+
+    public void PlayWavFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Debug.LogError($"File not found: {filePath}");
+            return;
+        }
+
+        try
+        {
+            byte[] wavData = File.ReadAllBytes(filePath);
+            AudioClip clip = WavToAudioClip(wavData, Path.GetFileNameWithoutExtension(filePath));
+
+
+            GameObject gameObject = new GameObject("One shot audio");
+            gameObject.transform.position = Player.m_localPlayer.transform.position;
+            AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
+            audioSource.clip = clip;
+            audioSource.spatialBlend = 0f;
+            audioSource.volume = 1.0f;
+            audioSource.bypassEffects = true;
+            audioSource.bypassListenerEffects = true;
+            audioSource.bypassReverbZones = true;
+            audioSource.Play();
+            UnityEngine.Object.Destroy(gameObject, clip.length * ((Time.timeScale < 0.01f) ? 0.01f : Time.timeScale));
+            //AudioSource.PlayClipAtPoint(audioClip, Player.m_localPlayer.transform.position);
+
+            /*if (audioClip != null)
+            {
+                audioSource.clip = audioClip;
+                audioSource.Play();
+            }*/
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error playing WAV file: {e.Message}");
+        }
+    }
+
+    private AudioClip WavToAudioClip(byte[] wavData, string clipName)
+    {
+        // Parse WAV header
+        int channels = BitConverter.ToInt16(wavData, 22);
+        int sampleRate = BitConverter.ToInt32(wavData, 24);
+        int bitsPerSample = BitConverter.ToInt16(wavData, 34);
+
+        Debug.Log($"Channels: {channels}, Sample Rate: {sampleRate}, Bits per Sample: {bitsPerSample}");
+
+        // Find data chunk
+        int dataChunkStart = 12; // Start searching after "RIFF" + size + "WAVE"
+        while (!(wavData[dataChunkStart] == 'd' && wavData[dataChunkStart + 1] == 'a' && wavData[dataChunkStart + 2] == 't' && wavData[dataChunkStart + 3] == 'a'))
+        {
+            dataChunkStart += 4;
+            int chunkSize = BitConverter.ToInt32(wavData, dataChunkStart);
+            dataChunkStart += 4 + chunkSize;
+        }
+        int dataStart = dataChunkStart + 8;
+
+        // Extract audio data
+        float[] audioData = new float[(wavData.Length - dataStart) / (bitsPerSample / 8)];
+
+        for (int i = 0; i < audioData.Length; i++)
+        {
+            if (bitsPerSample == 16)
+            {
+                short sample = BitConverter.ToInt16(wavData, dataStart + i * 2);
+                audioData[i] = sample / 32768f;
+            }
+            else if (bitsPerSample == 8)
+            {
+                audioData[i] = (wavData[dataStart + i] - 128) / 128f;
+            }
+        }
+
+        AudioClip audioClip = AudioClip.Create(clipName, audioData.Length / channels, channels, sampleRate, false);
+        audioClip.SetData(audioData, 0);
+
+        return audioClip;
+    }
+
+
+    private void CompareAudioFormats(AudioClip firstClip, AudioClip secondClip)
+    {
+        // Check the audio format of the recorded clip
+        Debug.Log("First Clip:");
+        Debug.Log("Channels: " + firstClip.channels);
+        Debug.Log("Frequency: " + firstClip.frequency);
+        Debug.Log("Samples: " + firstClip.samples);
+        Debug.Log("Length: " + firstClip.length);
+
+        // Check the audio format of the loaded clip
+        Debug.Log("Second Clip:");
+        Debug.Log("Channels: " + secondClip.channels);
+        Debug.Log("Frequency: " + secondClip.frequency);
+        Debug.Log("Samples: " + secondClip.samples);
+        Debug.Log("Length: " + secondClip.length);
+    }
+
     private void WriteWAVFile(float[] audioData, int numChannels, int sampleRate, string filePath)
     {
         using (var fileStream = new FileStream(filePath, FileMode.Create))
@@ -1210,39 +1336,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 writer.Write(sample);
             }
         }
-    }
-
-    private void PlayRecordedAudio(string fileName)
-    {
-        /*string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
-        AudioClip audioClip = LoadAudioClip(audioPath);*/
-        AudioClip recordedClip = LoadAudioClip(playerDialogueAudioPath);
-        AudioClip downloadedClip = LoadAudioClip(npcDialogueAudioPath);
-
-        if (recordedClip && downloadedClip)
-            CompareAudioFormats(recordedClip, downloadedClip);
-
-        if (recordedClip != null)
-            AudioSource.PlayClipAtPoint(recordedClip, Player.m_localPlayer.transform.position, 1f);
-
-        Debug.Log("Playing last recorded clip audio");
-    }
-
-    private void CompareAudioFormats(AudioClip firstClip, AudioClip secondClip)
-    {
-        // Check the audio format of the recorded clip
-        Debug.Log("First Clip:");
-        Debug.Log("Channels: " + firstClip.channels);
-        Debug.Log("Frequency: " + firstClip.frequency);
-        Debug.Log("Samples: " + firstClip.samples);
-        Debug.Log("Length: " + firstClip.length);
-
-        // Check the audio format of the loaded clip
-        Debug.Log("Second Clip:");
-        Debug.Log("Channels: " + secondClip.channels);
-        Debug.Log("Frequency: " + secondClip.frequency);
-        Debug.Log("Samples: " + secondClip.samples);
-        Debug.Log("Length: " + secondClip.length);
     }
 
     private string GetBase64FileData(string audioPath)
@@ -1494,8 +1587,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static GameObject[] FindSmallTrees()
     {
         instance.SmallTrees = GameObject.FindObjectsOfType<GameObject>(true)
-                //.Where(go => go.name.StartsWith("Beech_small"))
-                .Where(go => go.HasAnyComponent("TreeBase") || go.HasAnyComponent("Destructible"))
+                .Where(go => go.name.StartsWith("Beech_small"))
+                //.Where(go => go.name.StartsWith("Beech_small") || go.name.StartsWith("Beech"))
+                //.Where(go => go.HasAnyComponent("TreeBase") || go.HasAnyComponent("Destructible"))
                 .ToArray();
         return instance.SmallTrees;
     }
