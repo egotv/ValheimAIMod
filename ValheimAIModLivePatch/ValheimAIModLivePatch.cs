@@ -64,7 +64,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> ToggleAttackKey;
     private ConfigEntry<KeyboardShortcut> InventoryKey;
     private ConfigEntry<KeyboardShortcut> TalkKey;
-    private ConfigEntry<KeyboardShortcut> PlaybackRecordingKey;
+    private ConfigEntry<KeyboardShortcut> SendToBrainKey;
     private ConfigEntry<bool> DisableAutoSave;
 
     //private Dictionary<string, List<Piece.Requirement>> craftingRequirements = new Dictionary<string, List<Piece.Requirement>>();
@@ -133,7 +133,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         ToggleAttackKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleAttackKey", new KeyboardShortcut(KeyCode.K), "The key used to command all NPCs to attack enemies.");
         InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.U), "The key used to command all NPCs to -");
         TalkKey = Config.Bind<KeyboardShortcut>("Keybinds", "TalkKey", new KeyboardShortcut(KeyCode.T), "The key used to talk into the game");
-        PlaybackRecordingKey = Config.Bind<KeyboardShortcut>("Keybinds", "PlaybackRecordingKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
+        SendToBrainKey = Config.Bind<KeyboardShortcut>("Keybinds", "SendToBrainKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
 
@@ -252,12 +252,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             return;
         }
-        value = instance.PlaybackRecordingKey.Value;
+        value = instance.SendToBrainKey.Value;
         if (value.IsDown())
         {
             //instance.PlayRecordedAudio("");
             //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
-            instance.PlayWavFile(instance.npcDialogueRawAudioPath);
+            //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
+            instance.SendToBrain();
             return;
         }
     }
@@ -899,6 +900,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    private void SendToBrain()
+    {
+        GameObject[] allNpcs = FindPlayerNPCs();
+        foreach (GameObject npc in allNpcs)
+        {
+            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
+            ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
+            if (monsterAIcomponent != null && humanoidComponent != null)
+            {
+                Debug.Log("SendUpdateToBrain");
+                SendUpdateToBrain(npc);
+            }
+        }
+    }
+
     private void OnInventoryKeyPressed(Player player)
     {
         /*Debug.Log(craftingRequirements.Count());
@@ -921,6 +937,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
             if (monsterAIcomponent != null && humanoidComponent != null)
             {
+                /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
+                humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 15);*/
+
+                //PrintInventoryItems(humanoidComponent.m_inventory);
+
+
+                DropAllItems(humanoidComponent);
+
                 /*GameObject[] pickable_stones = GameObject.FindObjectsOfType<GameObject>(true)
                 .Where(go => go.name.Contains("Pickable_"))
                 .ToArray();
@@ -961,15 +985,26 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 //humanoidComponent.m_zanim.SetTrigger("eat");
 
                 //Debug.Log(GetJSONForBrain(npc));
-                //PrintInventoryItems(humanoidComponent.m_inventory);
-
-                Debug.Log("SendUpdateToBrain");
-
-                //StartCoroutine(SendUpdateToBrain(npc));
-                SendUpdateToBrain(npc);
+                
                 
             }
         }
+    }
+
+    private void DropAllItems(HumanoidNPC humanoidNPC)
+    {
+        List<ItemDrop.ItemData> allItems = humanoidNPC.m_inventory.GetAllItems();
+        int num = 1;
+        foreach (ItemDrop.ItemData item in allItems)
+        {
+            Debug.Log("Dropping " + item.m_shared.m_name);
+            //Vector3 position = humanoidNPC.transform.position + Vector3.up * 0.5f + UnityEngine.Random.insideUnitSphere * 0.3f;
+            Vector3 position = humanoidNPC.transform.position + Vector3.up * 2f + UnityEngine.Random.insideUnitSphere * 0.3f + humanoidNPC.transform.forward * 2.5f;
+            Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
+            ItemDrop.DropItem(item, item.m_stack, position, rotation);
+            num++;
+        }
+        humanoidNPC.m_inventory.RemoveAll();
     }
 
     private void StartRecording()
