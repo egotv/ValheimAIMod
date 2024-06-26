@@ -15,10 +15,7 @@ using UnityEngine;
 using ValheimAIModLoader;
 using System.IO;
 using System.Net;
-
-using NAudio.Wave;
-using NAudio.Wasapi;
-using System.Threading;
+using Jotunn.Managers;
 
 [BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
 [BepInProcess("valheim.exe")]
@@ -67,8 +64,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> SendToBrainKey;
     private ConfigEntry<bool> DisableAutoSave;
 
-    //private Dictionary<string, List<Piece.Requirement>> craftingRequirements = new Dictionary<string, List<Piece.Requirement>>();
     private Dictionary<string, Piece.Requirement[]> craftingRequirements = new Dictionary<string, Piece.Requirement[]>();
+    private Dictionary<string, Piece.Requirement[]> buildingRequirements = new Dictionary<string, Piece.Requirement[]>();
     private Dictionary<string, List<string>> resourceLocations = new Dictionary<string, List<string>>();
 
     private static string NPCPrefabName = "HumanoidNPC";
@@ -115,7 +112,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         ConfigBindings();
 
-        PopulateCraftingRequirements();
+        /*PopulateCraftingRequirements();
+        PopulateBuildingRequirements();*/
 
         playerDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "playerdialogue.wav");
         npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
@@ -144,19 +142,159 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void PopulateCraftingRequirements()
     {
+        var jsonObject = new JsonObject();
         foreach (GameObject prefab in ObjectDB.instance.m_items)
         {
             ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
             if (itemDrop != null)
             {
+                var thisJsonObject = new JsonObject();
+                
+                thisJsonObject["name"] = itemDrop.name;
+                thisJsonObject["itemName"] = itemDrop.m_itemData.m_shared.m_name;
+
+                JsonObject itemDropCustomData = new JsonObject();
+                foreach (var s in itemDrop.m_itemData.m_customData)
+                {
+                    itemDropCustomData[s.Key] = s.Value;
+                }
+                if (itemDropCustomData.Count > 0)
+                    thisJsonObject["customData"] = itemDropCustomData;
+
+                if (itemDrop.m_itemData.m_shared.m_description != "")
+                {
+                    string description = LocalizationManager.Instance.TryTranslate(itemDrop.m_itemData.m_shared.m_description);
+
+                    // If the description is the same as the key, it means no translation was found
+                    if (description != "")
+                    {
+                        thisJsonObject["description"] = description;
+                    }
+                }
+                    
+
+                thisJsonObject["armor"] = itemDrop.m_itemData.m_shared.m_armor;
+                thisJsonObject["maxDurability"] = itemDrop.m_itemData.m_shared.m_maxDurability;
+                thisJsonObject["weight"] = itemDrop.m_itemData.m_shared.m_weight;
+
                 Recipe recipe = ObjectDB.instance.GetRecipe(itemDrop.m_itemData);
                 if (recipe != null)
                 {
                     craftingRequirements[itemDrop.m_itemData.m_shared.m_name] = recipe.m_resources;
+                    JsonArray requirementsArray = new JsonArray();
+                    foreach (var req in recipe.m_resources)
+                    {
+                        JsonObject reqObject = new JsonObject();
+
+                        reqObject["name"] = req.m_resItem.name;
+                        reqObject["itemName"] = req.m_resItem.m_itemData.m_shared.m_name;
+
+                        if (req.m_resItem.m_itemData.m_shared.m_description != "")
+                        {
+                            string description = LocalizationManager.Instance.TryTranslate(req.m_resItem.m_itemData.m_shared.m_description);
+
+                            // If the description is the same as the key, it means no translation was found
+                            if (description != "")
+                            {
+                                reqObject["description"] = description;
+                            }
+                        }
+
+                        reqObject["amount"] = req.m_amount;
+                        /*reqObject["amountPerLevel"] = req.m_amountPerLevel;
+                        reqObject["m_recover"] = req.m_recover;
+                        reqObject["m_extraAmountOnlyOneIngredient"] = req.m_extraAmountOnlyOneIngredient;*/
+
+                        requirementsArray.Add(reqObject);
+                    }
+                    thisJsonObject["m_resources"] = requirementsArray;
                 }
+
+                jsonObject[itemDrop.m_itemData.m_shared.m_name] = thisJsonObject;
             }
         }
+
+        string json = jsonObject.ToString();
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string filePath = Path.Combine(desktopPath, "crafting_requirements.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log($"Crafting requirements exported to {filePath}");
     }
+
+    private void PopulateBuildingRequirements()
+    {
+        var jsonObject = new JsonObject();
+        foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
+        {
+            Piece piece = prefab.GetComponent<Piece>();
+            if (piece != null)
+            {
+                string pieceName = piece.m_name;
+                buildingRequirements[pieceName] = piece.m_resources;
+
+                JsonObject thisJsonObject = new JsonObject();
+                thisJsonObject["name"] = piece.name;
+                thisJsonObject["itemName"] = piece.m_name;
+
+                if (piece.m_description != "")
+                {
+                    string description = LocalizationManager.Instance.TryTranslate(piece.m_description);
+
+                    // If the description is the same as the key, it means no translation was found
+                    if (description != "")
+                    {
+                        thisJsonObject["description"] = description;
+                    }
+                }
+
+                thisJsonObject["category"] = piece.m_category.ToString();
+                thisJsonObject["comfort"] = piece.m_comfort;
+                thisJsonObject["groundPiece"] = piece.m_groundPiece;
+                thisJsonObject["allowedInDungeons"] = piece.m_allowedInDungeons;
+                thisJsonObject["spaceRequirement"] = piece.m_spaceRequirement;
+
+                JsonArray requirementsArray = new JsonArray();
+                foreach (var req in piece.m_resources)
+                {
+                    JsonObject reqObject = new JsonObject();
+                    reqObject["name"] = req.m_resItem.name;
+                    reqObject["itemName"] = req.m_resItem.m_itemData.m_shared.m_name;
+
+                    if (req.m_resItem.m_itemData.m_shared.m_description != "")
+                    {
+                        string description = LocalizationManager.Instance.TryTranslate(req.m_resItem.m_itemData.m_shared.m_description);
+
+                        // If the description is the same as the key, it means no translation was found
+                        if (description != "")
+                        {
+                            reqObject["description"] = description;
+                        }
+                    }
+
+                    reqObject["amount"] = req.m_amount;
+                    reqObject["amountPerLevel"] = req.m_amountPerLevel;
+                    reqObject["m_recover"] = req.m_recover;
+                    reqObject["m_extraAmountOnlyOneIngredient"] = req.m_extraAmountOnlyOneIngredient;
+
+                    requirementsArray.Add(reqObject);
+                }
+                thisJsonObject["m_resources"] = requirementsArray;
+                jsonObject[pieceName] = thisJsonObject;
+            }
+        }
+
+        string json = jsonObject.ToString();
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string filePath = Path.Combine(desktopPath, "building_requirements.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log($"Building requirements exported to {filePath}");
+    }
+
+    
 
     /*private void PopulateResourceLocations()
     {
@@ -309,7 +447,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 if (followtarget == null || followtarget.transform.position.DistanceTo(instance.patrol_position) > instance.chaseUntilPatrolRadiusDistance ||
                                 (!followtarget.HasAnyComponent("Pickable") && !followtarget.HasAnyComponent("ItemDrop")))
                 {
-                    Debug.Log("new follow");
+                    //Debug.Log("new follow");
                     GameObject newfollow;
                     newfollow = FindClosestPickableResource(__instance.gameObject, instance.patrol_position, instance.chaseUntilPatrolRadiusDistance);
                     if (newfollow == null)
@@ -900,18 +1038,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    float lastSentToBrainTime = 0f;
     private void SendToBrain()
     {
+        if (instance.IsRecording)
+        {
+            instance.StopRecording();
+        }
+
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
         {
             MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-            ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-            if (monsterAIcomponent != null && humanoidComponent != null)
-            {
-                Debug.Log("SendUpdateToBrain");
-                SendUpdateToBrain(npc);
-            }
+            HumanoidNPC humanoidComponent = npc.GetComponent<HumanoidNPC>();
+
+            Debug.Log("SendUpdateToBrain");
+            SendUpdateToBrain(npc);
+            lastSentToBrainTime = Time.time;
+
+            UserInfo userInfo = new UserInfo();
+            userInfo.Name = "NPC";
+            Vector3 headPoint = humanoidComponent.GetEyePoint();
+            Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, "...");
         }
     }
 
@@ -922,12 +1070,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         foreach (KeyValuePair<string, Piece.Requirement[]> s in craftingRequirements.ToArray())
         {
             Debug.Log(s.Key);
-            *//*Debug.Log("\n\n" + s.Key + " requires ");
+            Debug.Log("\n\n" + s.Key + " requires ");
             foreach (Piece.Requirement x in s.Value)
             {
                 Debug.Log(x.m_amount + "x " + x.m_resItem.name);
-            }*//*
+            }
         }*/
+
         Debug.Log("OnInventoryKeyPressed");
 
         GameObject[] allNpcs = FindPlayerNPCs();
@@ -1007,13 +1156,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         humanoidNPC.m_inventory.RemoveAll();
     }
 
+
+    private int recordingLength = 6; // Maximum recording length in seconds
+    private int sampleRate = 22050; // Reduced from 44100
+    private int bitDepth = 8; // Reduced from 16
+
     private void StartRecording()
     {
-        instance.recordedAudioClip = Microphone.Start(null, false, 4, 44100);
+        instance.recordedAudioClip = Microphone.Start(null, false, recordingLength, sampleRate);
         instance.IsRecording = true;
-        Debug.Log("Recording started");
-
-        Debug.Log(instance.recordedAudioClip.ToString());
+        //Debug.Log("Recording started");
     }
 
     private void StopRecording()
@@ -1021,26 +1173,96 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Stop the audio recording
         Microphone.End(null);
         instance.IsRecording = false;
-        Debug.Log("Recording stopped");
+        //Debug.Log("Recording stopped");
+
+        TrimSilence();
+
+        SaveRecording();
 
         // Save the recorded audio clip to a file
-        SaveRecordedAudio();
+        //SaveRecordedAudio();
     }
 
-    private void SaveRecordedAudio()
+    private void TrimSilence()
     {
-        // Generate a unique file name for the recording
-        //string fileName = $"dialogue.wav";
-        //string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, fileName);
+        float[] samples = new float[recordedAudioClip.samples];
+        recordedAudioClip.GetData(samples, 0);
 
-        // Convert the audio clip to WAV format and save it to the file
-        float[] audioData = new float[instance.recordedAudioClip.samples * instance.recordedAudioClip.channels];
-        instance.recordedAudioClip.GetData(audioData, 0);
-        WriteWAVFile(audioData, instance.recordedAudioClip.channels, instance.recordedAudioClip.frequency, playerDialogueAudioPath);
+        int lastNonZeroIndex = samples.Length - 1;
+        while (lastNonZeroIndex > 0 && samples[lastNonZeroIndex] == 0)
+        {
+            lastNonZeroIndex--;
+        }
 
-        Debug.Log($"instance.recordedAudioClip.channels: {instance.recordedAudioClip.channels}");
-        Debug.Log($"instance.recordedAudioClip.samples: {instance.recordedAudioClip.samples}");
-        Debug.Log($"Recorded audio saved to: {playerDialogueAudioPath}");
+        Array.Resize(ref samples, lastNonZeroIndex + 1);
+
+        AudioClip trimmedClip = AudioClip.Create("TrimmedRecording", samples.Length, recordedAudioClip.channels, 44100, false);
+        trimmedClip.SetData(samples, 0);
+
+        recordedAudioClip = trimmedClip;
+    }
+
+    private byte[] EncodeToWav(AudioClip clip)
+    {
+        float[] samples = new float[clip.samples];
+        clip.GetData(samples, 0);
+
+        using (MemoryStream stream = new MemoryStream())
+        {
+            using (BinaryWriter writer = new BinaryWriter(stream))
+            {
+                // RIFF header
+                writer.Write("RIFF".ToCharArray());
+                writer.Write(36 + samples.Length * (bitDepth / 8));
+                writer.Write("WAVE".ToCharArray());
+
+                // Format chunk
+                writer.Write("fmt ".ToCharArray());
+                writer.Write(16);
+                writer.Write((ushort)1); // Audio format (1 = PCM)
+                writer.Write((ushort)clip.channels);
+                writer.Write(sampleRate);
+                writer.Write(sampleRate * clip.channels * (bitDepth / 8)); // Byte rate
+                writer.Write((ushort)(clip.channels * (bitDepth / 8))); // Block align
+                writer.Write((ushort)bitDepth); // Bits per sample
+
+                // Data chunk
+                writer.Write("data".ToCharArray());
+                writer.Write(samples.Length * (bitDepth / 8));
+
+                // Convert float samples to 8-bit PCM
+                if (bitDepth == 8)
+                {
+                    foreach (float sample in samples)
+                    {
+                        writer.Write((byte)((sample + 1f) * 127.5f));
+                    }
+                }
+                else // 16-bit PCM
+                {
+                    foreach (float sample in samples)
+                    {
+                        writer.Write((short)(sample * 32767));
+                    }
+                }
+            }
+            return stream.ToArray();
+        }
+    }
+
+    private void SaveRecording()
+    {
+        byte[] wavData = EncodeToWav(recordedAudioClip);
+
+        try
+        {
+            File.WriteAllBytes(playerDialogueAudioPath, wavData);
+            //Debug.Log("Recording saved to: " + playerDialogueAudioPath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error saving recording: " + e.Message);
+        }
     }
 
     
@@ -1049,7 +1271,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         string jsonData = GetJSONForBrain(npc);
 
-        Debug.Log("jsonData\n " + jsonData);
+        //Debug.Log("jsonData\n " + jsonData);
 
         // Create a new WebClient
         WebClient webClient = new WebClient();
@@ -1079,7 +1301,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (agentCommands != null && agentCommands.Count > 0)
             {
                 // Get the first command object from the array
-                JsonObject commandObject = agentCommands[0] as JsonObject;
+                JsonObject commandObject = agentCommands[agentCommands.Count - 1] as JsonObject;
 
                 // Get the action_str value from the command object
                 string actionStr = commandObject["action_str"].ToString();
@@ -1127,7 +1349,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             // Save the audio file to disk
             System.IO.File.WriteAllBytes(npcDialogueRawAudioPath, e.Result);
-            Debug.Log("Audio file downloaded to: " + npcDialogueRawAudioPath);
+            //Debug.Log("Audio file downloaded to: " + npcDialogueRawAudioPath);
 
             /*byte[] byteData = e.Result;
             float[] floatData = new float[byteData.Length / 4];
@@ -1140,6 +1362,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             // Save the audio file to disk using the WriteWAVFile function
             WriteWAVFile(floatData, numChannels, sampleRate, npcDialogueAudioPath);
             Debug.Log("Audio file downloaded and saved to: " + npcDialogueAudioPath);*/
+
+            if (lastSentToBrainTime > 0)
+                Debug.Log("Brain response time: " + (Time.time - lastSentToBrainTime));
 
             PlayWavFile(npcDialogueRawAudioPath);
             
@@ -1219,7 +1444,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             bool stream = false;
             loadedClip = AudioClip.Create("AudioClipName", floatData.Length / channels, channels, frequency, stream);
             loadedClip.SetData(floatData, 0);
-            Debug.Log("AudioClip loaded successfully.");
+            //Debug.Log("AudioClip loaded successfully.");
             return loadedClip;
         }
         else
@@ -1293,7 +1518,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         int sampleRate = BitConverter.ToInt32(wavData, 24);
         int bitsPerSample = BitConverter.ToInt16(wavData, 34);
 
-        Debug.Log($"Channels: {channels}, Sample Rate: {sampleRate}, Bits per Sample: {bitsPerSample}");
+        //Debug.Log($"Channels: {channels}, Sample Rate: {sampleRate}, Bits per Sample: {bitsPerSample}");
 
         // Find data chunk
         int dataChunkStart = 12; // Start searching after "RIFF" + size + "WAVE"
@@ -1527,14 +1752,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             instance.AllPickableInstances.Add(pickable);
         }
         instance.AllPickableInstancesLastRefresh = Time.time;
-        Debug.Log("pickables len " + instance.AllPickableInstances.Count());
+        //Debug.Log("pickables len " + instance.AllPickableInstances.Count());
     }
 
     private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
     {
         if (!(instance.AllPickableInstances.Count > 0 && Time.time - instance.AllPickableInstancesLastRefresh < 30f && instance.AllPickableInstancesLastRefresh != 0f))
         {
-            Debug.Log("Updated AllPickableInstances");
+            //Debug.Log("Updated AllPickableInstances");
             RefreshPickables();
         }
             
@@ -1727,8 +1952,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["IsFreezing"] = EnvMan.IsFreezing(),
             ["IsWet"] = EnvMan.IsWet(),
 
-            ["Time"] = EnvMan.instance.GetDayFraction(),
-        };
+            ["currentTime"] = EnvMan.instance.GetDayFraction(),
+            ["currentWeather"] = EnvMan.instance.GetCurrentEnvironment().m_name,
+            ["currentBiome"] = Heightmap.FindBiome(character.transform.position).ToString(),
+
+            //["nearbyVegetationCount"] = instance.DetectVegetation(),
+    };
 
         //string base64audio = instance.GetBase64AudioData(instance.recordedAudioClip);
         string base64audio = instance.GetBase64FileData(instance.playerDialogueAudioPath);
@@ -1740,9 +1969,32 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["player_instruction_audio_file_base64"] = base64audio,
         };
 
+        Debug.Log(gameState);
+
         string jsonString = SimpleJson.SimpleJson.SerializeObject(jsonObject);
 
         return jsonString;
+    }
+
+    public float detectionRadius = 30f;
+    public LayerMask terrainLayer;
+    public LayerMask vegetationLayer;
+
+    public int DetectVegetation()
+    {
+        // Check terrain type
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, 10f, terrainLayer))
+        {
+            TerrainData terrainData = Terrain.activeTerrain.terrainData;
+            float height = hit.point.y;
+            // You can use the height to determine if it's lowland, mountain, etc.
+        }
+
+        // Check vegetation density
+        Collider[] vegetation = Physics.OverlapSphere(transform.position, detectionRadius, vegetationLayer);
+        return vegetation.Length;
+        // Use vegetationCount to determine if it's densely forested, sparse, or barren
     }
 
     // Disable auto save
