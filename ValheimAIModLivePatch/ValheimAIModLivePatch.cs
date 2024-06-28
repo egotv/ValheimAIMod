@@ -1054,7 +1054,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             Debug.Log("SendUpdateToBrain");
             SendUpdateToBrain(npc);
-            lastSentToBrainTime = Time.time;
+            instance.lastSentToBrainTime = Time.time;
 
             UserInfo userInfo = new UserInfo();
             userInfo.Name = "NPC";
@@ -1363,8 +1363,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             WriteWAVFile(floatData, numChannels, sampleRate, npcDialogueAudioPath);
             Debug.Log("Audio file downloaded and saved to: " + npcDialogueAudioPath);*/
 
-            if (lastSentToBrainTime > 0)
-                Debug.Log("Brain response time: " + (Time.time - lastSentToBrainTime));
+            if (instance.lastSentToBrainTime > 0)
+                Debug.Log("Brain response time: " + (Time.time - instance.lastSentToBrainTime));
 
             PlayWavFile(npcDialogueRawAudioPath);
             
