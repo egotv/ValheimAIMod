@@ -46,7 +46,7 @@ namespace ValheimAIModLoader
             {
                 if (command == null) continue;
 
-                if (command.IsConditionMet())
+                if (command.IsTaskComplete())
                 {
                     continue;
                 }

@@ -26,6 +26,7 @@ namespace ValheimAIModLoader
         public CommandType Type { get; set; }
         public int priority = 0;
         public int expiresAt = 0;
+        public bool DestroyOnComplete = false;
         //public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
 
 
@@ -53,7 +54,7 @@ namespace ValheimAIModLoader
             }*/
         }
 
-        public abstract bool IsConditionMet();
+        public abstract bool IsTaskComplete();
         public abstract void Execute();
 
         /*public void SetParameter(string key, object value)
@@ -81,7 +82,7 @@ namespace ValheimAIModLoader
         public Vector3 patrol_position;
         public int patrol_radius;
 
-        public override bool IsConditionMet()
+        public override bool IsTaskComplete()
         {
             return (patrol_position.DistanceTo(NPC.transform.position) < patrol_radius);
         }
@@ -97,7 +98,7 @@ namespace ValheimAIModLoader
         public string ResourceName { get; set; }
         public int RequiredAmount { get; set; }
 
-        public override bool IsConditionMet()
+        public override bool IsTaskComplete()
         {
             // Check if harvesting condition is met, e.g., resource is within range
             //return Vector3.Distance(npc.transform.position, Resource.transform.position) <= 5f;
@@ -114,7 +115,7 @@ namespace ValheimAIModLoader
     {
         public GameObject Target { get; set; }
 
-        public override bool IsConditionMet()
+        public override bool IsTaskComplete()
         {
             // Check if harvesting condition is met, e.g., resource is within range
             if (Target == null) return true;

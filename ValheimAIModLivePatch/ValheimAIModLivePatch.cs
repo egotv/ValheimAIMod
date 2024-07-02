@@ -16,8 +16,6 @@ using ValheimAIModLoader;
 using System.IO;
 using System.Net;
 using Jotunn.Managers;
-using NVorbis;
-using static System.Net.Mime.MediaTypeNames;
 
 [BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
 [BepInProcess("valheim.exe")]
@@ -346,6 +344,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Pickable pick = resource.GetComponent<Pickable>();
         pick.Interact(__instance, false, false);*/
 
+        if (!ZNetScene.instance || !Player.m_localPlayer)
+        {
+            // Player is not in a world, allow input
+            return;
+        }
+
         if (Menu.IsVisible() || Console.IsVisible() || Chat.instance.HasFocus())
         {
             //Debug.Log("Menu visible");
@@ -409,7 +413,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //instance.PlayRecordedAudio("");
             //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
             //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
-            LoadOggFromFile();
             return;
         }
     }
@@ -488,7 +491,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         else if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource)
         {
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
-            Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
+            //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
             if (humanoidNPC.LastPositionDelta > 2.5f)
             {
                 humanoidNPC.StartAttack(humanoidNPC, false);
@@ -624,7 +627,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
     // OVERRIDE CheckRun: NPC can run when Player has over 5 stamina
-    [HarmonyPostfix]
+    /*[HarmonyPostfix]
     [HarmonyPatch(typeof(Character), "CheckRun")]
     public static void Character_CheckRun_Postfix(Character __instance, Vector3 moveDir, float dt, ref bool __result)
     {
@@ -636,24 +639,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 __result = Player.m_localPlayer.HaveStamina(5f);
             }
         }
-    }
+    }*/
 
     // OVERRIDE CheckRun: if this character can run? with stamina logic
     /*[HarmonyPrefix]
     [HarmonyPatch(typeof(Character), "CheckRun")]
     public static bool Character_CheckRun_Prefix(Character __instance, Vector3 moveDir, float dt)
     {
-        // 
-        ValheimAIModLoader.NPCScript npcscript_component = IsScriptNPC(__instance);
-        if (npcscript_component)
+        if (!__instance.name.Contains("HumanoidNPC")) return true;
+
+
+
+        HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
+
+        if (humanoidNPC_component)
         {
-            if (Time.time - npcscript_component.m_staminaLastBreakTime < instance.StaminaExhaustedMinimumBreakTime)
+            if (Time.time - humanoidNPC_component.m_staminaLastBreakTime < humanoidNPC_component.StaminaExhaustedMinimumBreakTime)
             {
                 return false;
             }
-            else if (npcscript_component.m_stamina < instance.MinimumStaminaToRun)
+            else if (humanoidNPC_component.m_stamina < humanoidNPC_component.MinimumStaminaToRun)
             {
-                npcscript_component.m_staminaLastBreakTime = Time.time;
+                humanoidNPC_component.m_staminaLastBreakTime = Time.time;
                 return false;
             }
         }
@@ -732,7 +739,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static void Character_GetHoverText_Postfix(Character __instance, ref string __result)
     {
         if (__instance.name.Contains("HumanoidNPC"))
+        {
+            HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
+            __result += "\n<color=purple><b>" + humanoidNPC_component.m_stamina + "</b></color>";
             __result += "\n<color=purple><b>" + instance.eNPCMode.ToString().ToUpper() + "</b></color>";
+        }
     }
 
     // TO READ NAMES OF ATTACK ANIMS
@@ -1537,37 +1548,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             AudioSource.PlayClipAtPoint(recordedClip, Player.m_localPlayer.transform.position, 1f);
 
         Debug.Log("Playing last recorded clip audio");
-    }
-
-    public static AudioClip LoadOggFromFile(string filePath = "")
-    {
-        filePath = @"C:\Users\hunda\Downloads\alarm.ogg";
-
-        using (var vorbis = new VorbisReader(filePath))
-        {
-            float[] samples = new float[vorbis.TotalSamples];
-            int read = vorbis.ReadSamples(samples, 0, (int)vorbis.TotalSamples);
-
-            AudioClip clip = AudioClip.Create("OggClip", read / vorbis.Channels, vorbis.Channels, vorbis.SampleRate, false);
-            clip.SetData(samples, 0);
-
-            return clip;
-        }
-    }
-
-    public static AudioClip LoadOggFromBytes(byte[] oggData)
-    {
-        using (var stream = new MemoryStream(oggData))
-        using (var vorbis = new VorbisReader(stream))
-        {
-            float[] samples = new float[vorbis.TotalSamples];
-            int read = vorbis.ReadSamples(samples, 0, (int)vorbis.TotalSamples);
-
-            AudioClip clip = AudioClip.Create("OggClip", read / vorbis.Channels, vorbis.Channels, vorbis.SampleRate, false);
-            clip.SetData(samples, 0);
-
-            return clip;
-        }
     }
 
     public void PlayWavFile(string filePath)

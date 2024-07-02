@@ -48,9 +48,13 @@ namespace ValheimAIModLoader
         private float m_foodUpdateTimer;
         private float m_foodRegenTimer;
 
-        private float m_stamina = 100f;
-        private float m_maxStamina = 100f;
-        private float m_staminaRegenTimer;
+        public float m_stamina = 100f;
+        public float m_maxStamina = 100f;
+        public float m_staminaRegenTimer;
+
+        public float m_staminaLastBreakTime = 0f;
+        public float StaminaExhaustedMinimumBreakTime = 2f;
+        public float MinimumStaminaToRun = 5f;
 
         private float m_eitr;
         private float m_maxEitr;
@@ -112,7 +116,7 @@ namespace ValheimAIModLoader
 
         public void UpdateLastPosition(float fixedDeltaTime)
         {
-            if (this.transform.position.DistanceTo(LastPosition) < 1f)
+            if (this.transform.position.DistanceTo(LastPosition) < .4f)
             {
                 LastPositionDelta += fixedDeltaTime;
             }
@@ -187,6 +191,23 @@ namespace ValheimAIModLoader
             float limit = m_maxCarryWeight;
             m_seman.ModifyMaxCarryWeight(limit, ref limit);
             return limit;
+        }
+
+        public override bool CheckRun(Vector3 moveDir, float dt)
+        {
+            if (!base.CheckRun(moveDir, dt))
+            {
+                return false;
+            }
+            bool flag = HaveStamina();
+            float skillFactor = Player.m_localPlayer.m_skills.GetSkillFactor(Skills.SkillType.Run);
+            float num = Mathf.Lerp(1f, 0.5f, skillFactor);
+            float num2 = m_runStaminaDrain * num;
+            num2 -= num2 * Player.m_localPlayer.GetEquipmentMovementModifier();
+            num2 += num2 * Player.m_localPlayer.GetEquipmentRunStaminaModifier();
+            //m_seman.ModifyRunStaminaDrain(num2, ref num2);
+            UseStamina(dt * num2 * Game.m_moveStaminaRate);
+            return false;
         }
 
         public override void SetupVisEquipment(VisEquipment visEq, bool isRagdoll)
