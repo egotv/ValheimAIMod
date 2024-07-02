@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using UnityEngine;
 
 namespace ValheimAIModLoader
@@ -95,6 +96,9 @@ namespace ValheimAIModLoader
         {
             base.CustomFixedUpdate(fixedDeltaTime);
 
+
+            UpdateStats(fixedDeltaTime);
+
             UpdateCrouch(fixedDeltaTime);
             AutoPickup(fixedDeltaTime);
 
@@ -102,6 +106,91 @@ namespace ValheimAIModLoader
             UpdatePin();
 
             //Debug.Log(IsCrouching());
+        }
+
+        private void UpdateStats(float dt)
+        {
+            if (this == null)
+            {
+                return;
+            }
+
+            if (this.InIntro() || this.IsTeleporting())
+            {
+                return;
+            }
+            m_timeSinceDeath += dt;
+            //UpdateModifiers();
+            //UpdateFood(dt, forceUpdate: false);
+            bool flag = this.IsEncumbered();
+            float maxStamina = m_maxStamina;
+            float num = 1f;
+            if (this.IsBlocking())
+            {
+                num *= 0.8f;
+            }
+            if ((this.IsSwimming() && !this.IsOnGround()) || this.InAttack() || this.InDodge() || this.m_wallRunning || flag)
+            {
+                num = 0f;
+            }
+            float num2 = (m_staminaRegen + (1f - m_stamina / maxStamina) * m_staminaRegen * m_staminaRegenTimeMultiplier) * num;
+            float staminaMultiplier = 1f;
+            this.m_seman.ModifyStaminaRegen(ref staminaMultiplier);
+            num2 *= staminaMultiplier;
+            m_staminaRegenTimer -= dt;
+            //Debug.Log(m_staminaRegenTimer);
+            if (m_stamina < maxStamina && m_staminaRegenTimer <= 0f)
+            {
+                m_stamina = Mathf.Min(maxStamina, m_stamina + num2 * dt * Game.m_staminaRegenRate);
+            }
+            //m_humanoid.m_nview.GetZDO().Set(ZDOVars.s_stamina, m_stamina);
+            float maxEitr = this.GetMaxEitr();
+            float num3 = 1f;
+            if (this.IsBlocking())
+            {
+                num3 *= 0.8f;
+            }
+            if (this.InAttack() || this.InDodge())
+            {
+                num3 = 0f;
+            }
+            /*float num4 = (m_eiterRegen + (1f - m_eitr / maxEitr) * m_eiterRegen) * num3;
+            float eitrMultiplier = 1f;
+            m_humanoid.m_seman.ModifyEitrRegen(ref eitrMultiplier);
+            eitrMultiplier += GetEquipmentEitrRegenModifier();
+            num4 *= eitrMultiplier;
+            m_eitrRegenTimer -= dt;
+            if (m_eitr < maxEitr && m_eitrRegenTimer <= 0f)
+            {
+                m_eitr = Mathf.Min(maxEitr, m_eitr + num4 * dt);
+            }*/
+            //m_humanoid.m_nview.GetZDO().Set(ZDOVars.s_eitr, m_eitr);
+            if (flag)
+            {
+                if (this.m_moveDir.magnitude > 0.1f)
+                {
+                    UseStamina(m_encumberedStaminaDrain * dt);
+                }
+                this.m_seman.AddStatusEffect(SEMan.s_statusEffectEncumbered);
+                //ShowTutorial("encumbered");
+            }
+            /*else if (m_humanoid.CheckRun(m_humanoid.m_moveDir, dt))
+            {
+                UseStamina(m_runStaminaDrain * dt);
+            }
+            else
+            {
+                m_humanoid.m_seman.RemoveStatusEffect(SEMan.s_statusEffectEncumbered);
+            }
+            if (!HardDeath())
+            {
+                m_humanoid.m_seman.AddStatusEffect(SEMan.s_statusEffectSoftDeath);
+            }
+            else
+            {
+                m_humanoid.m_seman.RemoveStatusEffect(SEMan.s_statusEffectSoftDeath);
+            }
+            UpdateEnvStatusEffects(dt);*/
         }
 
         public void UpdatePin()
@@ -116,7 +205,7 @@ namespace ValheimAIModLoader
 
         public void UpdateLastPosition(float fixedDeltaTime)
         {
-            if (this.transform.position.DistanceTo(LastPosition) < .4f)
+            if (this.transform.position.DistanceTo(LastPosition) < .15f)
             {
                 LastPositionDelta += fixedDeltaTime;
             }
@@ -206,7 +295,13 @@ namespace ValheimAIModLoader
             num2 -= num2 * Player.m_localPlayer.GetEquipmentMovementModifier();
             num2 += num2 * Player.m_localPlayer.GetEquipmentRunStaminaModifier();
             //m_seman.ModifyRunStaminaDrain(num2, ref num2);
-            UseStamina(dt * num2 * Game.m_moveStaminaRate);
+            if (m_stamina > MinimumStaminaToRun)
+            {
+                //UseStamina();
+                m_stamina -= dt * num2 * Game.m_moveStaminaRate;
+                return true;
+            }
+
             return false;
         }
 

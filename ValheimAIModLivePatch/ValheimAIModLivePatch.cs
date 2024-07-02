@@ -741,7 +741,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (__instance.name.Contains("HumanoidNPC"))
         {
             HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
-            __result += "\n<color=purple><b>" + humanoidNPC_component.m_stamina + "</b></color>";
+            __result += "\n<color=orange><b>" + humanoidNPC_component.m_stamina.ToString("F2") + "</b></color>";
             __result += "\n<color=purple><b>" + instance.eNPCMode.ToString().ToUpper() + "</b></color>";
         }
     }
