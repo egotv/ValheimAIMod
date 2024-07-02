@@ -11,8 +11,7 @@ Run the game
 	Once the player spawns, press F6.
 	
 Keybinds
-	T: Start/stop recording your voice
-	Y: Send your voice recording to Brain API
+	T: Start/stop recording and send to brain
 	
 	(dev npc commands/to be removed)
 	F: Order to follow player
