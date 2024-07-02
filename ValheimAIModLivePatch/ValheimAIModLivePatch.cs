@@ -16,6 +16,8 @@ using ValheimAIModLoader;
 using System.IO;
 using System.Net;
 using Jotunn.Managers;
+using NVorbis;
+using static System.Net.Mime.MediaTypeNames;
 
 [BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
 [BepInProcess("valheim.exe")]
@@ -62,6 +64,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> InventoryKey;
     private ConfigEntry<KeyboardShortcut> TalkKey;
     private ConfigEntry<KeyboardShortcut> SendToBrainKey;
+
+    private ConfigEntry<int> MicrophoneIndex;
+    private ConfigEntry<float> CompanionVolume;
     private ConfigEntry<bool> DisableAutoSave;
 
     private Dictionary<string, Piece.Requirement[]> craftingRequirements = new Dictionary<string, Piece.Requirement[]>();
@@ -119,6 +124,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
         npcDialogueRawAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
 
+        Chat.instance.SendText(Talker.Type.Normal, "EGO.AI MOD LOADED!");
+
+        GetRecordingDevices();
+
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
 
@@ -132,6 +141,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.U), "The key used to command all NPCs to -");
         TalkKey = Config.Bind<KeyboardShortcut>("Keybinds", "TalkKey", new KeyboardShortcut(KeyCode.T), "The key used to talk into the game");
         SendToBrainKey = Config.Bind<KeyboardShortcut>("Keybinds", "SendToBrainKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
+
+        MicrophoneIndex = Config.Bind<int>("Integer", "MicrophoneIndex", 0, "Input device index in Windows Sound Settings.");
+        CompanionVolume = Config.Bind<float>("Float", "CompanionVolume", 1f, "NPC dialogue volume (0-1)");
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
 
@@ -387,6 +399,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             else
             {
                 instance.StopRecording();
+                instance.SendToBrain();
             }
             return;
         }
@@ -396,7 +409,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //instance.PlayRecordedAudio("");
             //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
             //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
-            instance.SendToBrain();
+            LoadOggFromFile();
             return;
         }
     }
@@ -472,12 +485,22 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return true;
         }
 
-        else if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource && __instance.m_follow == null)
+        else if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource)
         {
-            GameObject newfollow;
-            newfollow = FindClosestResource(__instance.gameObject, "Beech_small");
+            HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
+            Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
+            if (humanoidNPC.LastPositionDelta > 2.5f)
+            {
+                humanoidNPC.StartAttack(humanoidNPC, false);
+            }
 
-            __instance.SetFollowTarget(newfollow);
+            if (__instance.m_follow == null)
+            {
+                GameObject newfollow;
+                newfollow = FindClosestResource(__instance.gameObject, "Beech_small");
+
+                __instance.SetFollowTarget(newfollow);
+            }
         }
 
 
@@ -495,10 +518,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     // SOMETIMES AI DOESNT START ATTACKING EVEN THOUGH IT IS IN CLOSE RANGE, SO CHECK AND ATTACK ON UPDATE
 
+    public Minimap.PinType pinType = Minimap.PinType.Icon0;
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(HumanoidNPC), "CustomFixedUpdate")]
     private static void HumanoidNPC_CustomFixedUpdate_Postfix(HumanoidNPC __instance)
     {
+        /*Minimap.instance.UpdatePins();
+        Minimap.instance.SetMapPin(__instance.name, __instance.transform.position);*/
+
+
+
         MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
 
         if (__instance.LastPosition.DistanceTo(__instance.transform.position) > 1f)
@@ -957,7 +987,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ValheimAIModLoader.HumanoidNPC humanoidNPC_component = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
 
             patrol_position = player.transform.position;
-            eNPCMode = ValheimAIModLoader.NPCCommand.CommandType.PatrolArea;
+            instance.eNPCMode = ValheimAIModLoader.NPCCommand.CommandType.PatrolArea;
             instance.patrol_harvest = true;
 
             //Vector3 randLocation = GetRandomReachableLocationInRadius(humanoidNPC_component.patrol_position, patrol_radius);
@@ -969,7 +999,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     
     private void StartFollowing(Player player)
     {
-        eNPCMode = NPCCommand.CommandType.FollowPlayer;
+        instance.eNPCMode = NPCCommand.CommandType.FollowPlayer;
 
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
@@ -980,14 +1010,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             monsterAIcomponent.SetFollowTarget(player.gameObject);
             Debug.Log("Everyone now following player!");
 
-            
+            AddChatTalk(humanoidnpc_component, "NPC", "Coming!");
 
-            string text = "Coming!";
+            /*string text = "Coming!";
             UserInfo userInfo = new UserInfo();
             userInfo.Name = "NPC";
 
             Vector3 headPoint = humanoidnpc_component.GetEyePoint();
-            Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, text);
+            //Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, text);
+            Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Normal, userInfo, text);
+            Chat.instance.AddString("NPC", text, Talker.Type.Normal);*/
             //humanoidnpc_component.m_zanim.SetTrigger("Talk");
         }
     }
@@ -1014,13 +1046,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void StartAttacking(Player player)
     {
-        eNPCMode = ValheimAIModLoader.NPCCommand.CommandType.AttackTarget;
+        instance.eNPCMode = ValheimAIModLoader.NPCCommand.CommandType.AttackTarget;
 
         GameObject[] allEnemies = FindEnemies();
-        foreach (GameObject npc in allEnemies)
+        /*foreach (GameObject npc in allEnemies)
         {
             Debug.Log(npc.name);
-        } 
+        }*/ 
 
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
@@ -1029,7 +1061,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             // disregard nearby enemies
             monsterAIcomponent.SetFollowTarget(null);
-            monsterAIcomponent.m_viewRange = 50f;
+            monsterAIcomponent.m_viewRange = 80f;
             monsterAIcomponent.m_alerted = false;
             monsterAIcomponent.m_aggravatable = true;
             monsterAIcomponent.SetHuntPlayer(true);
@@ -1056,10 +1088,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             SendUpdateToBrain(npc);
             instance.lastSentToBrainTime = Time.time;
 
-            UserInfo userInfo = new UserInfo();
+            AddChatTalk(humanoidComponent, "NPC", "...");
+
+            /*UserInfo userInfo = new UserInfo();
             userInfo.Name = "NPC";
             Vector3 headPoint = humanoidComponent.GetEyePoint();
-            Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, "...");
+            Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, "...");*/
         }
     }
 
@@ -1161,10 +1195,31 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private int sampleRate = 22050; // Reduced from 44100
     private int bitDepth = 8; // Reduced from 16
 
+    private void GetRecordingDevices()
+    {
+        string[] microphoneDevices = Microphone.devices;
+
+        foreach (string deviceName in microphoneDevices)
+        {
+            Debug.Log("Microphone device: " + deviceName);
+        }
+    }
+
+    private string GetRecordingDevice()
+    {
+        if (Microphone.devices.Length > MicrophoneIndex.Value)
+        {
+            return Microphone.devices[MicrophoneIndex.Value];
+        }
+
+        return null;
+    }
+
     private void StartRecording()
     {
-        instance.recordedAudioClip = Microphone.Start(null, false, recordingLength, sampleRate);
+        instance.recordedAudioClip = Microphone.Start(GetRecordingDevice(), false, recordingLength, sampleRate);
         instance.IsRecording = true;
+        AddChatTalk(Player.m_localPlayer, Player.m_localPlayer.GetPlayerName(), "...");
         //Debug.Log("Recording started");
     }
 
@@ -1265,7 +1320,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    
+    private void AddChatTalk(Character character, string name, string text)
+    {
+        UserInfo userInfo = new UserInfo();
+        userInfo.Name = name;
+        Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
+        Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
+        Chat.instance.AddString("NPC", text, Talker.Type.Normal);
+    }
 
     private void SendUpdateToBrain(GameObject npc)
     {
@@ -1293,6 +1355,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
             string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
             string agent_text_response = responseObject["agent_text_response"].ToString();
+            string player_instruction_transcription = responseObject["player_instruction_transcription"].ToString();
 
             // Get the agent_commands array
             JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
@@ -1313,15 +1376,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 Debug.Log("No agent commands found.");
             }
 
+            Chat.instance.AddString(Player.m_localPlayer.GetPlayerName(), player_instruction_transcription, Talker.Type.Normal);
+
             GameObject[] npcs = FindPlayerNPCs();
             if (npcs.Length > 0 && npcs[0])
             {
                 HumanoidNPC humanoidnpc_component = npcs[0].GetComponent<HumanoidNPC>();
 
-                UserInfo userInfo = new UserInfo();
+                AddChatTalk(humanoidnpc_component, "NPC", agent_text_response);
+
+                /*UserInfo userInfo = new UserInfo();
                 userInfo.Name = "NPC";
-                Vector3 headPoint = humanoidnpc_component.GetEyePoint();
-                Chat.instance.AddInworldText(npcs[0], 0, headPoint, Talker.Type.Shout, userInfo, agent_text_response);
+                Vector3 headPoint = humanoidnpc_component.GetEyePoint() + Vector3.up * 15f;
+                Chat.instance.AddInworldText(npcs[0], 0, headPoint, Talker.Type.Normal, userInfo, agent_text_response);*/
             }
 
             // Download the audio file asynchronously
@@ -1472,6 +1539,37 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("Playing last recorded clip audio");
     }
 
+    public static AudioClip LoadOggFromFile(string filePath = "")
+    {
+        filePath = @"C:\Users\hunda\Downloads\alarm.ogg";
+
+        using (var vorbis = new VorbisReader(filePath))
+        {
+            float[] samples = new float[vorbis.TotalSamples];
+            int read = vorbis.ReadSamples(samples, 0, (int)vorbis.TotalSamples);
+
+            AudioClip clip = AudioClip.Create("OggClip", read / vorbis.Channels, vorbis.Channels, vorbis.SampleRate, false);
+            clip.SetData(samples, 0);
+
+            return clip;
+        }
+    }
+
+    public static AudioClip LoadOggFromBytes(byte[] oggData)
+    {
+        using (var stream = new MemoryStream(oggData))
+        using (var vorbis = new VorbisReader(stream))
+        {
+            float[] samples = new float[vorbis.TotalSamples];
+            int read = vorbis.ReadSamples(samples, 0, (int)vorbis.TotalSamples);
+
+            AudioClip clip = AudioClip.Create("OggClip", read / vorbis.Channels, vorbis.Channels, vorbis.SampleRate, false);
+            clip.SetData(samples, 0);
+
+            return clip;
+        }
+    }
+
     public void PlayWavFile(string filePath)
     {
         if (!File.Exists(filePath))
@@ -1491,19 +1589,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
             audioSource.clip = clip;
             audioSource.spatialBlend = 0f;
-            audioSource.volume = 1.0f;
+            audioSource.volume = instance.CompanionVolume.Value;
             audioSource.bypassEffects = true;
             audioSource.bypassListenerEffects = true;
             audioSource.bypassReverbZones = true;
             audioSource.Play();
             UnityEngine.Object.Destroy(gameObject, clip.length * ((Time.timeScale < 0.01f) ? 0.01f : Time.timeScale));
-            //AudioSource.PlayClipAtPoint(audioClip, Player.m_localPlayer.transform.position);
-
-            /*if (audioClip != null)
-            {
-                audioSource.clip = audioClip;
-                audioSource.Play();
-            }*/
         }
         catch (Exception e)
         {
@@ -1667,13 +1758,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         monsterAIcomp.MakeTame();
 
 
-
-
-
         // add item to inventory
         ValheimAIModLoader.HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<ValheimAIModLoader.HumanoidNPC>();
         if (humanoidNpc_Component != null)
         {
+            humanoidNpc_Component.m_name = "NPC";
+
             GameObject itemPrefab;
             
             itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
@@ -2004,4 +2094,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         return !instance.DisableAutoSave.Value;
     }
+}
+
+public static class NativeAudio
+{
+    [System.Runtime.InteropServices.DllImport("OggDecoder")]
+    public static extern int DecodeOggVorbis(byte[] oggData, int oggDataLength, out IntPtr pcmData, out int channels, out int frequency);
+
+    [System.Runtime.InteropServices.DllImport("OggDecoder")]
+    public static extern void FreeUnmanagedMemory(IntPtr ptr);
 }

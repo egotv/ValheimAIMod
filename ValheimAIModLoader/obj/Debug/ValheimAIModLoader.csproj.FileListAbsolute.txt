@@ -58,3 +58,4 @@ C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\Unity
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\PlatformTools.Common.dll
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.ParticleSystemModule.xml
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.AudioModule.xml
+C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.TerrainModule.dll

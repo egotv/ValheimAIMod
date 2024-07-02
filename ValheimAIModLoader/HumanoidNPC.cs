@@ -72,6 +72,8 @@ namespace ValheimAIModLoader
 
         public Vector3 patrol_position;
 
+        public Minimap.PinData npcPinData;
+
 
         /*protected override void Start()
         {
@@ -88,10 +90,37 @@ namespace ValheimAIModLoader
         public override void CustomFixedUpdate(float fixedDeltaTime)
         {
             base.CustomFixedUpdate(fixedDeltaTime);
+
             UpdateCrouch(fixedDeltaTime);
             AutoPickup(fixedDeltaTime);
 
+            UpdateLastPosition(fixedDeltaTime);
+            UpdatePin();
+
             //Debug.Log(IsCrouching());
+        }
+
+        public void UpdatePin()
+        {
+            if (npcPinData != null)
+            {
+                Minimap.instance.RemovePin(npcPinData);
+            }
+
+            npcPinData = Minimap.instance.AddPin(this.transform.position, Minimap.PinType.Player, "NPC", true, false);
+        }
+
+        public void UpdateLastPosition(float fixedDeltaTime)
+        {
+            if (this.transform.position.DistanceTo(LastPosition) < 1f)
+            {
+                LastPositionDelta += fixedDeltaTime;
+            }
+            else
+            {
+                LastPosition = this.transform.position;
+                LastPositionDelta = 0f;
+            }
         }
 
         /*public override bool IsPlayer()
