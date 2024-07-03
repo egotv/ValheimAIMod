@@ -18,24 +18,12 @@ using System.Net;
 using Jotunn.Managers;
 using System.ComponentModel;
 
-[BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
+[BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
 public class ValheimAIModLivePatch : BaseUnityPlugin
 {
-    /*public class SpawnNPCCommand : ConsoleCommand
-    {
-        public override string Name => "ego_spawnNPC";
-
-        public override string Help => "Spawns a friend in the world";
-
-        public override void Run(string[] args)
-        {
-            instance.SpawnCompanion();
-        }
-    }*/
-
     private static ValheimAIModLivePatch instance;
-    private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLivePatch");
+    private readonly Harmony harmony = new Harmony("egovalheimmod.ValheimAIModLivePatch");
     
     //private const string brainBaseURL = "http://localhost:5000";
     private const string brainBaseURL = "https://valheim-agent-brain.fly.dev";
@@ -44,16 +32,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private string npcDialogueAudioPath;
     private string npcDialogueRawAudioPath;
 
-
-    //private AudioSource audioSource;
-
     private const int NUMBER_OF_CHANNELS = 2;
     private const int SAMPLE_WIDTH = 2;
     private const int FRAME_RATE = 48000;
-
-
-    /*private IWavePlayer waveOutDevice;
-    private WaveStream waveStream;*/
 
     private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
     private ConfigEntry<KeyboardShortcut> TogglePatrolKey;
@@ -93,10 +74,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private float FollowUntilDistance = .5f;
     private float RunUntilDistance = 3f;
-
-    private float StaminaExhaustedMinimumBreakTime = 3f;
-    private float MinimumStaminaToRun = 5f;
-
     public Vector3 patrol_position = Vector3.zero;
     public float patrol_radius = 10f;
     public bool patrol_harvest = false;
@@ -106,7 +83,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     public bool PlayingAnim = false;
 
     private AudioClip recordedAudioClip;
-    private AudioSource audioSource;
     public bool IsRecording = false;
 
 
@@ -152,190 +128,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         harmony.UnpatchSelf();
     }
 
-    private void PopulateCraftingRequirements()
-    {
-        var jsonObject = new JsonObject();
-        foreach (GameObject prefab in ObjectDB.instance.m_items)
-        {
-            ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
-            if (itemDrop != null)
-            {
-                var thisJsonObject = new JsonObject();
-                
-                thisJsonObject["name"] = itemDrop.name;
-                thisJsonObject["itemName"] = itemDrop.m_itemData.m_shared.m_name;
-
-                JsonObject itemDropCustomData = new JsonObject();
-                foreach (var s in itemDrop.m_itemData.m_customData)
-                {
-                    itemDropCustomData[s.Key] = s.Value;
-                }
-                if (itemDropCustomData.Count > 0)
-                    thisJsonObject["customData"] = itemDropCustomData;
-
-                if (itemDrop.m_itemData.m_shared.m_description != "")
-                {
-                    string description = LocalizationManager.Instance.TryTranslate(itemDrop.m_itemData.m_shared.m_description);
-
-                    // If the description is the same as the key, it means no translation was found
-                    if (description != "")
-                    {
-                        thisJsonObject["description"] = description;
-                    }
-                }
-                    
-
-                thisJsonObject["armor"] = itemDrop.m_itemData.m_shared.m_armor;
-                thisJsonObject["maxDurability"] = itemDrop.m_itemData.m_shared.m_maxDurability;
-                thisJsonObject["weight"] = itemDrop.m_itemData.m_shared.m_weight;
-
-                Recipe recipe = ObjectDB.instance.GetRecipe(itemDrop.m_itemData);
-                if (recipe != null)
-                {
-                    craftingRequirements[itemDrop.m_itemData.m_shared.m_name] = recipe.m_resources;
-                    JsonArray requirementsArray = new JsonArray();
-                    foreach (var req in recipe.m_resources)
-                    {
-                        JsonObject reqObject = new JsonObject();
-
-                        reqObject["name"] = req.m_resItem.name;
-                        reqObject["itemName"] = req.m_resItem.m_itemData.m_shared.m_name;
-
-                        if (req.m_resItem.m_itemData.m_shared.m_description != "")
-                        {
-                            string description = LocalizationManager.Instance.TryTranslate(req.m_resItem.m_itemData.m_shared.m_description);
-
-                            // If the description is the same as the key, it means no translation was found
-                            if (description != "")
-                            {
-                                reqObject["description"] = description;
-                            }
-                        }
-
-                        reqObject["amount"] = req.m_amount;
-                        /*reqObject["amountPerLevel"] = req.m_amountPerLevel;
-                        reqObject["m_recover"] = req.m_recover;
-                        reqObject["m_extraAmountOnlyOneIngredient"] = req.m_extraAmountOnlyOneIngredient;*/
-
-                        requirementsArray.Add(reqObject);
-                    }
-                    thisJsonObject["m_resources"] = requirementsArray;
-                }
-
-                jsonObject[itemDrop.m_itemData.m_shared.m_name] = thisJsonObject;
-            }
-        }
-
-        string json = jsonObject.ToString();
-
-        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(desktopPath, "crafting_requirements.json");
-
-        File.WriteAllText(filePath, json);
-        Debug.Log($"Crafting requirements exported to {filePath}");
-    }
-
-    private void PopulateBuildingRequirements()
-    {
-        var jsonObject = new JsonObject();
-        foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
-        {
-            Piece piece = prefab.GetComponent<Piece>();
-            if (piece != null)
-            {
-                string pieceName = piece.m_name;
-                buildingRequirements[pieceName] = piece.m_resources;
-
-                JsonObject thisJsonObject = new JsonObject();
-                thisJsonObject["name"] = piece.name;
-                thisJsonObject["itemName"] = piece.m_name;
-
-                if (piece.m_description != "")
-                {
-                    string description = LocalizationManager.Instance.TryTranslate(piece.m_description);
-
-                    // If the description is the same as the key, it means no translation was found
-                    if (description != "")
-                    {
-                        thisJsonObject["description"] = description;
-                    }
-                }
-
-                thisJsonObject["category"] = piece.m_category.ToString();
-                thisJsonObject["comfort"] = piece.m_comfort;
-                thisJsonObject["groundPiece"] = piece.m_groundPiece;
-                thisJsonObject["allowedInDungeons"] = piece.m_allowedInDungeons;
-                thisJsonObject["spaceRequirement"] = piece.m_spaceRequirement;
-
-                JsonArray requirementsArray = new JsonArray();
-                foreach (var req in piece.m_resources)
-                {
-                    JsonObject reqObject = new JsonObject();
-                    reqObject["name"] = req.m_resItem.name;
-                    reqObject["itemName"] = req.m_resItem.m_itemData.m_shared.m_name;
-
-                    if (req.m_resItem.m_itemData.m_shared.m_description != "")
-                    {
-                        string description = LocalizationManager.Instance.TryTranslate(req.m_resItem.m_itemData.m_shared.m_description);
-
-                        // If the description is the same as the key, it means no translation was found
-                        if (description != "")
-                        {
-                            reqObject["description"] = description;
-                        }
-                    }
-
-                    reqObject["amount"] = req.m_amount;
-                    reqObject["amountPerLevel"] = req.m_amountPerLevel;
-                    reqObject["m_recover"] = req.m_recover;
-                    reqObject["m_extraAmountOnlyOneIngredient"] = req.m_extraAmountOnlyOneIngredient;
-
-                    requirementsArray.Add(reqObject);
-                }
-                thisJsonObject["m_resources"] = requirementsArray;
-                jsonObject[pieceName] = thisJsonObject;
-            }
-        }
-
-        string json = jsonObject.ToString();
-
-        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(desktopPath, "building_requirements.json");
-
-        File.WriteAllText(filePath, json);
-        Debug.Log($"Building requirements exported to {filePath}");
-    }
-
     
-
-    /*private void PopulateResourceLocations()
-    {
-        GameObject prefab = ZNetScene.instance.GetPrefab("Resin");
-        ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
-        if (itemDrop != null)
-        {
-            ZoneSystem.ZoneVegetation z = ZoneSystem.instance.m_vegetation.First();
-
-            foreach (ZoneSystem.ZoneVegetation zoneVegetation in ZoneSystem.instance.m_vegetation)
-            {
-                if (zoneVegetation.m_prefab == prefab)
-                {
-                    string biomeName = ZoneSystem.instance.GetZone(zoneVegetation.m_biome).m_name;
-                    resourceLocations[itemName].Add(biomeName);
-                }
-            }
-        }
-    }*/
-
-    //public List<Piece.Requirement> GetCraftingRequirements(string itemName)
-    public Piece.Requirement[] GetCraftingRequirements(string itemName)
-    {
-        if (craftingRequirements.ContainsKey(itemName))
-        {
-            return craftingRequirements[itemName];
-        }
-        return null;
-    }
 
     // PROCESS PLAYER INPUT
     [HarmonyPostfix]
@@ -734,13 +527,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return false;
     }
 
-    // OVERRIDE ON PET/ ON TAME
-    /*[HarmonyPostfix]
-    [HarmonyPatch(typeof(Tameable), "Interact")]
-    private static void Tameable_Interact_Postfix(Tameable __instance, Humanoid user, bool hold, bool alt, ref bool __result)
-    {
-    }*/
-
     // OVERRIDE NPC OVERLAY HUD
     [HarmonyPostfix]
     [HarmonyPatch(typeof(Character), "GetHoverText")]
@@ -997,6 +783,81 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
      * 
      */
 
+    private void SpawnCompanion()
+    {
+        GameObject[] npcs = FindPlayerNPCs();
+        if (npcs.Length > 0)
+        {
+            Debug.Log("Spawning more than one NPC is disabled");
+            return;
+        }
+        Player localPlayer = Player.m_localPlayer;
+        GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
+        //GameObject npcPrefab = HumanoidNPCPrefab;
+
+        if (npcPrefab == null)
+        {
+            Logger.LogError("ScriptNPC prefab not found!");
+        }
+
+        // spawn NPC
+        Vector3 spawnPosition = localPlayer.transform.position + localPlayer.transform.forward * 2f;
+        //Vector3 spawnPosition = GetRandomSpawnPosition(10f);
+        Quaternion spawnRotation = localPlayer.transform.rotation;
+
+        GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
+        npcInstance.SetActive(true);
+
+        instance.PlayerNPC = npcInstance;
+
+        // make the monster tame
+        MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
+
+        SetMonsterAIAggravated(monsterAIcomp, false);
+        monsterAIcomp.MakeTame();
+
+
+        // add item to inventory
+        ValheimAIModLoader.HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<ValheimAIModLoader.HumanoidNPC>();
+        if (humanoidNpc_Component != null)
+        {
+            humanoidNpc_Component.m_name = "NPC";
+
+            GameObject itemPrefab;
+
+            // ADD DEFAULT SPAWN ITEMS TO NPC
+            itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
+            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
+
+            itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeChest");
+            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
+
+            itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeLegs");
+            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
+
+            // COPY PROPERTIES FROM PLAYER
+            humanoidNpc_Component.m_walkSpeed = localPlayer.m_walkSpeed;
+
+            // COSMETICS
+            humanoidNpc_Component.SetHair("Hair17");
+
+
+            // SETUP HEALTH AND MAX HEALTH
+            humanoidNpc_Component.SetMaxHealth(300);
+            humanoidNpc_Component.SetHealth(300);
+
+            // ADD CONTAINER TO NPC TO ENABLE PLAYER-NPC INVENTORY INTERACTION
+            humanoidNpc_Component.inventoryContainer = npcInstance.AddComponent<Container>();
+            humanoidNpc_Component.inventoryContainer.m_inventory = humanoidNpc_Component.m_inventory;
+        }
+        else
+        {
+            Logger.LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
+        }
+
+
+    }
+
     private void StartPatrol(Player player)
     {
         GameObject[] allNpcs = FindPlayerNPCs();
@@ -1216,6 +1077,302 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }
 
 
+   
+
+    private void AddChatTalk(Character character, string name, string text)
+    {
+        UserInfo userInfo = new UserInfo();
+        userInfo.Name = name;
+        Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
+        Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
+        Chat.instance.AddString("NPC", text, Talker.Type.Normal);
+    }
+
+    private void SendUpdateToBrain(GameObject npc)
+    {
+        string jsonData = GetJSONForBrain(npc);
+
+        //Debug.Log("jsonData\n " + jsonData);
+
+        // Create a new WebClient
+        WebClient webClient = new WebClient();
+        webClient.Headers.Add("Content-Type", "application/json");
+
+        // Send the POST request
+        webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
+        webClient.UploadStringCompleted += OnSendUpdateToBrainCompleted;
+    }
+
+    private void OnSendUpdateToBrainCompleted(object sender, UploadStringCompletedEventArgs e)
+    {
+        if (e.Error == null)
+        {
+            string responseJson = e.Result;
+            Debug.Log("Response from /instruct_agent: " + responseJson);
+
+            // Parse the response JSON using SimpleJSON's DeserializeObject
+            JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
+            string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
+            string agent_text_response = responseObject["agent_text_response"].ToString();
+            string player_instruction_transcription = responseObject["player_instruction_transcription"].ToString();
+
+            // Get the agent_commands array
+            JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
+
+            // Check if agent_commands array exists and has at least one element
+            if (agentCommands != null && agentCommands.Count > 0)
+            {
+                // Get the first command object from the array
+                JsonObject commandObject = agentCommands[agentCommands.Count - 1] as JsonObject;
+
+                // Get the action_str value from the command object
+                string actionStr = commandObject["action_str"].ToString();
+                Debug.Log("Action String: " + actionStr);
+                ProcessNPCCommand(actionStr);
+            }
+            else
+            {
+                Debug.Log("No agent commands found.");
+            }
+
+            Chat.instance.AddString(Player.m_localPlayer.GetPlayerName(), player_instruction_transcription, Talker.Type.Normal);
+
+            GameObject[] npcs = FindPlayerNPCs();
+            if (npcs.Length > 0 && npcs[0])
+            {
+                HumanoidNPC humanoidnpc_component = npcs[0].GetComponent<HumanoidNPC>();
+
+                AddChatTalk(humanoidnpc_component, "NPC", agent_text_response);
+
+                /*UserInfo userInfo = new UserInfo();
+                userInfo.Name = "NPC";
+                Vector3 headPoint = humanoidnpc_component.GetEyePoint() + Vector3.up * 15f;
+                Chat.instance.AddInworldText(npcs[0], 0, headPoint, Talker.Type.Normal, userInfo, agent_text_response);*/
+            }
+
+            // Download the audio file asynchronously
+            DownloadAudioFile(audioFileId);
+        }
+        else
+        {
+            Debug.LogError("Request failed: " + e.Error.Message);
+        }
+    }
+
+    private void DownloadAudioFile(string audioFileId)
+    {
+        // Create a new WebClient for downloading the audio file
+        WebClient webClient = new WebClient();
+
+        // Download the audio file asynchronously
+        webClient.DownloadDataAsync(new System.Uri($"{brainBaseURL}/get_audio_file?audio_file_id={audioFileId}"));
+        webClient.DownloadDataCompleted += OnAudioFileDownloaded;
+    }
+
+    private void OnAudioFileDownloaded(object sender, DownloadDataCompletedEventArgs e)
+    {
+        if (e.Error == null)
+        {
+            // Save the audio file to disk
+            System.IO.File.WriteAllBytes(npcDialogueRawAudioPath, e.Result);
+            //Debug.Log("Audio file downloaded to: " + npcDialogueRawAudioPath);
+
+            if (instance.lastSentToBrainTime > 0)
+                Debug.Log("Brain response time: " + (Time.time - instance.lastSentToBrainTime));
+
+            PlayWavFile(npcDialogueRawAudioPath);
+            
+        }
+        else if (e.Error is WebException webException && webException.Status == WebExceptionStatus.ProtocolError && ((HttpWebResponse)webException.Response).StatusCode == HttpStatusCode.NotFound)
+        {
+            Debug.LogError("Audio file does not exist.");
+        }
+        else
+        {
+            Debug.LogError("Download failed: " + e.Error.Message);
+        }
+    }
+
+    private void ProcessNPCCommand(string BrainResponseCommand)
+    {
+        Player localPlayer = Player.m_localPlayer;
+        if (BrainResponseCommand == "StartFollowingPlayer")
+        {
+            instance.StartFollowing(localPlayer);
+        }
+        else if (BrainResponseCommand == "StartAttacking")
+        {
+            instance.StartAttacking(localPlayer);
+        }
+        else if (BrainResponseCommand == "StartHarvesting")
+        {
+            instance.StartHarvesting(localPlayer);
+        }
+        else if (BrainResponseCommand == "StartPatrolling")
+        {
+            instance.StartPatrol(localPlayer);
+        }
+    }
+
+    
+
+    
+
+    
+
+
+    /*
+     * 
+     * 
+     * FIND 
+     * 
+     * 
+     */
+
+    
+    private GameObject[] FindEnemies()
+    {
+        if (Time.time - AllEnemiesInstancesLastRefresh < 1f)
+        {
+            return instance.AllEnemiesInstances;
+        }
+        instance.AllEnemiesInstances = GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.HasAnyComponent("MonsterAI"))
+                .ToArray();
+        AllEnemiesInstancesLastRefresh = Time.time;
+        return instance.AllEnemiesInstances;
+    }
+
+    private GameObject[] FindPlayerNPCs()
+    {
+        if (Time.time - AllPlayerNPCInstancesLastRefresh < 1f)
+        {
+            return instance.AllPlayerNPCInstances;
+        }
+        instance.AllPlayerNPCInstances = GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.name.Contains(NPCPrefabName))
+                .ToArray();
+        AllPlayerNPCInstancesLastRefresh = Time.time;
+        if (instance.AllPlayerNPCInstances.Length > 0)
+        {
+            instance.PlayerNPC = instance.AllPlayerNPCInstances[0];
+        }
+        return instance.AllPlayerNPCInstances;
+    }
+
+    private static void RefreshPickables()
+    {
+        GameObject[] pickables = GameObject.FindObjectsOfType<GameObject>(false)
+                //.Where(go => go != null && !ZoneSystem.instance.IsBlocked(go.transform.position) && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
+                .Where(go => go != null  && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
+                .ToArray();
+        instance.AllPickableInstances.Clear();
+        foreach (GameObject pickable in pickables)
+        {
+            instance.AllPickableInstances.Add(pickable);
+        }
+        instance.AllPickableInstancesLastRefresh = Time.time;
+        //Debug.Log("pickables len " + instance.AllPickableInstances.Count());
+    }
+
+    private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
+    {
+        if (!(instance.AllPickableInstances.Count > 0 && Time.time - instance.AllPickableInstancesLastRefresh < 30f && instance.AllPickableInstancesLastRefresh != 0f))
+        {
+            //Debug.Log("Updated AllPickableInstances");
+            RefreshPickables();
+        }
+            
+        IOrderedEnumerable<GameObject> results = instance.AllPickableInstances.ToArray()
+            .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
+            .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position));
+        //Debug.Log("result2 " + results.Count());
+        if (results != null && results.Count() > 0)
+        {
+            try
+            {
+                int i = 0;
+                bool found = false;
+                GameObject result = null;
+
+                while (!found)
+                {
+                    if (i >= results.Count()) return null;
+
+                    result = results.ElementAt(i);
+                    if (result != null)
+                    {
+                        if (result.transform.position.DistanceTo(p_position) < radius)
+                        {
+                            found = true;
+                        }
+                        else
+                        {
+                            Debug.Log("DistanceTo(p_position) < radius");
+                            if (result.transform.position.DistanceTo(character.transform.position) > radius)
+                                return null;
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log("result == null");
+                        return null;
+                    }
+                }
+
+                return result;
+                    
+            }
+            catch (NullReferenceException ex)
+            {
+                Debug.Log($"An error occurred: {ex.Message}");
+            }
+        }
+        else
+        {
+            Debug.Log("No more pickable items within " + radius + " units  from patrol position");
+        }
+              
+        return null;
+    }
+
+    private static GameObject FindClosestResource(GameObject character, string ResourceName)
+    {
+        return GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.name.StartsWith(ResourceName))
+                .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
+                .FirstOrDefault();
+    }
+
+    private GameObject FindClosestTreeFor(GameObject go, string TreeType = "small")
+    {
+        if (TreeType == "small")
+            return FindSmallTrees()//.Where(t => t.gameObject.name.StartsWith("Beech_small"))// || t.gameObject.name.StartsWith("Pine"))
+                .OrderBy(t => Vector3.Distance(go.transform.position, t.transform.position))
+                .FirstOrDefault();
+        return null;
+    }
+
+    private static GameObject[] FindSmallTrees()
+    {
+        instance.SmallTrees = GameObject.FindObjectsOfType<GameObject>(true)
+                .Where(go => go.name.StartsWith("Beech_small"))
+                //.Where(go => go.name.StartsWith("Beech_small") || go.name.StartsWith("Beech"))
+                //.Where(go => go.HasAnyComponent("TreeBase") || go.HasAnyComponent("Destructible"))
+                .ToArray();
+        return instance.SmallTrees;
+    }
+
+
+    /*
+     * 
+     * 
+     * AUDIO
+     * 
+     * 
+     */
+
     private int recordingLength = 6; // Maximum recording length in seconds
     private int sampleRate = 22050; // Reduced from 44100
     private int bitDepth = 8; // Reduced from 16
@@ -1258,9 +1415,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         TrimSilence();
 
         SaveRecording();
-
-        // Save the recorded audio clip to a file
-        //SaveRecordedAudio();
     }
 
     private void TrimSilence()
@@ -1345,173 +1499,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private void AddChatTalk(Character character, string name, string text)
-    {
-        UserInfo userInfo = new UserInfo();
-        userInfo.Name = name;
-        Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
-        Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
-        Chat.instance.AddString("NPC", text, Talker.Type.Normal);
-    }
-
-    private void SendUpdateToBrain(GameObject npc)
-    {
-        string jsonData = GetJSONForBrain(npc);
-
-        //Debug.Log("jsonData\n " + jsonData);
-
-        // Create a new WebClient
-        WebClient webClient = new WebClient();
-        webClient.Headers.Add("Content-Type", "application/json");
-
-        // Send the POST request
-        webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
-        webClient.UploadStringCompleted += OnRequestCompleted;
-    }
-
-    private void OnRequestCompleted(object sender, UploadStringCompletedEventArgs e)
-    {
-        if (e.Error == null)
-        {
-            string responseJson = e.Result;
-            Debug.Log("Response from /instruct_agent: " + responseJson);
-
-            // Parse the response JSON using SimpleJSON's DeserializeObject
-            JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
-            string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
-            string agent_text_response = responseObject["agent_text_response"].ToString();
-            string player_instruction_transcription = responseObject["player_instruction_transcription"].ToString();
-
-            // Get the agent_commands array
-            JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
-
-            // Check if agent_commands array exists and has at least one element
-            if (agentCommands != null && agentCommands.Count > 0)
-            {
-                // Get the first command object from the array
-                JsonObject commandObject = agentCommands[agentCommands.Count - 1] as JsonObject;
-
-                // Get the action_str value from the command object
-                string actionStr = commandObject["action_str"].ToString();
-                Debug.Log("Action String: " + actionStr);
-                ProcessNPCCommand(actionStr);
-            }
-            else
-            {
-                Debug.Log("No agent commands found.");
-            }
-
-            Chat.instance.AddString(Player.m_localPlayer.GetPlayerName(), player_instruction_transcription, Talker.Type.Normal);
-
-            GameObject[] npcs = FindPlayerNPCs();
-            if (npcs.Length > 0 && npcs[0])
-            {
-                HumanoidNPC humanoidnpc_component = npcs[0].GetComponent<HumanoidNPC>();
-
-                AddChatTalk(humanoidnpc_component, "NPC", agent_text_response);
-
-                /*UserInfo userInfo = new UserInfo();
-                userInfo.Name = "NPC";
-                Vector3 headPoint = humanoidnpc_component.GetEyePoint() + Vector3.up * 15f;
-                Chat.instance.AddInworldText(npcs[0], 0, headPoint, Talker.Type.Normal, userInfo, agent_text_response);*/
-            }
-
-            // Download the audio file asynchronously
-            DownloadAudioFile(audioFileId);
-        }
-        else
-        {
-            Debug.LogError("Request failed: " + e.Error.Message);
-        }
-    }
-
-    private void DownloadAudioFile(string audioFileId)
-    {
-        // Create a new WebClient for downloading the audio file
-        WebClient webClient = new WebClient();
-
-        // Download the audio file asynchronously
-        webClient.DownloadDataAsync(new System.Uri($"{brainBaseURL}/get_audio_file?audio_file_id={audioFileId}"));
-        webClient.DownloadDataCompleted += OnAudioFileDownloaded;
-    }
-
-    private void OnAudioFileDownloaded(object sender, DownloadDataCompletedEventArgs e)
-    {
-        if (e.Error == null)
-        {
-            // Save the audio file to disk
-            System.IO.File.WriteAllBytes(npcDialogueRawAudioPath, e.Result);
-            //Debug.Log("Audio file downloaded to: " + npcDialogueRawAudioPath);
-
-            /*byte[] byteData = e.Result;
-            float[] floatData = new float[byteData.Length / 4];
-            Buffer.BlockCopy(byteData, 0, floatData, 0, byteData.Length);
-
-            // Determine the number of channels and sample rate based on the recorded audio clip
-            int numChannels = instance.recordedAudioClip.channels;
-            int sampleRate = instance.recordedAudioClip.frequency;
-
-            // Save the audio file to disk using the WriteWAVFile function
-            WriteWAVFile(floatData, numChannels, sampleRate, npcDialogueAudioPath);
-            Debug.Log("Audio file downloaded and saved to: " + npcDialogueAudioPath);*/
-
-            if (instance.lastSentToBrainTime > 0)
-                Debug.Log("Brain response time: " + (Time.time - instance.lastSentToBrainTime));
-
-            PlayWavFile(npcDialogueRawAudioPath);
-            
-        }
-        else if (e.Error is WebException webException && webException.Status == WebExceptionStatus.ProtocolError && ((HttpWebResponse)webException.Response).StatusCode == HttpStatusCode.NotFound)
-        {
-            Debug.LogError("Audio file does not exist.");
-        }
-        else
-        {
-            Debug.LogError("Download failed: " + e.Error.Message);
-        }
-    }
-
-    private void LoadAndPlayAudioFromBase64(string audioPath)
-    {
-        byte[] audioData = File.ReadAllBytes(audioPath);
-
-        using (MemoryStream ms = new MemoryStream(audioData))
-        {
-            AudioClip audioClip = LoadAudioClipFromStream(ms);
-
-            AudioSource.PlayClipAtPoint(audioClip, Player.m_localPlayer.transform.position);
-        }
-    }
-
-    private AudioClip LoadAudioClipFromStream(MemoryStream stream)
-    {
-        // Read the WAV header
-        byte[] header = new byte[44];
-        stream.Read(header, 0, 44);
-
-        // Extract the audio format information from the header
-        int frequency = BitConverter.ToInt32(header, 24);
-        int channels = BitConverter.ToInt16(header, 22);
-        int samples = BitConverter.ToInt32(header, 40);
-
-        // Read the audio data
-        byte[] audioData = new byte[stream.Length - 44];
-        stream.Read(audioData, 0, audioData.Length);
-
-        // Create a new AudioClip
-        AudioClip audioClip = AudioClip.Create("AudioClip", samples, channels, frequency, false);
-
-        // Set the audio data
-        float[] floatData = new float[audioData.Length / 2];
-        for (int i = 0; i < floatData.Length; i++)
-        {
-            floatData[i] = (short)(audioData[i * 2] | audioData[i * 2 + 1] << 8) / 32768f;
-        }
-        audioClip.SetData(floatData, 0);
-
-        return audioClip;
-    }    
-
     private AudioClip LoadAudioClip(string audioPath)
     {
         AudioClip loadedClip;
@@ -1546,8 +1533,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    
-
     private void PlayRecordedAudio(string fileName)
     {
         /*string audioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
@@ -1564,6 +1549,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("Playing last recorded clip audio");
     }
 
+    public void MyPlayAudio(AudioClip clip)
+    {
+        GameObject gameObject = new GameObject("One shot audio");
+        gameObject.transform.position = Player.m_localPlayer.transform.position;
+        AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
+        audioSource.clip = clip;
+        audioSource.spatialBlend = 0f;
+        audioSource.volume = instance.CompanionVolume.Value;
+        audioSource.bypassEffects = true;
+        audioSource.bypassListenerEffects = true;
+        audioSource.bypassReverbZones = true;
+        audioSource.Play();
+        UnityEngine.Object.Destroy(gameObject, clip.length * ((Time.timeScale < 0.01f) ? 0.01f : Time.timeScale));
+    }
+
     public void PlayWavFile(string filePath)
     {
         if (!File.Exists(filePath))
@@ -1577,18 +1577,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             byte[] wavData = File.ReadAllBytes(filePath);
             AudioClip clip = WavToAudioClip(wavData, Path.GetFileNameWithoutExtension(filePath));
 
-
-            GameObject gameObject = new GameObject("One shot audio");
-            gameObject.transform.position = Player.m_localPlayer.transform.position;
-            AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
-            audioSource.clip = clip;
-            audioSource.spatialBlend = 0f;
-            audioSource.volume = instance.CompanionVolume.Value;
-            audioSource.bypassEffects = true;
-            audioSource.bypassListenerEffects = true;
-            audioSource.bypassReverbZones = true;
-            audioSource.Play();
-            UnityEngine.Object.Destroy(gameObject, clip.length * ((Time.timeScale < 0.01f) ? 0.01f : Time.timeScale));
+            MyPlayAudio(clip);
         }
         catch (Exception e)
         {
@@ -1637,7 +1626,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return audioClip;
     }
 
-
     private void CompareAudioFormats(AudioClip firstClip, AudioClip secondClip)
     {
         // Check the audio format of the recorded clip
@@ -1653,34 +1641,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("Frequency: " + secondClip.frequency);
         Debug.Log("Samples: " + secondClip.samples);
         Debug.Log("Length: " + secondClip.length);
-    }
-
-    private void WriteWAVFile(float[] audioData, int numChannels, int sampleRate, string filePath)
-    {
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
-        using (var writer = new BinaryWriter(fileStream))
-        {
-            // Write the WAV file header
-            writer.Write("RIFF".ToCharArray());
-            writer.Write(36 + audioData.Length * 4);
-            writer.Write("WAVE".ToCharArray());
-            writer.Write("fmt ".ToCharArray());
-            writer.Write(16);
-            writer.Write((short)3); // IEEE float format
-            writer.Write((short)numChannels);
-            writer.Write(sampleRate);
-            writer.Write(sampleRate * numChannels * 4);
-            writer.Write((short)(numChannels * 4));
-            writer.Write((short)32); // 32-bit float
-            writer.Write("data".ToCharArray());
-            writer.Write(audioData.Length * 4);
-
-            // Write the audio data as 32-bit float values
-            foreach (var sample in audioData)
-            {
-                writer.Write(sample);
-            }
-        }
     }
 
     private string GetBase64FileData(string audioPath)
@@ -1699,272 +1659,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private void ProcessNPCCommand(string BrainResponseCommand)
-    {
-        Player localPlayer = Player.m_localPlayer;
-        if (BrainResponseCommand == "StartFollowingPlayer")
-        {
-            instance.StartFollowing(localPlayer);
-        }
-        else if (BrainResponseCommand == "StartAttacking")
-        {
-            instance.StartAttacking(localPlayer);
-        }
-        else if (BrainResponseCommand == "StartHarvesting")
-        {
-            instance.StartHarvesting(localPlayer);
-        }
-        else if (BrainResponseCommand == "StartPatrolling")
-        {
-            instance.StartPatrol(localPlayer);
-        }
-    }
 
-    private void SpawnCompanion()
-    {
-        GameObject[] npcs = FindPlayerNPCs();
-        if (npcs.Length > 0)
-        {
-            Debug.Log("Spawning more than one NPC is disabled");
-            return;
-        }
-        Player localPlayer = Player.m_localPlayer;
-        GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
-        //GameObject npcPrefab = HumanoidNPCPrefab;
+    /*
+     * 
+     * 
+     * OTHER
+     * 
+     * 
+     * 
+     */
 
-        if (npcPrefab == null)
-        {
-            Logger.LogError("ScriptNPC prefab not found!");
-        }
-
-        // spawn NPC
-        Vector3 spawnPosition = localPlayer.transform.position + localPlayer.transform.forward * 2f;
-        //Vector3 spawnPosition = GetRandomSpawnPosition(10f);
-        Quaternion spawnRotation = localPlayer.transform.rotation;
-
-        GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
-        npcInstance.SetActive(true);
-
-        instance.PlayerNPC = npcInstance;
-
-        // make the monster tame
-        MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
-
-        SetMonsterAIAggravated(monsterAIcomp, false);
-        monsterAIcomp.MakeTame();
-
-
-        // add item to inventory
-        ValheimAIModLoader.HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-        if (humanoidNpc_Component != null)
-        {
-            humanoidNpc_Component.m_name = "NPC";
-
-            GameObject itemPrefab;
-            
-            itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
-            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
-            
-            itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeChest");
-            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
-            
-            itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeLegs");
-            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
-
-            //humanoidNpc_Component.m_crouchSpeed = 100f;
-            humanoidNpc_Component.m_walkSpeed = localPlayer.m_walkSpeed;
-
-            humanoidNpc_Component.SetHair("Hair17"); 
-
-            humanoidNpc_Component.SetMaxHealth(300);
-            humanoidNpc_Component.SetHealth(300);
-
-
-
-
-            humanoidNpc_Component.inventoryContainer = npcInstance.AddComponent<Container>();
-            humanoidNpc_Component.inventoryContainer.m_inventory = humanoidNpc_Component.m_inventory;
-
-
-
-
-            /*HitData hitData = new HitData(80);
-            humanoidNpc_Component.Damage(hitData);*/
-
-            /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
-            if (itemPrefab != null)
-            {
-                humanoidNpc_Component.GetInventory().AddItem(itemPrefab.gameObject, 15);
-            }
-            else
-            {
-                Debug.LogError("bread prefab was null");
-            }*/
-        }
-        else
-        {
-            Logger.LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
-        }
-
-
-    }
-
-    
-
-    private GameObject[] FindEnemies()
-    {
-        if (Time.time - AllEnemiesInstancesLastRefresh < 1f)
-        {
-            return instance.AllEnemiesInstances;
-        }
-        instance.AllEnemiesInstances = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.HasAnyComponent("MonsterAI"))
-                .ToArray();
-        AllEnemiesInstancesLastRefresh = Time.time;
-        return instance.AllEnemiesInstances;
-    }
-
-    private GameObject[] FindPlayerNPCs()
-    {
-        if (Time.time - AllPlayerNPCInstancesLastRefresh < 1f)
-        {
-            return instance.AllPlayerNPCInstances;
-        }
-        instance.AllPlayerNPCInstances = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.Contains(NPCPrefabName))
-                .ToArray();
-        AllPlayerNPCInstancesLastRefresh = Time.time;
-        if (instance.AllPlayerNPCInstances.Length > 0)
-        {
-            instance.PlayerNPC = instance.AllPlayerNPCInstances[0];
-        }
-        return instance.AllPlayerNPCInstances;
-    }
-
-    private static void RefreshPickables()
-    {
-        GameObject[] pickables = GameObject.FindObjectsOfType<GameObject>(false)
-                //.Where(go => go != null && !ZoneSystem.instance.IsBlocked(go.transform.position) && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
-                .Where(go => go != null  && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
-                .ToArray();
-        instance.AllPickableInstances.Clear();
-        foreach (GameObject pickable in pickables)
-        {
-            instance.AllPickableInstances.Add(pickable);
-        }
-        instance.AllPickableInstancesLastRefresh = Time.time;
-        //Debug.Log("pickables len " + instance.AllPickableInstances.Count());
-    }
-
-    private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
-    {
-        if (!(instance.AllPickableInstances.Count > 0 && Time.time - instance.AllPickableInstancesLastRefresh < 30f && instance.AllPickableInstancesLastRefresh != 0f))
-        {
-            //Debug.Log("Updated AllPickableInstances");
-            RefreshPickables();
-        }
-            
-        IOrderedEnumerable<GameObject> results = instance.AllPickableInstances.ToArray()
-            .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
-            .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position));
-        //Debug.Log("result2 " + results.Count());
-        if (results != null && results.Count() > 0)
-        {
-            try
-            {
-                int i = 0;
-                bool found = false;
-                GameObject result = null;
-
-                while (!found)
-                {
-                    if (i >= results.Count()) return null;
-
-                    result = results.ElementAt(i);
-                    if (result != null)
-                    {
-                        if (result.transform.position.DistanceTo(p_position) < radius)
-                        {
-                            found = true;
-                            /*if (!ZoneSystem.instance.IsBlocked(result.transform.position))
-                            //if (!IsLocationReachable(result.transform.position))
-                            {
-                                found = true;
-                            }
-                            else
-                            {
-                                Debug.Log("IsBlocked " + result.name);
-                                i++;
-                            }*/
-                        }
-                        else
-                        {
-                            Debug.Log("DistanceTo(p_position) < radius");
-                            if (result.transform.position.DistanceTo(character.transform.position) > radius)
-                                return null;
-                            i++;
-                        }
-                    }
-                    else
-                    {
-                        Debug.Log("result == null");
-                        return null;
-                    }
-                }
-
-                return result;
-                    
-            }
-            catch (NullReferenceException ex)
-            {
-                Debug.Log($"An error occurred: {ex.Message}");
-            }
-        }
-        else
-        {
-            Debug.Log("No more pickable items within " + radius + " units  from patrol position");
-        }
-              
-        return null;
-    }
-
-    private static GameObject FindClosestResource(GameObject character, string ResourceName)
-    {
-        return GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.StartsWith(ResourceName))
-                .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
-                .FirstOrDefault();
-    }
-
-    private GameObject FindClosestTreeFor(GameObject go, string TreeType = "small")
-    {
-        if (TreeType == "small")
-            return FindSmallTrees()//.Where(t => t.gameObject.name.StartsWith("Beech_small"))// || t.gameObject.name.StartsWith("Pine"))
-                .OrderBy(t => Vector3.Distance(go.transform.position, t.transform.position))
-                .FirstOrDefault();
-        return null;
-    }
-
-    private static GameObject[] FindSmallTrees()
-    {
-        instance.SmallTrees = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.StartsWith("Beech_small"))
-                //.Where(go => go.name.StartsWith("Beech_small") || go.name.StartsWith("Beech"))
-                //.Where(go => go.HasAnyComponent("TreeBase") || go.HasAnyComponent("Destructible"))
-                .ToArray();
-        return instance.SmallTrees;
-    }
-
-    private static void PrintInventoryItems(Inventory inventory)
-    {
-        Debug.Log("Character Inventory Items:");
-
-        List<ItemDrop.ItemData> items = inventory.GetAllItems();
-        foreach (ItemDrop.ItemData item in items)
-        {
-            Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack})");
-        }
-    }
 
     public static Vector3 GetRandomReachableLocationInRadius(Vector3 center, float radius)
     {
@@ -2077,10 +1781,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return jsonString;
     }
 
+
+
+    /*
+     * 
+     * 
+     * MISC
+     * 
+     * 
+     */
+
     public float detectionRadius = 30f;
     public LayerMask terrainLayer;
     public LayerMask vegetationLayer;
-
     public int DetectVegetation()
     {
         // Check terrain type
@@ -2098,6 +1811,188 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Use vegetationCount to determine if it's densely forested, sparse, or barren
     }
 
+    private void PopulateCraftingRequirements()
+    {
+        var jsonObject = new JsonObject();
+        foreach (GameObject prefab in ObjectDB.instance.m_items)
+        {
+            ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+            if (itemDrop != null)
+            {
+                var thisJsonObject = new JsonObject();
+
+                thisJsonObject["name"] = itemDrop.name;
+                thisJsonObject["itemName"] = itemDrop.m_itemData.m_shared.m_name;
+
+                JsonObject itemDropCustomData = new JsonObject();
+                foreach (var s in itemDrop.m_itemData.m_customData)
+                {
+                    itemDropCustomData[s.Key] = s.Value;
+                }
+                if (itemDropCustomData.Count > 0)
+                    thisJsonObject["customData"] = itemDropCustomData;
+
+                if (itemDrop.m_itemData.m_shared.m_description != "")
+                {
+                    string description = LocalizationManager.Instance.TryTranslate(itemDrop.m_itemData.m_shared.m_description);
+
+                    // If the description is the same as the key, it means no translation was found
+                    if (description != "")
+                    {
+                        thisJsonObject["description"] = description;
+                    }
+                }
+
+
+                thisJsonObject["armor"] = itemDrop.m_itemData.m_shared.m_armor;
+                thisJsonObject["maxDurability"] = itemDrop.m_itemData.m_shared.m_maxDurability;
+                thisJsonObject["weight"] = itemDrop.m_itemData.m_shared.m_weight;
+
+                Recipe recipe = ObjectDB.instance.GetRecipe(itemDrop.m_itemData);
+                if (recipe != null)
+                {
+                    craftingRequirements[itemDrop.m_itemData.m_shared.m_name] = recipe.m_resources;
+                    JsonArray requirementsArray = new JsonArray();
+                    foreach (var req in recipe.m_resources)
+                    {
+                        JsonObject reqObject = new JsonObject();
+
+                        reqObject["name"] = req.m_resItem.name;
+                        reqObject["itemName"] = req.m_resItem.m_itemData.m_shared.m_name;
+
+                        if (req.m_resItem.m_itemData.m_shared.m_description != "")
+                        {
+                            string description = LocalizationManager.Instance.TryTranslate(req.m_resItem.m_itemData.m_shared.m_description);
+
+                            // If the description is the same as the key, it means no translation was found
+                            if (description != "")
+                            {
+                                reqObject["description"] = description;
+                            }
+                        }
+
+                        reqObject["amount"] = req.m_amount;
+                        /*reqObject["amountPerLevel"] = req.m_amountPerLevel;
+                        reqObject["m_recover"] = req.m_recover;
+                        reqObject["m_extraAmountOnlyOneIngredient"] = req.m_extraAmountOnlyOneIngredient;*/
+
+                        requirementsArray.Add(reqObject);
+                    }
+                    thisJsonObject["m_resources"] = requirementsArray;
+                }
+
+                jsonObject[itemDrop.m_itemData.m_shared.m_name] = thisJsonObject;
+            }
+        }
+
+        string json = jsonObject.ToString();
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string filePath = Path.Combine(desktopPath, "crafting_requirements.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log($"Crafting requirements exported to {filePath}");
+    }
+
+    private void PopulateBuildingRequirements()
+    {
+        var jsonObject = new JsonObject();
+        foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
+        {
+            Piece piece = prefab.GetComponent<Piece>();
+            if (piece != null)
+            {
+                string pieceName = piece.m_name;
+                buildingRequirements[pieceName] = piece.m_resources;
+
+                JsonObject thisJsonObject = new JsonObject();
+                thisJsonObject["name"] = piece.name;
+                thisJsonObject["itemName"] = piece.m_name;
+
+                if (piece.m_description != "")
+                {
+                    string description = LocalizationManager.Instance.TryTranslate(piece.m_description);
+
+                    // If the description is the same as the key, it means no translation was found
+                    if (description != "")
+                    {
+                        thisJsonObject["description"] = description;
+                    }
+                }
+
+                thisJsonObject["category"] = piece.m_category.ToString();
+                thisJsonObject["comfort"] = piece.m_comfort;
+                thisJsonObject["groundPiece"] = piece.m_groundPiece;
+                thisJsonObject["allowedInDungeons"] = piece.m_allowedInDungeons;
+                thisJsonObject["spaceRequirement"] = piece.m_spaceRequirement;
+
+                JsonArray requirementsArray = new JsonArray();
+                foreach (var req in piece.m_resources)
+                {
+                    JsonObject reqObject = new JsonObject();
+                    reqObject["name"] = req.m_resItem.name;
+                    reqObject["itemName"] = req.m_resItem.m_itemData.m_shared.m_name;
+
+                    if (req.m_resItem.m_itemData.m_shared.m_description != "")
+                    {
+                        string description = LocalizationManager.Instance.TryTranslate(req.m_resItem.m_itemData.m_shared.m_description);
+
+                        // If the description is the same as the key, it means no translation was found
+                        if (description != "")
+                        {
+                            reqObject["description"] = description;
+                        }
+                    }
+
+                    reqObject["amount"] = req.m_amount;
+                    reqObject["amountPerLevel"] = req.m_amountPerLevel;
+                    reqObject["m_recover"] = req.m_recover;
+                    reqObject["m_extraAmountOnlyOneIngredient"] = req.m_extraAmountOnlyOneIngredient;
+
+                    requirementsArray.Add(reqObject);
+                }
+                thisJsonObject["m_resources"] = requirementsArray;
+                jsonObject[pieceName] = thisJsonObject;
+            }
+        }
+
+        string json = jsonObject.ToString();
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string filePath = Path.Combine(desktopPath, "building_requirements.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log($"Building requirements exported to {filePath}");
+    }
+
+    /*private void PopulateResourceLocations()
+    {
+        GameObject prefab = ZNetScene.instance.GetPrefab("Resin");
+        ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+        if (itemDrop != null)
+        {
+            ZoneSystem.ZoneVegetation z = ZoneSystem.instance.m_vegetation.First();
+
+            foreach (ZoneSystem.ZoneVegetation zoneVegetation in ZoneSystem.instance.m_vegetation)
+            {
+                if (zoneVegetation.m_prefab == prefab)
+                {
+                    string biomeName = ZoneSystem.instance.GetZone(zoneVegetation.m_biome).m_name;
+                    resourceLocations[itemName].Add(biomeName);
+                }
+            }
+        }
+    }*/
+
+    public Piece.Requirement[] GetCraftingRequirements(string itemName)
+    {
+        if (craftingRequirements.ContainsKey(itemName))
+        {
+            return craftingRequirements[itemName];
+        }
+        return null;
+    }
+
     // Disable auto save
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Game), "UpdateSaving")]
@@ -2105,13 +2000,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         return !instance.DisableAutoSave.Value;
     }
-}
 
-public static class NativeAudio
-{
-    [System.Runtime.InteropServices.DllImport("OggDecoder")]
-    public static extern int DecodeOggVorbis(byte[] oggData, int oggDataLength, out IntPtr pcmData, out int channels, out int frequency);
 
-    [System.Runtime.InteropServices.DllImport("OggDecoder")]
-    public static extern void FreeUnmanagedMemory(IntPtr ptr);
+    /*
+     * 
+     * 
+     * DEBUG FUNCTIONS
+     * 
+     * 
+     */
+
+    private static void PrintInventoryItems(Inventory inventory)
+    {
+        Debug.Log("Character Inventory Items:");
+
+        List<ItemDrop.ItemData> items = inventory.GetAllItems();
+        foreach (ItemDrop.ItemData item in items)
+        {
+            Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack})");
+        }
+    }
 }
