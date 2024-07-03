@@ -79,6 +79,8 @@ namespace ValheimAIModLoader
 
         public Minimap.PinData npcPinData;
 
+        public Container inventoryContainer;
+
 
         /*protected override void Start()
         {

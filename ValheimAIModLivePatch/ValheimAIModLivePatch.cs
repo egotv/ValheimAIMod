@@ -16,6 +16,7 @@ using ValheimAIModLoader;
 using System.IO;
 using System.Net;
 using Jotunn.Managers;
+using System.ComponentModel;
 
 [BepInPlugin("sahejhundal.ValheimAIModLivePatch", "Valheim AI NPC Mod Live Patch", "1.0.0")]
 [BepInProcess("valheim.exe")]
@@ -72,8 +73,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private Dictionary<string, List<string>> resourceLocations = new Dictionary<string, List<string>>();
 
     private static string NPCPrefabName = "HumanoidNPC";
-    
 
+
+    private GameObject PlayerNPC;
     private GameObject[] AllPlayerNPCInstances;
     private float AllPlayerNPCInstancesLastRefresh = 0f;
 
@@ -413,6 +415,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //instance.PlayRecordedAudio("");
             //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
             //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
+            /*if (instance.PlayerNPC)
+            {
+                HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
+            }*/
+            
             return;
         }
     }
@@ -492,7 +500,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
-            if (humanoidNPC.LastPositionDelta > 2.5f)
+            if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack())
             {
                 humanoidNPC.StartAttack(humanoidNPC, false);
             }
@@ -1110,6 +1118,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnInventoryKeyPressed(Player player)
     {
+        if (instance.PlayerNPC)
+        {
+            HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+            InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
+        }
+
         /*Debug.Log(craftingRequirements.Count());
 
         foreach (KeyValuePair<string, Piece.Requirement[]> s in craftingRequirements.ToArray())
@@ -1122,7 +1136,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
         }*/
 
-        Debug.Log("OnInventoryKeyPressed");
+        /*Debug.Log("OnInventoryKeyPressed");
 
         GameObject[] allNpcs = FindPlayerNPCs();
         foreach (GameObject npc in allNpcs)
@@ -1131,15 +1145,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
             if (monsterAIcomponent != null && humanoidComponent != null)
             {
-                /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
-                humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 15);*/
+                *//*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
+                humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 15);*//*
 
                 //PrintInventoryItems(humanoidComponent.m_inventory);
 
 
                 DropAllItems(humanoidComponent);
 
-                /*GameObject[] pickable_stones = GameObject.FindObjectsOfType<GameObject>(true)
+                *//*GameObject[] pickable_stones = GameObject.FindObjectsOfType<GameObject>(true)
                 .Where(go => go.name.Contains("Pickable_"))
                 .ToArray();
 
@@ -1155,34 +1169,34 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 }*/
 
 
-                /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
-                if (itemPrefab != null)
-                {
-                    humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 5);
-                    player.GetInventory().AddItem(itemPrefab.gameObject, 5);
-                }
-                else
-                {
-                    Debug.LogError($"itemprefab was null");
-                }
-
-                ItemDrop.ItemData bread_itemdata = humanoidComponent.GetInventory().GetItem("$item_bread");
-                if (bread_itemdata != null)
-                {
-                    humanoidComponent.UseItem(humanoidComponent.GetInventory(), bread_itemdata, true);
-                }
-                else
-                {
-                    Debug.LogError("bread_itemdata was null");
-                }*/
-
-                //humanoidComponent.m_zanim.SetTrigger("eat");
-
-                //Debug.Log(GetJSONForBrain(npc));
-                
-                
-            }
+        /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
+        if (itemPrefab != null)
+        {
+            humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 5);
+            player.GetInventory().AddItem(itemPrefab.gameObject, 5);
         }
+        else
+        {
+            Debug.LogError($"itemprefab was null");
+        }
+
+        ItemDrop.ItemData bread_itemdata = humanoidComponent.GetInventory().GetItem("$item_bread");
+        if (bread_itemdata != null)
+        {
+            humanoidComponent.UseItem(humanoidComponent.GetInventory(), bread_itemdata, true);
+        }
+        else
+        {
+            Debug.LogError("bread_itemdata was null");
+        }*//*
+
+        //humanoidComponent.m_zanim.SetTrigger("eat");
+
+        //Debug.Log(GetJSONForBrain(npc));
+
+
+    }
+}*/
     }
 
     private void DropAllItems(HumanoidNPC humanoidNPC)
@@ -1731,6 +1745,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
 
+        instance.PlayerNPC = npcInstance;
+
         // make the monster tame
         MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
 
@@ -1763,6 +1779,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             humanoidNpc_Component.SetMaxHealth(300);
             humanoidNpc_Component.SetHealth(300);
 
+
+
+
+            humanoidNpc_Component.inventoryContainer = npcInstance.AddComponent<Container>();
+            humanoidNpc_Component.inventoryContainer.m_inventory = humanoidNpc_Component.m_inventory;
+
+
+
+
             /*HitData hitData = new HitData(80);
             humanoidNpc_Component.Damage(hitData);*/
 
@@ -1780,6 +1805,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             Logger.LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
         }
+
+
     }
 
     
@@ -1807,6 +1834,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 .Where(go => go.name.Contains(NPCPrefabName))
                 .ToArray();
         AllPlayerNPCInstancesLastRefresh = Time.time;
+        if (instance.AllPlayerNPCInstances.Length > 0)
+        {
+            instance.PlayerNPC = instance.AllPlayerNPCInstances[0];
+        }
         return instance.AllPlayerNPCInstances;
     }
 
