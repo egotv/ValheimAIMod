@@ -13,12 +13,12 @@ using Jotunn.Entities;
 
 namespace ValheimAIMod
 {
-    [BepInPlugin("sahejhundal.ValheimAIModLoader", "Valheim AI NPC Mod Loader", "1.0.0")]
+    [BepInPlugin("egovalheimmod.ValheimAIModLoader", "Valheim AI NPC Mod Loader", "1.0.0")]
     [BepInProcess("valheim.exe")]
     public class ValheimAIModLoader : BaseUnityPlugin
     {
         private static ValheimAIModLoader instance;
-        private readonly Harmony harmony = new Harmony("sahejhundal.ValheimAIModLoader");
+        private readonly Harmony harmony = new Harmony("egovalheimmod.ValheimAIModLoader");
 
         private static GameObject HumanoidNPCPrefab;
 
@@ -82,7 +82,7 @@ namespace ValheimAIMod
             }
         }
 
-        private void DespawnPrefabInstances(string prefabName)
+        public void DespawnPrefabInstances(string prefabName)
         {
             List<GameObject> instancesToRemove = new List<GameObject>();
 
@@ -121,6 +121,7 @@ namespace ValheimAIMod
                     return;
                 }
                 __instance.m_prefabs.Add(HumanoidNPCPrefab);
+                //__instance.m_namedPrefabs.Add(HumanoidNPCPrefab.name.GetStableHashCode(), HumanoidNPCPrefab);
             }
         }
     }

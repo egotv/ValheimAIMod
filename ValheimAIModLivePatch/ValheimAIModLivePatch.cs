@@ -16,7 +16,8 @@ using ValheimAIModLoader;
 using System.IO;
 using System.Net;
 using Jotunn.Managers;
-using System.ComponentModel;
+using UnityEngine.UI;
+using ValheimAIMod;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -208,12 +209,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //instance.PlayRecordedAudio("");
             //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
             //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
-            /*if (instance.PlayerNPC)
-            {
-                HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
-                InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
-            }*/
             
+
+            instance.TogglePanel();
+
+
             return;
         }
     }
@@ -775,6 +775,159 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }
 
 
+    // Inventory transfer hotfix
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(InventoryGui), "OnSelectedItem")]
+    private static void OnSelectedItem(InventoryGui __instance, InventoryGrid grid, ItemDrop.ItemData item, Vector2i pos, InventoryGrid.Modifier mod)
+    {
+        Player localPlayer = Player.m_localPlayer;
+        if (localPlayer.IsTeleporting())
+        {
+            return;
+        }
+        if ((bool)__instance.m_dragGo)
+        {
+            __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
+            bool flag = localPlayer.IsItemEquiped(__instance.m_dragItem);
+            bool flag2 = item != null && localPlayer.IsItemEquiped(item);
+            Vector2i gridPos = __instance.m_dragItem.m_gridPos;
+            if ((__instance.m_dragItem.m_shared.m_questItem || (item != null && item.m_shared.m_questItem)) && __instance.m_dragInventory != grid.GetInventory())
+            {
+                return;
+            }
+            if (!__instance.m_dragInventory.ContainsItem(__instance.m_dragItem))
+            {
+                __instance.SetupDragItem(null, null, 1);
+                return;
+            }
+            localPlayer.RemoveEquipAction(item);
+            localPlayer.RemoveEquipAction(__instance.m_dragItem);
+            localPlayer.UnequipItem(__instance.m_dragItem, triggerEquipEffects: false);
+            localPlayer.UnequipItem(item, triggerEquipEffects: false);
+            bool num = grid.DropItem(__instance.m_dragInventory, __instance.m_dragItem, __instance.m_dragAmount, pos);
+            if (__instance.m_dragItem.m_stack < __instance.m_dragAmount)
+            {
+                __instance.m_dragAmount = __instance.m_dragItem.m_stack;
+            }
+            if (flag)
+            {
+                ItemDrop.ItemData itemAt = grid.GetInventory().GetItemAt(pos.x, pos.y);
+                if (itemAt != null)
+                {
+                    localPlayer.EquipItem(itemAt, triggerEquipEffects: false);
+                }
+                if (localPlayer.GetInventory().ContainsItem(__instance.m_dragItem))
+                {
+                    localPlayer.EquipItem(__instance.m_dragItem, triggerEquipEffects: false);
+                }
+            }
+            if (flag2)
+            {
+                ItemDrop.ItemData itemAt2 = __instance.m_dragInventory.GetItemAt(gridPos.x, gridPos.y);
+                if (itemAt2 != null)
+                {
+                    localPlayer.EquipItem(itemAt2, triggerEquipEffects: false);
+                }
+                if (localPlayer.GetInventory().ContainsItem(item))
+                {
+                    localPlayer.EquipItem(item, triggerEquipEffects: false);
+                }
+            }
+            if (num)
+            {
+                __instance.SetupDragItem(null, null, 1);
+                __instance.UpdateCraftingPanel();
+            }
+        }
+        else
+        {
+            if (item == null)
+            {
+                return;
+            }
+            switch (mod)
+            {
+                case InventoryGrid.Modifier.Move:
+                    if (item.m_shared.m_questItem)
+                    {
+                        return;
+                    }
+                    if (__instance.m_currentContainer != null)
+                    {
+                        localPlayer.RemoveEquipAction(item);
+                        localPlayer.UnequipItem(item);
+                        if (grid.GetInventory() == __instance.m_currentContainer.GetInventory())
+                        {
+                            localPlayer.GetInventory().MoveItemToThis(grid.GetInventory(), item);
+                            Debug.Log("Moving from npc/container to player");
+
+                            //HumanoidNPC humanoidNPC_component = grid.gameObject.GetComponent<HumanoidNPC>();
+                            if (instance.PlayerNPC)
+                            {
+                                HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                                if (grid.GetInventory() == humanoidNPC_component.m_inventory)
+                                {
+                                    if (item.IsEquipable())
+                                    {
+                                        //humanoidNPC_component.m_visEquipment.m_chestItem = null;
+                                        humanoidNPC_component.UnequipItem(item, true);
+                                        //humanoidNPC_component.m_inventory.RemoveItem(item);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            __instance.m_currentContainer.GetInventory().MoveItemToThis(localPlayer.GetInventory(), item);
+                            Debug.Log("Moving from player to npc/container");
+
+                            if (instance.PlayerNPC)
+                            {
+                                HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                                if (__instance.m_currentContainer.GetInventory() == humanoidNPC_component.m_inventory)
+                                {
+                                    if (item.IsEquipable())
+                                    {
+                                        //humanoidNPC_component.m_visEquipment.m_chestItem = null;
+                                        humanoidNPC_component.EquipItem(item, true);
+                                        //humanoidNPC_component.m_inventory.RemoveItem(item);
+                                    }
+                                }
+                            }
+                        }
+                        __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
+                    }
+                    else if (Player.m_localPlayer.DropItem(grid.GetInventory(), item, item.m_stack))
+                    {
+                        __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
+                    }
+                    return;
+                case InventoryGrid.Modifier.Drop:
+                    if (Player.m_localPlayer.DropItem(grid.GetInventory(), item, item.m_stack))
+                    {
+                        __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
+                    }
+                    return;
+                case InventoryGrid.Modifier.Split:
+                    if (item.m_stack > 1)
+                    {
+                        __instance.ShowSplitDialog(item, grid.GetInventory());
+                        return;
+                    }
+                    break;
+            }
+            __instance.SetupDragItem(item, grid.GetInventory(), item.m_stack);
+        }
+    }
+
+
+
+
+
+
+
+
+
 
 
     /*
@@ -788,8 +941,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject[] npcs = FindPlayerNPCs();
         if (npcs.Length > 0)
         {
+            Console.instance.TryRunCommand("despawn_all");
             Debug.Log("Spawning more than one NPC is disabled");
-            return;
+            //return;
         }
         Player localPlayer = Player.m_localPlayer;
         GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
@@ -822,6 +976,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (humanoidNpc_Component != null)
         {
             humanoidNpc_Component.m_name = "NPC";
+            humanoidNpc_Component.m_visEquipment.m_isPlayer = true;
 
             GameObject itemPrefab;
 
@@ -854,8 +1009,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             Logger.LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
         }
-
-
     }
 
     private void StartPatrol(Player player)
@@ -983,6 +1136,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
             InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
+            PrintInventoryItems(humanoidNPC_component.m_inventory);
         }
 
         /*Debug.Log(craftingRequirements.Count());
@@ -2019,5 +2173,118 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack})");
         }
+    }
+
+
+
+    /*
+     * 
+     * UI
+     * 
+     */
+
+    private Texture2D TestTex;
+    private Sprite TestSprite;
+    private GameObject TestPanel;
+
+    // Toggle our test panel with button
+    private void TogglePanel()
+    {
+        // Create the panel if it does not exist
+        if (!TestPanel)
+        {
+            if (GUIManager.Instance == null)
+            {
+                Logger.LogError("GUIManager instance is null");
+                return;
+            }
+
+            if (!GUIManager.CustomGUIFront)
+            {
+                Logger.LogError("GUIManager CustomGUI is null");
+                return;
+            }
+
+            // Create the panel object
+            TestPanel = GUIManager.Instance.CreateWoodpanel(
+                parent: GUIManager.CustomGUIFront.transform,
+                anchorMin: new Vector2(0.5f, 0.5f),
+                anchorMax: new Vector2(0.5f, 0.5f),
+                position: new Vector2(0, 0),
+                width: 850,
+                height: 600,
+                draggable: true);
+            TestPanel.SetActive(false);
+
+            // Add the Jötunn draggable Component to the panel
+            // Note: This is normally automatically added when using CreateWoodpanel()
+            //DragWindowCntrl.ApplyDragWindowCntrl(TestPanel);
+
+            // Create the text object
+            GUIManager.Instance.CreateText(
+                text: "Jötunn, the Valheim Lib",
+                parent: TestPanel.transform,
+                anchorMin: new Vector2(0.5f, 1f),
+                anchorMax: new Vector2(0.5f, 1f),
+                position: new Vector2(0f, -50f),
+                font: GUIManager.Instance.AveriaSerifBold,
+                fontSize: 30,
+                color: GUIManager.Instance.ValheimOrange,
+                outline: true,
+                outlineColor: Color.black,
+                width: 350f,
+                height: 40f,
+                addContentSizeFitter: false);
+
+            // Create the button object
+            GameObject buttonObject = GUIManager.Instance.CreateButton(
+                text: "A Test Button - long dong schlongsen text",
+                parent: TestPanel.transform,
+                anchorMin: new Vector2(0.5f, 0.5f),
+                anchorMax: new Vector2(0.5f, 0.5f),
+                position: new Vector2(0, -250f),
+                width: 250f,
+                height: 60f);
+            buttonObject.SetActive(true);
+
+            // Add a listener to the button to close the panel again
+            Button button = buttonObject.GetComponent<Button>();
+            button.onClick.AddListener(TogglePanel);
+
+            // Create a dropdown
+            var dropdownObject = GUIManager.Instance.CreateDropDown(
+                parent: TestPanel.transform,
+                anchorMin: new Vector2(0.5f, 0.5f),
+                anchorMax: new Vector2(0.5f, 0.5f),
+                position: new Vector2(-250f, -250f),
+                fontSize: 16,
+                width: 100f,
+                height: 30f);
+            dropdownObject.GetComponent<Dropdown>().AddOptions(new List<string>
+        {
+            "bla", "blubb", "börks", "blarp", "harhar"
+        });
+
+            // Create an input field
+            GUIManager.Instance.CreateInputField(
+                parent: TestPanel.transform,
+                anchorMin: new Vector2(0.5f, 0.5f),
+                anchorMax: new Vector2(0.5f, 0.5f),
+                position: new Vector2(250f, -250f),
+                contentType: InputField.ContentType.Standard,
+                placeholderText: "input...",
+                fontSize: 16,
+                width: 160f,
+                height: 30f);
+        }
+
+        // Switch the current state
+        bool state = !TestPanel.activeSelf;
+
+        // Set the active state of the panel
+        TestPanel.SetActive(state);
+
+        // Toggle input for the player and camera while displaying the GUI
+        GUIManager.BlockInput(state);
     }
 }
