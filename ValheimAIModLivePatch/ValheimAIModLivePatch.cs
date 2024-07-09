@@ -126,6 +126,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnDestroy()
     {
+        TestPanel.SetActive(false);
+
         harmony.UnpatchSelf();
     }
 
@@ -969,6 +971,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         SetMonsterAIAggravated(monsterAIcomp, false);
         monsterAIcomp.MakeTame();
+        monsterAIcomp.SetFollowTarget(localPlayer.gameObject);
 
 
         // add item to inventory
@@ -2216,11 +2219,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 draggable: true);
             TestPanel.SetActive(false);
 
-            // Add the Jötunn draggable Component to the panel
-            // Note: This is normally automatically added when using CreateWoodpanel()
-            //DragWindowCntrl.ApplyDragWindowCntrl(TestPanel);
+            CreatePanel();
 
-            // Create the text object
+
+            /*// Create the text object
             GUIManager.Instance.CreateText(
                 text: "Jötunn, the Valheim Lib",
                 parent: TestPanel.transform,
@@ -2251,6 +2253,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Button button = buttonObject.GetComponent<Button>();
             button.onClick.AddListener(TogglePanel);
 
+
+
             // Create a dropdown
             var dropdownObject = GUIManager.Instance.CreateDropDown(
                 parent: TestPanel.transform,
@@ -2261,9 +2265,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 width: 100f,
                 height: 30f);
             dropdownObject.GetComponent<Dropdown>().AddOptions(new List<string>
-        {
-            "bla", "blubb", "börks", "blarp", "harhar"
-        });
+            {
+                "bla", "blubb", "börks", "blarp", "harhar"
+            });
 
             // Create an input field
             GUIManager.Instance.CreateInputField(
@@ -2275,7 +2279,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 placeholderText: "input...",
                 fontSize: 16,
                 width: 160f,
-                height: 30f);
+                height: 30f);*/
         }
 
         // Switch the current state
@@ -2286,5 +2290,884 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         // Toggle input for the player and camera while displaying the GUI
         GUIManager.BlockInput(state);
+    }
+
+    private void CreatePanel()
+    {
+        // ... (existing panel creation code)
+
+        //var leftBox = new VerticalBox(TestPanel.transform, new Vector2(200, -150), new Vector2(350, 400), new Color(0.1f, 0.1f, 0.1f, 0.8f));
+
+        /*GameObject scrollViewObject = GUIManager.Instance.CreateScrollView(
+            parent: TestPanel.transform,
+            showHorizontalScrollbar: false,
+            showVerticalScrollbar: true,
+            handleSize: 20f,
+            handleDistanceToBorder: 5f,
+            handleColors: ColorBlock.defaultColorBlock,
+            slidingAreaBackgroundColor: Color.gray,
+            width: 300f,
+            height: 200f
+        );*/
+
+        // Task Queue
+        //CreateTaskQueue(leftBox);
+        //CreateTaskQueue(new Vector2(-200, 200));
+        CreateScrollableTaskQueue(new Vector2(200, -150));
+
+        // Key Bindings
+        CreateKeyBindings(new Vector2(25, -320));
+
+        // Ego Banner
+        CreateEgoBanner(new Vector2(25, -530));
+
+        // Personality
+        CreatePersonalitySection(new Vector2(200, -20));
+
+        // Voice and Volume   
+        CreateVoiceAndVolumeControls(new Vector2(200, -250));
+
+        // Body Type
+        CreateBodyTypeToggle(new Vector2(200, -400));
+
+        // Buttons
+        CreateButtons(new Vector2(0, -400));
+
+       
+    }
+
+    private ScrollRect scrollRectTaskQueue;
+    private RectTransform contentPanelTaskQueue;
+    private RectTransform viewportRectTaskQueue;
+    private void CreateScrollableTaskQueue(Vector2 position)
+    {
+        GUIManager.Instance.CreateText(
+            text: "Task Queue",
+            parent: TestPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f),*/
+            position: new Vector2(200f, -40f),
+            //position: startPosition + new Vector2(170, 0),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        Debug.Log("Creating scrollable task queue");
+
+        // Create a ScrollRect
+        GameObject scrollObject = new GameObject("TaskQueueScroll", typeof(RectTransform), typeof(ScrollRect));
+        scrollRectTaskQueue = scrollObject.GetComponent<ScrollRect>();
+        scrollRectTaskQueue.transform.SetParent(TestPanel.transform, false);
+
+        // Set up the ScrollRect
+        scrollRectTaskQueue.horizontal = false;
+        scrollRectTaskQueue.vertical = true;
+
+        // Create viewport
+        GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Mask), typeof(Image));
+        viewportRectTaskQueue = viewportObject.GetComponent<RectTransform>();
+        viewportRectTaskQueue.SetParent(scrollRectTaskQueue.transform, false);
+        viewportRectTaskQueue.anchorMin = Vector2.zero;
+        viewportRectTaskQueue.anchorMax = Vector2.one;
+        viewportRectTaskQueue.sizeDelta = Vector2.zero;
+        viewportRectTaskQueue.anchoredPosition = Vector2.zero;
+
+        // Set up mask
+        Image viewportImage = viewportObject.GetComponent<Image>();
+        viewportImage.sprite = null;
+        //viewportImage.color = Color.black; // Changed to white for visibility
+        viewportImage.color = new Color(0, 0, 0, 0.3f); // Changed to white for visibility
+
+        // Create content panel
+        GameObject contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        contentPanelTaskQueue = contentObject.GetComponent<RectTransform>();
+        contentPanelTaskQueue.SetParent(viewportRectTaskQueue, false);
+
+        // Set up the content panel
+        contentPanelTaskQueue.anchorMin = new Vector2(0, 1);
+        contentPanelTaskQueue.anchorMax = new Vector2(1, 1);
+        contentPanelTaskQueue.anchoredPosition = new Vector2(0, 0);
+        contentPanelTaskQueue.sizeDelta = new Vector2(0, 0);
+
+        // Add a Content Size Fitter
+        ContentSizeFitter contentSizeFitter = contentObject.AddComponent<ContentSizeFitter>();
+        contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // Modify the VerticalLayoutGroup setup
+        VerticalLayoutGroup layoutGroup = contentPanelTaskQueue.GetComponent<VerticalLayoutGroup>();
+        layoutGroup.childAlignment = TextAnchor.UpperCenter;
+        layoutGroup.childControlHeight = true;
+        layoutGroup.childForceExpandHeight = false;
+        layoutGroup.childControlWidth = true;
+        layoutGroup.childForceExpandWidth = true;
+        layoutGroup.spacing = 20;
+        layoutGroup.padding = new RectOffset(5, 5, 5, 5);
+
+        // Assign the viewport and content panel to the ScrollRect
+        scrollRectTaskQueue.viewport = viewportRectTaskQueue;
+        scrollRectTaskQueue.content = contentPanelTaskQueue;
+
+        // Set up the ScrollRect's RectTransform
+        RectTransform scrollRectTransform = scrollRectTaskQueue.GetComponent<RectTransform>();
+        scrollRectTransform.anchorMin = new Vector2(0, 1);
+        scrollRectTransform.anchorMax = new Vector2(0, 1);
+        scrollRectTransform.anchoredPosition = position + new Vector2(0, -30f);
+        scrollRectTransform.sizeDelta = new Vector2(350, 250);
+
+        scrollRectTaskQueue.movementType = ScrollRect.MovementType.Clamped;
+        contentPanelTaskQueue.pivot = new Vector2(0, 1);
+        //scrollRectTransform.pivot = new Vector2(0, 0);
+
+        Debug.Log($"ScrollRect created at position: {position}, size: {scrollRectTransform.sizeDelta}");
+
+
+        CreateTaskQueue();
+    }
+
+    private void CreateTaskQueue()
+    {
+        Debug.Log("Creating task queue contents");
+        //CreateTaskQueueTitle();
+
+        CreateTask("Gathering: Wood (20)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+        CreateTask("Crafting: Axe (1)");
+    }
+
+    /*private void CreateTaskQueueTitle()
+    {
+        GameObject titleObject = new GameObject("TaskQueueTitle", typeof(RectTransform), typeof(Text));
+        titleObject.transform.SetParent(contentPanelTaskQueue, false);
+
+        Text titleText = titleObject.GetComponent<Text>();
+        titleText.text = "Task Queue";
+        titleText.font = GUIManager.Instance.AveriaSerifBold;
+        titleText.fontSize = 26;
+        titleText.color = GUIManager.Instance.ValheimOrange;
+        titleText.alignment = TextAnchor.UpperLeft;
+
+        RectTransform titleRect = titleObject.GetComponent<RectTransform>();
+        titleRect.sizeDelta = new Vector2(340, 40);
+
+        Debug.Log("Task queue title created");
+    }*/
+
+    private void CreateTask(string taskText)
+    {
+        GameObject taskObject = new GameObject("Task", typeof(RectTransform), typeof(Text));
+        taskObject.transform.SetParent(contentPanelTaskQueue, false);
+
+        Text taskTextComponent = taskObject.GetComponent<Text>();
+        taskTextComponent.text = taskText;
+        taskTextComponent.font = GUIManager.Instance.AveriaSerif;
+        taskTextComponent.fontSize = 18;
+        taskTextComponent.color = Color.white;
+        taskTextComponent.alignment = TextAnchor.MiddleLeft;
+
+        RectTransform taskRect = taskObject.GetComponent<RectTransform>();
+        taskRect.sizeDelta = new Vector2(340, 30);
+
+        // Create X button
+        GameObject xButton = GUIManager.Instance.CreateButton(
+            text: "X",
+            parent: taskObject.transform,
+            anchorMin: new Vector2(1, 0.5f),
+            anchorMax: new Vector2(1, 0.5f),
+            position: new Vector2(-10, 0),
+            width: 20f,
+            height: 20f);
+        xButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-10, 0);
+
+        Debug.Log($"Task created: {taskText}");
+    }
+
+    // Call this method after adding or removing tasks to update the content size
+    private void UpdateContentSize()
+    {
+        // Calculate the total height of all tasks
+        float totalHeight = 40f; // Initial height for the "Task Queue" text
+        foreach (RectTransform child in contentPanelTaskQueue)
+        {
+            totalHeight += child.rect.height;
+        }
+
+        // Set the content panel's height
+        contentPanelTaskQueue.sizeDelta = new Vector2(contentPanelTaskQueue.sizeDelta.x, totalHeight);
+    }
+
+    private void CreateKeyBindings(Vector2 startPosition)
+    {
+        // Create background panel
+        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
+        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0f, 1f);
+        backgroundRect.anchorMax = new Vector2(0f, 1f);
+        /*backgroundRect.anchorMin = new Vector2(1, 1);
+        backgroundRect.anchorMax = new Vector2(1, 1);*/
+        backgroundRect.anchoredPosition = startPosition;
+        backgroundRect.sizeDelta = new Vector2(300f, 200f); // Adjust size as needed
+        backgroundRect.pivot = new Vector2(0f, 1);
+
+        Image backgroundImage = backgroundPanel.GetComponent<Image>();
+        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
+
+        string[] bindings = {
+            "[U] Empty Inventory",
+            "[F] Spawn/Reset Spawn",
+            "[T] Talk",
+            "[K] Attack Mode",
+            "[H] Harvest Mode",
+            "[P] Follow/Patrol"
+        };
+
+        GUIManager.Instance.CreateText(
+            text: "Keybinds",
+            parent: backgroundPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f),*/
+            position: new Vector2(190f, -25f),
+            //position: startPosition + new Vector2(170, 0),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        for (int i = 0; i < bindings.Length; i++)
+        {
+            GUIManager.Instance.CreateText(
+                text: bindings[i],
+                parent: backgroundPanel.transform,
+                anchorMin: new Vector2(0f, 1f),
+                anchorMax: new Vector2(0f, 1f),
+                //position: startPosition + new Vector2(170, (-i * 20)),
+                position: new Vector2(100f, -75f) + new Vector2(100, (-i * 20)),
+                font: GUIManager.Instance.AveriaSerif,
+                fontSize: 16,
+                color: Color.white,
+                outline: true,
+                outlineColor: Color.black,
+                width: 350f,
+                height: 40f,
+                addContentSizeFitter: false);
+        }
+    }
+
+    private void CreateEgoBanner(Vector2 startPosition)
+    {
+        // Create background panel
+        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
+        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0f, 1f);
+        backgroundRect.anchorMax = new Vector2(0f, 1f);
+        /*backgroundRect.anchorMin = new Vector2(1, 1);
+        backgroundRect.anchorMax = new Vector2(1, 1);*/
+        backgroundRect.anchoredPosition = startPosition;
+        backgroundRect.sizeDelta = new Vector2(300f, 50f); // Adjust size as needed
+        backgroundRect.pivot = new Vector2(0f, 1);
+
+        Image backgroundImage = backgroundPanel.GetComponent<Image>();
+        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
+
+
+        GUIManager.Instance.CreateText(
+            text: "egovalheimmod.ai",
+            parent: backgroundPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f),*/
+            position: new Vector2(190f, -30f),
+            //position: startPosition + new Vector2(170, 0),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+    }
+
+    private void CreatePersonalitySection(Vector2 position)
+    {
+        // Create background panel
+        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
+        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0.5f, 1f);
+        backgroundRect.anchorMax = new Vector2(0.5f, 1f);
+        /*backgroundRect.anchorMin = new Vector2(1, 1);
+        backgroundRect.anchorMax = new Vector2(1, 1);*/
+        backgroundRect.anchoredPosition = position;
+        backgroundRect.sizeDelta = new Vector2(420f, 220f); // Adjust size as needed
+        backgroundRect.pivot = new Vector2(0.5f, 1);
+
+        Image backgroundImage = backgroundPanel.GetComponent<Image>();
+        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
+
+        GUIManager.Instance.CreateText(
+            text: "Personality",
+            parent: backgroundImage.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /**//*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f), *//**/
+            position: new Vector2(190f, -22.5f),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            //color: GUIManager.Instance.ValheimOrange,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        CreateMultilineInputField(
+            parent: backgroundPanel.transform,
+            placeholder: "She's strong, stoic, tomboyish, confident and serious...",
+            fontSize: 14,
+            width: 400,
+            height: 150
+        );
+
+        /* GUIManager.Instance.CreateInputField(
+            parent: backgroundPanel.transform,
+            anchorMin: new Vector2(0.5f, 1f),
+            anchorMax: new Vector2(0.5f, 1f),
+            *//*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f),*//*
+            position: new Vector2(0, -120f),
+            contentType: InputField.ContentType.Standard,
+            placeholderText: "She's strong, stoic, tomboyish, confident and serious... Behind her cold exterior she is soft and caring, but she's not always good at showing it. She secretly wants a husband but is not good when it comes to romance and love, very oblivious to it.",
+            fontSize: 18,
+            width: 400f,
+            height: 150f);*/
+    }
+
+    private GameObject inputFieldObject;
+    private InputField inputField;
+    private Text placeholderText;
+    private Text personalityInputText;
+
+    public void CreateMultilineInputField(Transform parent, string placeholder, int fontSize = 16, int width = 300, int height = 100)
+    {
+        // Create main GameObject for the input field
+        inputFieldObject = new GameObject("CustomInputField");
+        inputFieldObject.transform.SetParent(parent, false);
+
+        // Add Image component for background
+        Image background = inputFieldObject.AddComponent<Image>();
+        background.color = new Color(0.7f, 0.7f, 0.7f, 0.3f);
+
+        // Create InputField component
+        inputField = inputFieldObject.AddComponent<InputField>();
+        inputField.lineType = InputField.LineType.MultiLineNewline;
+
+        // Set up RectTransform
+        RectTransform rectTransform = inputField.GetComponent<RectTransform>();
+        rectTransform.sizeDelta = new Vector2(width, height);
+        rectTransform.position = rectTransform.position + new Vector3(0, -20, 0);
+
+        // Create placeholder text
+        GameObject placeholderObj = new GameObject("Placeholder");
+        placeholderObj.transform.SetParent(inputFieldObject.transform, false);
+        placeholderText = placeholderObj.AddComponent<Text>();
+        placeholderText.text = placeholder;
+        placeholderText.font = GUIManager.Instance.AveriaSerifBold;
+        placeholderText.fontSize = fontSize;
+        placeholderText.color = new Color(0.7f, 0.7f, 0.7f, 0.5f);
+
+        // Set up placeholder RectTransform
+        RectTransform placeholderTransform = placeholderText.GetComponent<RectTransform>();
+        placeholderTransform.anchorMin = new Vector2(0, 0);
+        placeholderTransform.anchorMax = new Vector2(1, 1);
+        placeholderTransform.offsetMin = new Vector2(10, 10);
+        placeholderTransform.offsetMax = new Vector2(-10, -10);
+
+        // Create input text
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(inputFieldObject.transform, false);
+        personalityInputText = textObj.AddComponent<Text>();
+        personalityInputText.font = GUIManager.Instance.AveriaSerifBold;
+        personalityInputText.fontSize = fontSize;
+        personalityInputText.color = Color.white;
+
+        // Set up input text RectTransform
+        RectTransform textTransform = personalityInputText.GetComponent<RectTransform>();
+        textTransform.anchorMin = new Vector2(0, 0);
+        textTransform.anchorMax = new Vector2(1, 1);
+        textTransform.offsetMin = new Vector2(10, 10);
+        textTransform.offsetMax = new Vector2(-10, -10);
+
+        // Assign text components to InputField
+        inputField.placeholder = placeholderText;
+        inputField.textComponent = personalityInputText;
+    }
+
+    private void CreateVoiceAndVolumeControls(Vector2 position)
+    {
+        // Create background panel
+        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
+        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0.5f, 1f);
+        backgroundRect.anchorMax = new Vector2(0.5f, 1f);
+        /*backgroundRect.anchorMin = new Vector2(1, 1);
+        backgroundRect.anchorMax = new Vector2(1, 1);*/
+        backgroundRect.anchoredPosition = position;
+        backgroundRect.sizeDelta = new Vector2(420f, 120f); // Adjust size as needed
+        backgroundRect.pivot = new Vector2(0.5f, 1);
+
+        Image backgroundImage = backgroundPanel.GetComponent<Image>();
+        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
+
+        GUIManager.Instance.CreateText(
+            text: "Voice",
+            parent: backgroundImage.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /**//*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f), *//**/
+            position: new Vector2(190f, -22.5f),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            //color: GUIManager.Instance.ValheimOrange,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        var voiceDropdown = GUIManager.Instance.CreateDropDown(
+            parent: backgroundPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(110f, -60f),
+            fontSize: 20,
+            width: 200f,
+            height: 30f);
+        //voiceDropdown.GetComponent<Dropdown>().AddOptions(new List<string> { "Freiya" });
+        voiceDropdown.GetComponent<Dropdown>().AddOptions(new List<string> { 
+            "Asteria",
+            "Luna",
+            "Stella",
+            "Athena",
+            "Hera",
+            "Orion",
+            "Arcas",
+            "Perseus",
+            "Orpheus",
+            "Angus",
+            "Helios",
+            "Zeus"
+        });
+
+
+        GUIManager.Instance.CreateText(
+            text: "Volume",
+            parent: backgroundImage.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /**//*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f), *//**/
+            position: new Vector2(190f, -105f),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            //color: GUIManager.Instance.ValheimOrange,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        var volumeSlider = CreateSlider(
+            parent: backgroundPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(250f, -100f),
+            width: 200f,
+            height: 20f);
+    }
+
+    private void CreateBodyTypeToggle(Vector2 position)
+    {
+        // Create background panel
+        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
+        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0.5f, 1f);
+        backgroundRect.anchorMax = new Vector2(0.5f, 1f);
+        /*backgroundRect.anchorMin = new Vector2(1, 1);
+        backgroundRect.anchorMax = new Vector2(1, 1);*/
+        backgroundRect.anchoredPosition = position;
+        backgroundRect.sizeDelta = new Vector2(420f, 120f); // Adjust size as needed
+        backgroundRect.pivot = new Vector2(0.5f, 1);
+
+        Image backgroundImage = backgroundPanel.GetComponent<Image>();
+        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
+
+        GUIManager.Instance.CreateText(
+            text: "Body Type",
+            parent: backgroundImage.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /**//*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f), *//**/
+            position: new Vector2(190f, -22.5f),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            //color: GUIManager.Instance.ValheimOrange,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+
+        GameObject toggleObj1 = CreateToggle(backgroundPanel.transform, "Masculine", "Masculine", -25);
+        GameObject toggleObj2 = CreateToggle(backgroundPanel.transform, "Feminine", "Feminine", -55);
+
+        Toggle toggle1 = toggleObj1.GetComponent<Toggle>();
+        Toggle toggle2 = toggleObj2.GetComponent<Toggle>();
+
+        // Add listeners
+        toggle1.onValueChanged.AddListener(isOn => OnToggleChanged(toggle1, toggle2, isOn));
+        toggle2.onValueChanged.AddListener(isOn => OnToggleChanged(toggle2, toggle1, isOn));
+    }
+
+    GameObject CreateToggle(Transform parent, string name, string label, float positionY)
+    {
+        GameObject toggleObj = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+        toggleObj.transform.SetParent(parent, false);
+
+        RectTransform toggleRect = toggleObj.GetComponent<RectTransform>();
+        toggleRect.anchorMin = new Vector2(0f, 1f);
+        toggleRect.anchorMax = new Vector2(0f, 1f);
+        toggleRect.anchoredPosition = new Vector2(20, positionY);
+        toggleRect.sizeDelta = Vector2.zero;
+
+        Toggle toggle = toggleObj.GetComponent<Toggle>();
+        CreateToggleVisuals(toggle, label);
+
+        return toggleObj;
+    }
+
+    void CreateToggleVisuals(Toggle toggle, string label)
+    {
+        // Background (Circle or Rectangle)
+        GameObject background = new GameObject("Background", typeof(RectTransform), typeof(Image));
+        background.transform.SetParent(toggle.transform, false);
+
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0, 0.5f);
+        backgroundRect.anchorMax = new Vector2(0, 0.5f);
+        backgroundRect.anchoredPosition = new Vector2(10, -30);
+        backgroundRect.sizeDelta = new Vector2(20, 20);
+
+        Image backgroundImage = background.GetComponent<Image>();
+        backgroundImage.sprite = CreateCircleSprite(); // Or use CreateRectangleSprite() for rectangular buttons
+        backgroundImage.color = Color.white;
+
+        // Checkmark
+        GameObject checkmark = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+        checkmark.transform.SetParent(background.transform, false);
+
+        RectTransform checkmarkRect = checkmark.GetComponent<RectTransform>();
+        checkmarkRect.anchorMin = new Vector2(0.15f, 0.15f);
+        checkmarkRect.anchorMax = new Vector2(0.85f, 0.85f);
+        checkmarkRect.sizeDelta = Vector2.zero;
+
+        Image checkmarkImage = checkmark.GetComponent<Image>();
+        checkmarkImage.sprite = CreateCircleSprite();
+        checkmarkImage.color = GUIManager.Instance.ValheimOrange;
+
+        toggle.targetGraphic = backgroundImage;
+        toggle.graphic = checkmarkImage;
+
+        // Label
+        GameObject labelObj = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        labelObj.transform.SetParent(toggle.transform, false);
+
+        RectTransform labelRect = labelObj.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(1, 1);
+        labelRect.anchorMax = new Vector2(1, 1);
+        //labelRect.anchorMax = new Vector2(1, 1);
+        /*labelRect.offsetMin = new Vector2(40, 0);
+        labelRect.offsetMax = new Vector2(0, 0);*/
+        labelRect.anchoredPosition = new Vector2(80, -30);
+
+        Text labelText = labelObj.GetComponent<Text>();
+        labelText.text = label;
+        labelText.color = Color.white;
+        labelText.font = GUIManager.Instance.AveriaSerif;
+        //labelText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        labelText.fontSize = 18;
+        labelText.alignment = TextAnchor.MiddleLeft;
+    }
+
+    Sprite CreateCircleSprite()
+    {
+        Texture2D texture = new Texture2D(128, 128);
+        Color[] colors = new Color[128 * 128];
+        for (int y = 0; y < 128; y++)
+        {
+            for (int x = 0; x < 128; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), new Vector2(64, 64));
+                colors[y * 128 + x] = distance < 64 ? Color.white : Color.clear;
+            }
+        }
+        texture.SetPixels(colors);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f));
+    }
+
+    Sprite CreateRectangleSprite()
+    {
+        Texture2D texture = new Texture2D(128, 128);
+        Color[] colors = new Color[128 * 128];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = Color.white;
+        }
+        texture.SetPixels(colors);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f));
+    }
+
+    Sprite CreateCheckmarkSprite()
+    {
+        Texture2D texture = new Texture2D(128, 128);
+        Color[] colors = new Color[128 * 128];
+        for (int y = 0; y < 128; y++)
+        {
+            for (int x = 0; x < 128; x++)
+            {
+                if ((x > y - 30 && x < y + 10 && y > 64) || (x > 128 - y - 30 && x < 128 - y + 10 && y < 64))
+                {
+                    colors[y * 128 + x] = Color.white;
+                }
+                else
+                {
+                    colors[y * 128 + x] = Color.clear;
+                }
+            }
+        }
+        texture.SetPixels(colors);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f));
+    }
+
+    void OnToggleChanged(Toggle changedToggle, Toggle otherToggle, bool isOn)
+    {
+        if (isOn && otherToggle.isOn)
+        {
+            otherToggle.isOn = false;
+        }
+    }
+
+    private void CreateButtons(Vector2 position)
+    {
+        GUIManager.Instance.CreateButton(
+            text: "A Test Button - long dong",
+            parent: TestPanel.transform,
+            anchorMin: new Vector2(0.5f, 0.5f),
+                anchorMax: new Vector2(0.5f, 0.5f),
+            position: position + new Vector2(0, 50),
+            width: 250f,
+            height: 40f);
+
+        GUIManager.Instance.CreateButton(
+            text: "Save",
+            parent: TestPanel.transform,
+            anchorMin: new Vector2(0.5f, 0.5f),
+                anchorMax: new Vector2(0.5f, 0.5f),
+            position: position,
+            width: 100f,
+            height: 40f);
+    }
+
+    // Make sure to include your existing CreateTask and CreateSlider methods here
+
+    private Slider CreateSlider(Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, float width, float height)
+    {
+        GameObject sliderObject = new GameObject("VolumeSlider", typeof(RectTransform));
+        sliderObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = sliderObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = anchorMin;
+        rectTransform.anchorMax = anchorMax;
+        rectTransform.anchoredPosition = position;
+        rectTransform.sizeDelta = new Vector2(width, height);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+        Slider slider = sliderObject.AddComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 100f;
+        slider.value = 90f; // Default value
+
+        // Create background
+        GameObject background = new GameObject("Background", typeof(RectTransform), typeof(Image));
+        background.transform.SetParent(sliderObject.transform, false);
+        background.GetComponent<Image>().color = new Color(0.2f, 0.2f, 0.2f);
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = Vector2.zero;
+        backgroundRect.anchorMax = Vector2.one;
+        backgroundRect.sizeDelta = Vector2.zero;
+
+        // Create fill area
+        GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
+        fillArea.transform.SetParent(sliderObject.transform, false);
+        RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
+        fillAreaRect.anchorMin = new Vector2(0, 0.25f);
+        fillAreaRect.anchorMax = new Vector2(1, 0.75f);
+        fillAreaRect.sizeDelta = Vector2.zero;
+
+        // Create fill
+        GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+        fill.transform.SetParent(fillArea.transform, false);
+        fill.GetComponent<Image>().color = GUIManager.Instance.ValheimOrange;
+        RectTransform fillRect = fill.GetComponent<RectTransform>();
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.sizeDelta = Vector2.zero;
+
+        // Create handle slide area
+        GameObject handleSlideArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+        handleSlideArea.transform.SetParent(sliderObject.transform, false);
+        RectTransform handleSlideAreaRect = handleSlideArea.GetComponent<RectTransform>();
+        handleSlideAreaRect.anchorMin = Vector2.zero;
+        handleSlideAreaRect.anchorMax = Vector2.one;
+        handleSlideAreaRect.sizeDelta = Vector2.zero;
+
+        // Create handle
+        GameObject handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+        handle.transform.SetParent(handleSlideArea.transform, false);
+        handle.GetComponent<Image>().color = Color.white;
+        RectTransform handleRect = handle.GetComponent<RectTransform>();
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.sizeDelta = new Vector2(20, 0);
+
+        // Set up slider components
+        slider.fillRect = fillRect;
+        slider.handleRect = handleRect;
+        slider.targetGraphic = handle.GetComponent<Image>();
+
+        return slider;
+    }
+}
+
+
+
+
+/*
+ * 
+ * 
+ * UI
+ * 
+ * 
+ */
+
+public class VerticalBox
+{
+    public GameObject ScrollViewContainer { get; private set; }
+    public GameObject ContentContainer { get; private set; }
+    public RectTransform ContentRect { get; private set; }
+    public VerticalLayoutGroup LayoutGroup { get; private set; }
+    public Image Background { get; private set; }
+    public ScrollRect ScrollRect { get; private set; }
+
+    public VerticalBox(Transform parent, Vector2 position, Vector2 size, Color backgroundColor)
+    {
+        // Create the main container with ScrollRect
+        ScrollViewContainer = new GameObject("ScrollViewContainer", typeof(RectTransform));
+        ScrollViewContainer.transform.SetParent(parent, false);
+        RectTransform scrollRectTransform = ScrollViewContainer.GetComponent<RectTransform>();
+        scrollRectTransform.anchorMin = new Vector2(0, 1);
+        scrollRectTransform.anchorMax = new Vector2(0, 1);
+        scrollRectTransform.anchoredPosition = position;
+        scrollRectTransform.sizeDelta = size;
+
+        // Add ScrollRect component
+        ScrollRect = ScrollViewContainer.AddComponent<ScrollRect>();
+
+        // Create the content container
+        ContentContainer = new GameObject("ContentContainer", typeof(RectTransform));
+        ContentContainer.transform.SetParent(ScrollViewContainer.transform, false);
+        ContentRect = ContentContainer.GetComponent<RectTransform>();
+        ContentRect.anchorMin = new Vector2(0, 1);
+        ContentRect.anchorMax = new Vector2(1, 1);
+        ContentRect.anchoredPosition = Vector2.zero;
+        ContentRect.sizeDelta = new Vector2(0, 0);
+
+        // Set up ScrollRect
+        ScrollRect.content = ContentRect;
+        ScrollRect.vertical = true;
+        ScrollRect.horizontal = false;
+
+        // Add background image
+        Background = ContentContainer.AddComponent<Image>();
+        Background.color = backgroundColor;
+
+        // Add VerticalLayoutGroup to content
+        LayoutGroup = ContentContainer.AddComponent<VerticalLayoutGroup>();
+        LayoutGroup.childAlignment = TextAnchor.UpperLeft;
+        LayoutGroup.childControlHeight = false;
+        LayoutGroup.childForceExpandHeight = false;
+        LayoutGroup.spacing = 5;
+        LayoutGroup.padding = new RectOffset(10, 10, 10, 10);
+
+        // Add ContentSizeFitter to adjust content height
+        ContentSizeFitter contentSizeFitter = ContentContainer.AddComponent<ContentSizeFitter>();
+        contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+    }
+
+    public void SetAlignment(TextAnchor alignment)
+    {
+        LayoutGroup.childAlignment = alignment;
+    }
+
+    public void SetBackgroundColor(Color color)
+    {
+        Background.color = color;
+    }
+
+    public void AddElement(GameObject element)
+    {
+        //element.transform.SetParent(Container.transform, false);
+        element.transform.SetParent(ContentContainer.transform, false);
     }
 }
