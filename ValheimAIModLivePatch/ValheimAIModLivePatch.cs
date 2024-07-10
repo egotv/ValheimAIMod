@@ -18,6 +18,8 @@ using System.Net;
 using Jotunn.Managers;
 using UnityEngine.UI;
 using ValheimAIMod;
+using System.Reflection;
+using Jotunn.Entities;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -45,6 +47,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> InventoryKey;
     private ConfigEntry<KeyboardShortcut> TalkKey;
     private ConfigEntry<KeyboardShortcut> SendToBrainKey;
+
+    private string MicrophoneName = null;
 
     private ConfigEntry<int> MicrophoneIndex;
     private ConfigEntry<float> CompanionVolume;
@@ -85,6 +89,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private AudioClip recordedAudioClip;
     public bool IsRecording = false;
+    public bool IsModMenuShowing = false;
 
 
     private void Awake()
@@ -131,7 +136,55 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         harmony.UnpatchSelf();
     }
 
-    
+    // Prevent non local player from getting destroyed
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Player), "FixedUpdate")]
+    private static bool Player_FixedUpdate_Prefix(Player __instance)
+    {
+        float fixedDeltaTime = Time.fixedDeltaTime;
+        __instance.UpdateAwake(fixedDeltaTime);
+        if (__instance.m_nview.GetZDO() == null)
+        {
+            return false;
+        }
+        __instance.UpdateTargeted(fixedDeltaTime);
+        if (!__instance.m_nview.IsOwner())
+        {
+            return false;
+        }
+        if (Player.m_localPlayer != __instance)
+        {
+            ZLog.Log("Not Destroying old local player");
+            //ZNetScene.instance.Destroy(base.gameObject);
+            return false;
+        }
+        else if (!__instance.IsDead())
+        {
+            __instance.UpdateActionQueue(fixedDeltaTime);
+            __instance.PlayerAttackInput(fixedDeltaTime);
+            __instance.UpdateAttach();
+            __instance.UpdateDoodadControls(fixedDeltaTime);
+            __instance.UpdateCrouch(fixedDeltaTime);
+            __instance.UpdateDodge(fixedDeltaTime);
+            __instance.UpdateCover(fixedDeltaTime);
+            __instance.UpdateStations(fixedDeltaTime);
+            __instance.UpdateGuardianPower(fixedDeltaTime);
+            __instance.UpdateBaseValue(fixedDeltaTime);
+            __instance.UpdateStats(fixedDeltaTime);
+            __instance.UpdateTeleport(fixedDeltaTime);
+            __instance.AutoPickup(fixedDeltaTime);
+            __instance.EdgeOfWorldKill(fixedDeltaTime);
+            __instance.UpdateBiome(fixedDeltaTime);
+            __instance.UpdateStealth(fixedDeltaTime);
+            if ((bool)GameCamera.instance && __instance.m_attachPointCamera == null && Vector3.Distance(GameCamera.instance.transform.position, __instance.transform.position) < 2f)
+            {
+                __instance.SetVisible(visible: false);
+            }
+            AudioMan.instance.SetIndoor(__instance.InShelter() || ShieldGenerator.IsInsideShield(__instance.transform.position));
+        }
+
+        return false;
+    }
 
     // PROCESS PLAYER INPUT
     [HarmonyPostfix]
@@ -148,7 +201,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
-        if (Menu.IsVisible() || Console.IsVisible() || Chat.instance.HasFocus())
+        if (Menu.IsVisible() || Console.IsVisible() || Chat.instance.HasFocus() || instance.IsModMenuShowing)
         {
             //Debug.Log("Menu visible");
             return;
@@ -949,7 +1002,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         Player localPlayer = Player.m_localPlayer;
         GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
+        GameObject playerPrefab = ZNetScene.instance.GetPrefab("Player");
+        GameObject vanillaPlayer = localPlayer.gameObject;
+        //GameObject vanillaPlayer = Resources.Load("Player") as GameObject;
         //GameObject npcPrefab = HumanoidNPCPrefab;
+
+        
 
         if (npcPrefab == null)
         {
@@ -961,8 +1019,47 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         //Vector3 spawnPosition = GetRandomSpawnPosition(10f);
         Quaternion spawnRotation = localPlayer.transform.rotation;
 
+        /*GameObject npcInstance = Instantiate<GameObject>(playerPrefab, spawnPosition, spawnRotation);
+        npcInstance.name = "HumanoidNPC";
+        Player npcPlayerComp = npcInstance.GetComponent<Player>();
+        Destroy(npcPlayerComp);
+        PlayerController npcPCComp = npcInstance.GetComponent<PlayerController>();
+        Destroy(npcPCComp);
+        BaseAI npcBaseAIComp = npcInstance.GetComponent<BaseAI>();
+        Destroy(npcBaseAIComp);*/
+
+        
+
+        /*MonsterAI monsterAIcomp = npcInstance.AddComponent<MonsterAI>();
+        HumanoidNPC humanoidNpc_Component = npcInstance.AddComponent<HumanoidNPC>();
+
+        humanoidNpc_Component.m_walkSpeed = localPlayer.m_walkSpeed;
+        humanoidNpc_Component.m_runSpeed = localPlayer.m_runSpeed;*/
+
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
+
+
+
+        VisEquipment npcInstanceVis = npcInstance.GetComponent<VisEquipment>();
+        npcInstanceVis.m_isPlayer = true;
+        VisEquipment playerInstanceVis = localPlayer.GetComponent<VisEquipment>();
+
+        /*npcInstanceVis.m_models = playerInstanceVis.m_models;
+        npcInstanceVis.m_bodyModel = playerInstanceVis.m_bodyModel;
+        npcInstanceVis.m_modelIndex = playerInstanceVis.m_modelIndex;
+        npcInstanceVis.m_currentModelIndex = playerInstanceVis.m_currentModelIndex; */
+
+        /*playerInstanceVis.m_models = npcInstanceVis.m_models;
+        playerInstanceVis.m_bodyModel = npcInstanceVis.m_bodyModel;*/
+
+
+        //CopyComponent<VisEquipment>(npcInstance, localPlayer.gameObject);
+        //CopyComponent<VisEquipment>(localPlayer.gameObject, npcInstance);
+
+
+        /*CopyVisEquipment(vanillaPlayer, npcInstance);
+        CopyAnimator(vanillaPlayer, npcInstance);*/
 
         instance.PlayerNPC = npcInstance;
 
@@ -975,11 +1072,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
         // add item to inventory
-        ValheimAIModLoader.HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<ValheimAIModLoader.HumanoidNPC>();
+        HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<HumanoidNPC>();
         if (humanoidNpc_Component != null)
         {
             humanoidNpc_Component.m_name = "NPC";
+            //humanoidNpc_Component.m_visEquipment = npcInstanceVis;
             humanoidNpc_Component.m_visEquipment.m_isPlayer = true;
+            //humanoidNpc_Component.m_visEquipment.SetModel(1);
+            //humanoidNpc_Component.m_visEquipment.SetSkinColofr(new Vector3(0.8f, 0.6f, 0.4f));
+            humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.1f, 0.1f, 0.1f));
+            humanoidNpc_Component.m_visEquipment.SetHairColor(new Vector3(1f, 1f, 1f));
 
             GameObject itemPrefab;
 
@@ -999,7 +1101,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             // COSMETICS
             humanoidNpc_Component.SetHair("Hair17");
 
-
             // SETUP HEALTH AND MAX HEALTH
             humanoidNpc_Component.SetMaxHealth(300);
             humanoidNpc_Component.SetHealth(300);
@@ -1013,6 +1114,59 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Logger.LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
         }
     }
+
+    T CopyComponent<T>(GameObject source, GameObject destination) where T : Component
+    {
+        T sourceComp = source.GetComponent<T>();
+        if (sourceComp != null)
+        {
+            //T newComp = destination.AddComponent<T>();
+            T newComp = destination.GetComponent<T>();
+            System.Reflection.FieldInfo[] fields = typeof(T).GetFields();
+            foreach (System.Reflection.FieldInfo field in fields)
+            {
+                field.SetValue(newComp, field.GetValue(sourceComp));
+            }
+            return newComp;
+        }
+        return null;
+    }
+
+    /*void CopyVisEquipment(GameObject source, GameObject target)
+    {
+        if (source)
+            Debug.Log("source");
+        if (target)
+            Debug.Log("target");
+        VisEquipment sourceEquipment = source.GetComponent<VisEquipment>();
+        if (sourceEquipment != null)
+        {
+            //VisEquipment targetEquipment = target.GetComponent<VisEquipment>();// ?? target.AddComponent<VisEquipment>();
+
+            // Copy the main properties related to equipment visualization
+            *//*targetEquipment.m_models = sourceEquipment.m_models;
+            targetEquipment.m_bodyModel = sourceEquipment.m_bodyModel;
+            targetEquipment.m_nview = sourceEquipment.m_nview;
+            targetEquipment.m_isPlayer = sourceEquipment.m_isPlayer;*//*
+        }
+    }
+
+    void CopyAnimator(GameObject source, GameObject target)
+    {
+        Animator sourceAnimator = source.GetComponent<Animator>();
+        if (sourceAnimator != null)
+        {
+            Animator targetAnimator = target.GetComponent<Animator>() ?? target.AddComponent<Animator>();
+
+            // Copy the Animator Controller
+            targetAnimator.runtimeAnimatorController = sourceAnimator.runtimeAnimatorController;
+
+            // Copy other relevant Animator properties
+            targetAnimator.applyRootMotion = sourceAnimator.applyRootMotion;
+            targetAnimator.updateMode = sourceAnimator.updateMode;
+            targetAnimator.cullingMode = sourceAnimator.cullingMode;
+        }
+    }*/
 
     private void StartPatrol(Player player)
     {
@@ -1556,7 +1710,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void StartRecording()
     {
-        instance.recordedAudioClip = Microphone.Start(GetRecordingDevice(), false, recordingLength, sampleRate);
+        instance.recordedAudioClip = Microphone.Start(instance.MicrophoneName, false, recordingLength, sampleRate);
         instance.IsRecording = true;
         AddChatTalk(Player.m_localPlayer, Player.m_localPlayer.GetPlayerName(), "...");
         //Debug.Log("Recording started");
@@ -1713,7 +1867,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
         audioSource.clip = clip;
         audioSource.spatialBlend = 0f;
-        audioSource.volume = instance.CompanionVolume.Value;
+        audioSource.volume = instance.NPCVolume;
         audioSource.bypassEffects = true;
         audioSource.bypassListenerEffects = true;
         audioSource.bypassReverbZones = true;
@@ -1929,6 +2083,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["player_id"] = humanoidNPC.GetZDOID().ToString(),
             ["game_state"] = gameState,
             ["player_instruction_audio_file_base64"] = base64audio,
+            ["timestamp"] = Time.time,
+            ["personality"] = instance.personalityInputText.ToString(),
+            ["voice"] = instance.NPCVoice,
+            ["gender"] = instance.NPCGender,
         };
 
         Debug.Log(gameState);
@@ -2215,71 +2373,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 anchorMax: new Vector2(0.5f, 0.5f),
                 position: new Vector2(0, 0),
                 width: 850,
-                height: 600,
+                height: 700,
                 draggable: true);
             TestPanel.SetActive(false);
 
             CreatePanel();
-
-
-            /*// Create the text object
-            GUIManager.Instance.CreateText(
-                text: "Jötunn, the Valheim Lib",
-                parent: TestPanel.transform,
-                anchorMin: new Vector2(0.5f, 1f),
-                anchorMax: new Vector2(0.5f, 1f),
-                position: new Vector2(0f, -50f),
-                font: GUIManager.Instance.AveriaSerifBold,
-                fontSize: 30,
-                color: GUIManager.Instance.ValheimOrange,
-                outline: true,
-                outlineColor: Color.black,
-                width: 350f,
-                height: 40f,
-                addContentSizeFitter: false);
-
-            // Create the button object
-            GameObject buttonObject = GUIManager.Instance.CreateButton(
-                text: "A Test Button - long dong schlongsen text",
-                parent: TestPanel.transform,
-                anchorMin: new Vector2(0.5f, 0.5f),
-                anchorMax: new Vector2(0.5f, 0.5f),
-                position: new Vector2(0, -250f),
-                width: 250f,
-                height: 60f);
-            buttonObject.SetActive(true);
-
-            // Add a listener to the button to close the panel again
-            Button button = buttonObject.GetComponent<Button>();
-            button.onClick.AddListener(TogglePanel);
-
-
-
-            // Create a dropdown
-            var dropdownObject = GUIManager.Instance.CreateDropDown(
-                parent: TestPanel.transform,
-                anchorMin: new Vector2(0.5f, 0.5f),
-                anchorMax: new Vector2(0.5f, 0.5f),
-                position: new Vector2(-250f, -250f),
-                fontSize: 16,
-                width: 100f,
-                height: 30f);
-            dropdownObject.GetComponent<Dropdown>().AddOptions(new List<string>
-            {
-                "bla", "blubb", "börks", "blarp", "harhar"
-            });
-
-            // Create an input field
-            GUIManager.Instance.CreateInputField(
-                parent: TestPanel.transform,
-                anchorMin: new Vector2(0.5f, 0.5f),
-                anchorMax: new Vector2(0.5f, 0.5f),
-                position: new Vector2(250f, -250f),
-                contentType: InputField.ContentType.Standard,
-                placeholderText: "input...",
-                fontSize: 16,
-                width: 160f,
-                height: 30f);*/
         }
 
         // Switch the current state
@@ -2287,6 +2385,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         // Set the active state of the panel
         TestPanel.SetActive(state);
+        instance.IsModMenuShowing = state;
 
         // Toggle input for the player and camera while displaying the GUI
         GUIManager.BlockInput(state);
@@ -2319,7 +2418,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         CreateKeyBindings(new Vector2(25, -320));
 
         // Ego Banner
-        CreateEgoBanner(new Vector2(25, -530));
+        CreateMicInput(new Vector2(25, -530));
+
+        // Ego Banner
+        CreateEgoBanner(new Vector2(25, -630));
 
         // Personality
         CreatePersonalitySection(new Vector2(200, -20));
@@ -2574,6 +2676,85 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+
+    private void CreateMicInput(Vector2 startPosition)
+    {
+        // Create background panel
+        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
+        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0f, 1f);
+        backgroundRect.anchorMax = new Vector2(0f, 1f);
+        /*backgroundRect.anchorMin = new Vector2(1, 1);
+        backgroundRect.anchorMax = new Vector2(1, 1);*/
+        backgroundRect.anchoredPosition = startPosition;
+        backgroundRect.sizeDelta = new Vector2(300f, 90f); // Adjust size as needed
+        backgroundRect.pivot = new Vector2(0f, 1);
+
+        Image backgroundImage = backgroundPanel.GetComponent<Image>();
+        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
+
+        GUIManager.Instance.CreateText(
+            text: "Mic Input",
+            parent: backgroundImage.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            /**//*anchorMin: new Vector2(0f, 0f),
+            anchorMax: new Vector2(0f, 0f), *//**/
+            position: new Vector2(190f, -22.5f),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 26,
+            //color: GUIManager.Instance.ValheimOrange,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        var micDropdown = GUIManager.Instance.CreateDropDown(
+            parent: backgroundPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(110f, -60f),
+            fontSize: 16,
+            width: 250f,
+            height: 30f);
+
+        Dropdown micDropdownComp = micDropdown.GetComponent<Dropdown>();
+        List<string> truncatedOptions = Microphone.devices.ToList().Select(option => TruncateText(option, 20)).ToList();
+        micDropdownComp.AddOptions(truncatedOptions);
+
+        RectTransform dropdownRect = micDropdown.GetComponent<RectTransform>();
+
+        // Set the pivot
+        // (0,0) is bottom-left, (1,1) is top-right, (0.5,0.5) is center
+        dropdownRect.pivot = new Vector2(0f, 1f);  // This sets the pivot to top-left
+        dropdownRect.anchoredPosition = new Vector2(10f, -50f);
+
+
+        /*// Load the saved value
+        int savedIndex = PlayerPrefs.GetInt("SelectedVoiceIndex", 0);
+        voiceDropdownComp.value = savedIndex;*/
+
+        // Add listener for value change
+        micDropdownComp.onValueChanged.AddListener(OnMicInputDropdownChanged);
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text;
+        return text.Substring(0, maxLength - 3) + "...";
+    }
+
+    private void OnMicInputDropdownChanged(int index)
+    {
+        instance.MicrophoneName = Microphone.devices[index];
+        Debug.Log("new MicrophoneName " + instance.MicrophoneName);
+    }
+
     private void CreateEgoBanner(Vector2 startPosition)
     {
         // Create background panel
@@ -2674,7 +2855,25 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private GameObject inputFieldObject;
     private InputField inputField;
     private Text placeholderText;
-    private Text personalityInputText;
+    public Text personalityInputText;
+    
+    static public List<String> npcVoices = new List<string> { 
+        "Asteria",
+        "Luna",
+        "Stella",
+        "Athena",
+        "Hera",
+        "Orion",
+        "Arcas",
+        "Perseus",
+        "Orpheus",
+        "Angus",
+        "Helios",
+        "Zeus"
+    };
+    public string NPCGender = "Masculine";
+    public string NPCVoice = npcVoices[0];
+    public float NPCVolume = 90f;
 
     public void CreateMultilineInputField(Transform parent, string placeholder, int fontSize = 16, int width = 300, int height = 100)
     {
@@ -2689,6 +2888,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Create InputField component
         inputField = inputFieldObject.AddComponent<InputField>();
         inputField.lineType = InputField.LineType.MultiLineNewline;
+        inputField.onValueChanged.AddListener(OnPersonalityTextChanged);
 
         // Set up RectTransform
         RectTransform rectTransform = inputField.GetComponent<RectTransform>();
@@ -2729,6 +2929,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Assign text components to InputField
         inputField.placeholder = placeholderText;
         inputField.textComponent = personalityInputText;
+    }
+
+    private void OnPersonalityTextChanged(string newText)
+    {
+        instance.personalityInputText.text = newText;
+        Debug.Log("New personality " + instance.personalityInputText.text);
     }
 
     private void CreateVoiceAndVolumeControls(Vector2 position)
@@ -2775,21 +2981,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             fontSize: 20,
             width: 200f,
             height: 30f);
-        //voiceDropdown.GetComponent<Dropdown>().AddOptions(new List<string> { "Freiya" });
-        voiceDropdown.GetComponent<Dropdown>().AddOptions(new List<string> { 
-            "Asteria",
-            "Luna",
-            "Stella",
-            "Athena",
-            "Hera",
-            "Orion",
-            "Arcas",
-            "Perseus",
-            "Orpheus",
-            "Angus",
-            "Helios",
-            "Zeus"
-        });
+
+        Dropdown voiceDropdownComp = voiceDropdown.GetComponent<Dropdown>();
+        voiceDropdownComp.AddOptions(npcVoices);
+
+        /*// Load the saved value
+        int savedIndex = PlayerPrefs.GetInt("SelectedVoiceIndex", 0);
+        voiceDropdownComp.value = savedIndex;*/
+
+        // Add listener for value change
+        voiceDropdownComp.onValueChanged.AddListener(OnNPCVoiceDropdownChanged);
 
 
         GUIManager.Instance.CreateText(
@@ -2810,6 +3011,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+
+
         var volumeSlider = CreateSlider(
             parent: backgroundPanel.transform,
             anchorMin: new Vector2(0f, 1f),
@@ -2817,6 +3020,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             position: new Vector2(250f, -100f),
             width: 200f,
             height: 20f);
+
+        Slider volumeSliderComp = volumeSlider.GetComponent<Slider>();
+        volumeSliderComp.onValueChanged.AddListener(OnVolumeSliderValueChanged);
+    }
+
+    private void OnNPCVoiceDropdownChanged(int index)
+    {
+        instance.NPCVoice = npcVoices[index];
+        Debug.Log("new instance.NPCVoice " + instance.NPCVoice);
+    }
+
+    private void OnVolumeSliderValueChanged(float value)
+    {
+        instance.NPCVolume = value;
+        Debug.Log("new companion volume " + instance.NPCVolume);
     }
 
     private void CreateBodyTypeToggle(Vector2 position)
@@ -2996,12 +3214,34 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             otherToggle.isOn = false;
         }
+        instance.NPCGender = changedToggle.name;
+        int newModel = -1;
+        if (instance.NPCGender == "Masculine")
+        {
+            newModel = 0;
+        }
+        else
+        {
+            newModel = 1;
+        }
+
+        if (instance.PlayerNPC)
+        {
+            VisEquipment npcVisEquipment = instance.PlayerNPC.GetComponent<VisEquipment>();
+            npcVisEquipment.SetModel(newModel);
+        }
+        else
+        {
+            Debug.Log("ontogglechanged instance.PlayerNPC is null");
+        }
+
+        Debug.Log("new NPCGender " + instance.NPCGender.ToString());
     }
 
     private void CreateButtons(Vector2 position)
     {
-        GUIManager.Instance.CreateButton(
-            text: "A Test Button - long dong",
+        GameObject saveButton = GUIManager.Instance.CreateButton(
+            text: "Close",
             parent: TestPanel.transform,
             anchorMin: new Vector2(0.5f, 0.5f),
                 anchorMax: new Vector2(0.5f, 0.5f),
@@ -3009,14 +3249,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             width: 250f,
             height: 40f);
 
-        GUIManager.Instance.CreateButton(
+        Button saveButtonComp = saveButton.GetComponent<Button>();
+        saveButtonComp.onClick.AddListener(() => OnSaveButtonClick(saveButtonComp));
+
+        /*GUIManager.Instance.CreateButton(
             text: "Save",
             parent: TestPanel.transform,
             anchorMin: new Vector2(0.5f, 0.5f),
                 anchorMax: new Vector2(0.5f, 0.5f),
             position: position,
             width: 100f,
-            height: 40f);
+            height: 40f);*/
+    }
+
+    private void OnSaveButtonClick(Button button)
+    {
+        TestPanel.SetActive(false);
+        instance.IsModMenuShowing = false;
+        GUIManager.BlockInput(false);
     }
 
     // Make sure to include your existing CreateTask and CreateSlider methods here
