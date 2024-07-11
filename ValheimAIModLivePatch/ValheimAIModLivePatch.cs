@@ -134,6 +134,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void OnDestroy()
     {
         TestPanel.SetActive(false);
+        Destroy(TestPanel);
 
         harmony.UnpatchSelf();
     }
@@ -1449,9 +1450,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 JsonObject commandObject = agentCommands[agentCommands.Count - 1] as JsonObject;
 
                 // Get the action_str value from the command object
-                string actionStr = commandObject["action_str"].ToString();
-                Debug.Log("Action String: " + actionStr);
-                ProcessNPCCommand(actionStr);
+                if (commandObject.ContainsKey("action_str"))
+                {
+                    string actionStr = commandObject["action_str"].ToString();
+                    Debug.Log("Action String: " + actionStr);
+                    ProcessNPCCommand(actionStr);
+                }
             }
             else
             {
@@ -2101,15 +2105,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["gender"] = instance.NPCGender,
         };
 
-        var jsonObject2 = jsonObject;
-        jsonObject2["player_instruction_audio_file_base64"] = "";
-
-        //Debug.Log(gameState);
-
         string jsonString = SimpleJson.SimpleJson.SerializeObject(jsonObject);
-        string jsonString2 = SimpleJson.SimpleJson.SerializeObject(jsonObject2);
 
-        Debug.Log(jsonString2);
+        jsonObject["player_instruction_audio_file_base64"] = "";
+        string jsonString2 = SimpleJson.SimpleJson.SerializeObject(jsonObject);
+        Debug.Log(jsonString);
 
         return jsonString;
     }
