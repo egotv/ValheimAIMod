@@ -102,6 +102,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         /*PopulateCraftingRequirements();
         PopulateBuildingRequirements();*/
 
+        FindPlayerNPCs();
+
         playerDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "playerdialogue.wav");
         npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
         npcDialogueRawAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
@@ -1042,8 +1044,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
         VisEquipment npcInstanceVis = npcInstance.GetComponent<VisEquipment>();
-        npcInstanceVis.m_isPlayer = true;
         VisEquipment playerInstanceVis = localPlayer.GetComponent<VisEquipment>();
+
+        npcInstanceVis.m_isPlayer = true;
+        npcInstanceVis.m_emptyBodyTexture = playerInstanceVis.m_emptyBodyTexture;
+        npcInstanceVis.m_emptyLegsTexture = playerInstanceVis.m_emptyLegsTexture;
+        //npcInstanceVis.m_bodyModel.sharedMesh = playerInstanceVis.m_bodyModel.sharedMesh;
 
         /*npcInstanceVis.m_models = playerInstanceVis.m_models;
         npcInstanceVis.m_bodyModel = playerInstanceVis.m_bodyModel;
@@ -1080,10 +1086,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             humanoidNpc_Component.m_visEquipment.m_isPlayer = true;
             //humanoidNpc_Component.m_visEquipment.SetModel(1);
             //humanoidNpc_Component.m_visEquipment.SetSkinColofr(new Vector3(0.8f, 0.6f, 0.4f));
-            humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.1f, 0.1f, 0.1f));
+            humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.2f, 0.2f, 0.2f));
             humanoidNpc_Component.m_visEquipment.SetHairColor(new Vector3(1f, 1f, 1f));
 
             GameObject itemPrefab;
+
+            /*itemPrefab = ZNetScene.instance.GetPrefab("ArmorRagsChest");
+            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
+
+            itemPrefab = ZNetScene.instance.GetPrefab("ArmorRagsLegs");
+            humanoidNpc_Component.GiveDefaultItem(itemPrefab);*/
 
             // ADD DEFAULT SPAWN ITEMS TO NPC
             itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
@@ -2053,7 +2065,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             ["Name"] = humanoidNPC.m_name,
             ["Health"] = humanoidNPC.GetHealth(),
-            ["Stamina"] = Player.m_localPlayer.GetStamina(),
+            ["Stamina"] = humanoidNPC.m_stamina,
             ["Inventory"] = inventoryItems,
             //["position"] = humanoidNPC.transform.position.ToString(),
 
@@ -2084,14 +2096,20 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["game_state"] = gameState,
             ["player_instruction_audio_file_base64"] = base64audio,
             ["timestamp"] = Time.time,
-            ["personality"] = instance.personalityInputText.ToString(),
-            ["voice"] = instance.NPCVoice,
+            ["personality"] = instance.personalityText,
+            ["voice"] = instance.NPCVoice.ToLower(),
             ["gender"] = instance.NPCGender,
         };
 
-        Debug.Log(gameState);
+        var jsonObject2 = jsonObject;
+        jsonObject2["player_instruction_audio_file_base64"] = "";
+
+        //Debug.Log(gameState);
 
         string jsonString = SimpleJson.SimpleJson.SerializeObject(jsonObject);
+        string jsonString2 = SimpleJson.SimpleJson.SerializeObject(jsonObject2);
+
+        Debug.Log(jsonString2);
 
         return jsonString;
     }
@@ -2719,11 +2737,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             anchorMax: new Vector2(0f, 1f),
             position: new Vector2(110f, -60f),
             fontSize: 16,
-            width: 250f,
+            width: 280f,
             height: 30f);
 
         Dropdown micDropdownComp = micDropdown.GetComponent<Dropdown>();
-        List<string> truncatedOptions = Microphone.devices.ToList().Select(option => TruncateText(option, 20)).ToList();
+        List<string> truncatedOptions = Microphone.devices.ToList().Select(option => TruncateText(option, 27)).ToList();
         micDropdownComp.AddOptions(truncatedOptions);
 
         RectTransform dropdownRect = micDropdown.GetComponent<RectTransform>();
@@ -2856,6 +2874,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private InputField inputField;
     private Text placeholderText;
     public Text personalityInputText;
+    public string personalityText = "";
     
     static public List<String> npcVoices = new List<string> { 
         "Asteria",
@@ -2934,6 +2953,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void OnPersonalityTextChanged(string newText)
     {
         instance.personalityInputText.text = newText;
+        instance.personalityText = newText;
         Debug.Log("New personality " + instance.personalityInputText.text);
     }
 
@@ -3079,6 +3099,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         Toggle toggle1 = toggleObj1.GetComponent<Toggle>();
         Toggle toggle2 = toggleObj2.GetComponent<Toggle>();
+
+        toggle1.isOn = true;
 
         // Add listeners
         toggle1.onValueChanged.AddListener(isOn => OnToggleChanged(toggle1, toggle2, isOn));

@@ -30,6 +30,7 @@ namespace ValheimAIMod
 
             var script_npc_assetBundle = GetAssetBundleFromResources("scriptnpc");
             HumanoidNPCPrefab = script_npc_assetBundle.LoadAsset<GameObject>("Assets/CustomAssets/HumanoidNPC.prefab");
+            PrefabManager.Instance.AddPrefab(new CustomPrefab(HumanoidNPCPrefab, fixReference: true));
 
             if (HumanoidNPCPrefab) Debug.Log("HumanoidNPCPrefab loaded"); 
             else Debug.Log("HumanoidNPCPrefab not loaded");
@@ -120,7 +121,7 @@ namespace ValheimAIMod
                 {
                     return;
                 }
-                __instance.m_prefabs.Add(HumanoidNPCPrefab);
+                //__instance.m_prefabs.Add(HumanoidNPCPrefab);
                 //__instance.m_namedPrefabs.Add(HumanoidNPCPrefab.name.GetStableHashCode(), HumanoidNPCPrefab);
             }
         }
