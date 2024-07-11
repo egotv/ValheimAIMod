@@ -112,7 +112,43 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         GetRecordingDevices();
 
+        MinimapManager.OnVanillaMapAvailable += CreateMapOverlay;
+
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
+    }
+
+    private void CreateMapOverlay()
+    {
+        // Get or create a map overlay instance by name
+        var zoneOverlay = MinimapManager.Instance.GetMapOverlay("ZoneOverlay");
+
+        // Create a Color array with space for every pixel of the map
+        int mapSize = zoneOverlay.TextureSize * zoneOverlay.TextureSize;
+        Color[] mainPixels = new Color[mapSize];
+
+        // Iterate over the dimensions of the overlay and set a color for
+        // every pixel in our mainPixels array wherever a zone boundary is
+        Color color = Color.white;
+        int zoneSize = 64;
+        int index = 0;
+        for (int x = 0; x < zoneOverlay.TextureSize; ++x)
+        {
+            for (int y = 0; y < zoneOverlay.TextureSize; ++y, ++index)
+            {
+                if (x % zoneSize == 0 || y % zoneSize == 0)
+                {
+                    mainPixels[index] = color;
+                }
+            }
+        }
+
+        // Set the pixel array on the overlay texture
+        // This is much faster than setting every pixel individually
+        zoneOverlay.OverlayTex.SetPixels(mainPixels);
+
+        // Apply the changes to the overlay
+        // This also triggers the MinimapManager to display this overlay
+        zoneOverlay.OverlayTex.Apply();
     }
 
     private void ConfigBindings()
@@ -1086,8 +1122,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //humanoidNpc_Component.m_visEquipment = npcInstanceVis;
             humanoidNpc_Component.m_visEquipment.m_isPlayer = true;
             //humanoidNpc_Component.m_visEquipment.SetModel(1);
-            //humanoidNpc_Component.m_visEquipment.SetSkinColofr(new Vector3(0.8f, 0.6f, 0.4f));
-            humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.2f, 0.2f, 0.2f));
+            humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.8f, 0.6f, 0.4f));
+            //humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.2f, 0.2f, 0.2f));
             humanoidNpc_Component.m_visEquipment.SetHairColor(new Vector3(1f, 1f, 1f));
 
             GameObject itemPrefab;
