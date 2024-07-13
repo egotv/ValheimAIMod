@@ -9,17 +9,14 @@ using SimpleJson;
 
 
 
-/*using Jotunn.Entities;
-using Jotunn.Managers;*/
 using UnityEngine;
 using ValheimAIModLoader;
 using System.IO;
 using System.Net;
 using Jotunn.Managers;
 using UnityEngine.UI;
-using ValheimAIMod;
-using System.Reflection;
-using Jotunn.Entities;
+using System.Security.Cryptography;
+//using System.Numerics;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -39,7 +36,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private const int SAMPLE_WIDTH = 2;
     private const int FRAME_RATE = 48000;
 
-    private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
+    /*private ConfigEntry<KeyboardShortcut> spawnCompanionKey;
     private ConfigEntry<KeyboardShortcut> TogglePatrolKey;
     private ConfigEntry<KeyboardShortcut> ToggleFollowKey;
     private ConfigEntry<KeyboardShortcut> ToggleHarvestKey;
@@ -48,10 +45,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> TalkKey;
     private ConfigEntry<KeyboardShortcut> SendToBrainKey;
 
-    private string MicrophoneName = null;
-
     private ConfigEntry<int> MicrophoneIndex;
-    private ConfigEntry<float> CompanionVolume;
+    private ConfigEntry<float> CompanionVolume;*/
     private ConfigEntry<bool> DisableAutoSave;
 
     private Dictionary<string, Piece.Requirement[]> craftingRequirements = new Dictionary<string, Piece.Requirement[]>();
@@ -62,20 +57,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
     private GameObject PlayerNPC;
+
     private GameObject[] AllPlayerNPCInstances;
     private float AllPlayerNPCInstancesLastRefresh = 0f;
 
     private GameObject[] AllEnemiesInstances;
     private float AllEnemiesInstancesLastRefresh = 0f;
 
-    //private GameObject[] AllPickableInstances;
+
     private List<GameObject> AllPickableInstances = new List<GameObject>();
     private float AllPickableInstancesLastRefresh = 0f;
 
     private GameObject[] SmallTrees;
 
     // NPC VARS
-    private ValheimAIModLoader.NPCCommand.CommandType eNPCMode;
+    private NPCCommand.CommandType eNPCMode;
 
     private float FollowUntilDistance = .5f;
     private float RunUntilDistance = 3f;
@@ -89,6 +85,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private AudioClip recordedAudioClip;
     public bool IsRecording = false;
+    private float recordingStartedTime = 0f;
     public bool IsModMenuShowing = false;
 
 
@@ -112,7 +109,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         GetRecordingDevices();
 
-        MinimapManager.OnVanillaMapAvailable += CreateMapOverlay;
+        //MinimapManager.OnVanillaMapAvailable += CreateMapOverlay;
+
+        /*if (!ZInput.instance.m_buttons.ContainsKey("FollowPlayer"))
+        {
+            ZInput.instance.AddButton("FollowPlayer", Key.F);
+        }*/
 
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
@@ -153,7 +155,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void ConfigBindings()
     {
-        spawnCompanionKey = Config.Bind<KeyboardShortcut>("Keybinds", "SpawnCompanionKey", new KeyboardShortcut(KeyCode.G), "The key used to spawn an NPC.");
+        /*spawnCompanionKey = Config.Bind<KeyboardShortcut>("Keybinds", "SpawnCompanionKey", new KeyboardShortcut(KeyCode.G), "The key used to spawn an NPC.");
         TogglePatrolKey = Config.Bind<KeyboardShortcut>("Keybinds", "TogglePatrolKey", new KeyboardShortcut(KeyCode.P), "The key used to command all NPCs to patrol the area the player is at.");
         ToggleFollowKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleFollowKey", new KeyboardShortcut(KeyCode.F), "The key used to command all NPCs to follow you.");
         ToggleHarvestKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleHarvestKey", new KeyboardShortcut(KeyCode.H), "The key used to command all NPCs to go harvest.");
@@ -163,66 +165,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         SendToBrainKey = Config.Bind<KeyboardShortcut>("Keybinds", "SendToBrainKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
 
         MicrophoneIndex = Config.Bind<int>("Integer", "MicrophoneIndex", 0, "Input device index in Windows Sound Settings.");
-        CompanionVolume = Config.Bind<float>("Float", "CompanionVolume", 1f, "NPC dialogue volume (0-1)");
+        CompanionVolume = Config.Bind<float>("Float", "CompanionVolume", 1f, "NPC dialogue volume (0-1)");*/
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
 
-    private void OnDestroy()
+    private void OnDestroy() 
     {
         TestPanel.SetActive(false);
         Destroy(TestPanel);
+        Destroy(instance);
 
         harmony.UnpatchSelf();
-    }
-
-    // Prevent non local player from getting destroyed
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(Player), "FixedUpdate")]
-    private static bool Player_FixedUpdate_Prefix(Player __instance)
-    {
-        float fixedDeltaTime = Time.fixedDeltaTime;
-        __instance.UpdateAwake(fixedDeltaTime);
-        if (__instance.m_nview.GetZDO() == null)
-        {
-            return false;
-        }
-        __instance.UpdateTargeted(fixedDeltaTime);
-        if (!__instance.m_nview.IsOwner())
-        {
-            return false;
-        }
-        if (Player.m_localPlayer != __instance)
-        {
-            ZLog.Log("Not Destroying old local player");
-            //ZNetScene.instance.Destroy(base.gameObject);
-            return false;
-        }
-        else if (!__instance.IsDead())
-        {
-            __instance.UpdateActionQueue(fixedDeltaTime);
-            __instance.PlayerAttackInput(fixedDeltaTime);
-            __instance.UpdateAttach();
-            __instance.UpdateDoodadControls(fixedDeltaTime);
-            __instance.UpdateCrouch(fixedDeltaTime);
-            __instance.UpdateDodge(fixedDeltaTime);
-            __instance.UpdateCover(fixedDeltaTime);
-            __instance.UpdateStations(fixedDeltaTime);
-            __instance.UpdateGuardianPower(fixedDeltaTime);
-            __instance.UpdateBaseValue(fixedDeltaTime);
-            __instance.UpdateStats(fixedDeltaTime);
-            __instance.UpdateTeleport(fixedDeltaTime);
-            __instance.AutoPickup(fixedDeltaTime);
-            __instance.EdgeOfWorldKill(fixedDeltaTime);
-            __instance.UpdateBiome(fixedDeltaTime);
-            __instance.UpdateStealth(fixedDeltaTime);
-            if ((bool)GameCamera.instance && __instance.m_attachPointCamera == null && Vector3.Distance(GameCamera.instance.transform.position, __instance.transform.position) < 2f)
-            {
-                __instance.SetVisible(visible: false);
-            }
-            AudioMan.instance.SetIndoor(__instance.InShelter() || ShieldGenerator.IsInsideShield(__instance.transform.position));
-        }
-
-        return false;
     }
 
     // PROCESS PLAYER INPUT
@@ -230,10 +183,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     [HarmonyPatch(typeof(Player), "Update")]
     private static void Player_Update_Postfix(Player __instance)
     {
-        /*GameObject resource = FindClosestResource(__instance.gameObject, "Pickable_");
-        Pickable pick = resource.GetComponent<Pickable>();
-        pick.Interact(__instance, false, false);*/
-
         if (!ZNetScene.instance || !Player.m_localPlayer)
         {
             // Player is not in a world, allow input
@@ -246,70 +195,82 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
-        KeyboardShortcut value = instance.spawnCompanionKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKeyDown(KeyCode.G))
         {
             instance.SpawnCompanion();
             instance.StartFollowing(__instance);
             return;
         }
-        value = instance.TogglePatrolKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKeyDown(KeyCode.F))
         {
-            instance.StartPatrol(__instance);
+            if (instance.eNPCMode == NPCCommand.CommandType.Idle || instance.eNPCMode == NPCCommand.CommandType.PatrolArea)
+            {
+                instance.Follow_Start(__instance.gameObject);
+            }
+            else if (instance.eNPCMode == NPCCommand.CommandType.FollowPlayer)
+            {
+                instance.StartPatrol(__instance);
+            }
             return;
         }
-        value = instance.ToggleFollowKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKeyDown(KeyCode.H))
         {
-            instance.StartFollowing(__instance);
+            if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource)
+                instance.Harvesting_Stop();
+            else
+                instance.Harvesting_Start("");
             return;
         }
-        value = instance.ToggleHarvestKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKeyDown(KeyCode.K))
         {
-            instance.StartHarvesting(__instance);
+            if (instance.eNPCMode == NPCCommand.CommandType.CombatSneakAttack || instance.eNPCMode == NPCCommand.CommandType.CombatAttack)
+                instance.Combat_StopAttacking();
+            else
+                instance.Combat_StartAttacking(null);
             return;
         }
-        value = instance.ToggleAttackKey.Value;
-        if (value.IsDown())
-        {
-            instance.StartAttacking(__instance);
-            return;
-        }
-        value = instance.InventoryKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKeyDown(KeyCode.I))
         {
             instance.OnInventoryKeyPressed(__instance);
             return;
         }
-        value = instance.TalkKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKey(KeyCode.T) && !instance.IsRecording)
         {
-            if (!instance.IsRecording)
+            instance.StartRecording();
+            return;
+        }
+        else if (!ZInput.GetKey(KeyCode.T) && instance.IsRecording)
+        {
+            instance.StopRecording();
+            if (Time.time - instance.recordingStartedTime > 1f)
             {
-                instance.StartRecording();
+                instance.SendToBrain();
             }
             else
             {
-                instance.StopRecording();
-                instance.SendToBrain();
+                Debug.Log("Recording was too short. Has to be atleast 1 second long");
             }
             return;
         }
-        value = instance.SendToBrainKey.Value;
-        if (value.IsDown())
+
+        if (ZInput.GetKeyDown(KeyCode.Y))
         {
-            //instance.PlayRecordedAudio("");
-            //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
-            //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
-            
-
             instance.TogglePanel();
-
 
             return;
         }
+
+
+
+        //instance.PlayRecordedAudio("");
+        //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
+        //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
     }
 
     [HarmonyPrefix]
@@ -352,7 +313,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 return true;
             }
 
-            if (instance.patrol_harvest)
+            if (instance.eNPCMode == NPCCommand.CommandType.PatrolArea && instance.patrol_harvest)
             {
                 //Debug.Log("patrol harvest");
                 if (followtarget == null || followtarget.transform.position.DistanceTo(instance.patrol_position) > instance.chaseUntilPatrolRadiusDistance ||
@@ -387,7 +348,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
-            if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack())
+            if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack() && humanoidNPC.GetTimeSinceLastAttack() > 1f)
             {
                 humanoidNPC.StartAttack(humanoidNPC, false);
             }
@@ -609,6 +570,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         bool run = num > RunDistance;
         if (instance.eNPCMode == NPCCommand.CommandType.FollowPlayer)
             run = run && !Player.m_localPlayer.IsCrouching() && !Player.m_localPlayer.m_walk;
+        if (instance.eNPCMode == NPCCommand.CommandType.CombatSneakAttack)
+            run = false;
         if (num < FollowDistance - (Player.m_localPlayer.IsCrouching() ? 5f : 2f))
         {
             __instance.StopMoving();
@@ -629,9 +592,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (__instance.name.Contains("HumanoidNPC"))
         {
             HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
+
+            __result = RemoveCustomText(__result);
+
             __result += "\n<color=orange><b>" + humanoidNPC_component.m_stamina.ToString("F2") + "</b></color>";
             __result += "\n<color=purple><b>" + instance.eNPCMode.ToString().ToUpper() + "</b></color>";
         }
+    }
+
+    private static string RemoveCustomText(string text)
+    {
+        string[] lines = text.Split('\n');
+        System.Collections.Generic.List<string> newLines = new System.Collections.Generic.List<string>();
+
+        foreach (string line in lines)
+        {
+            if (!line.Contains("<color=orange>") && !line.Contains("<color=purple>"))
+            {
+                newLines.Add(line);
+            }
+        }
+
+        return string.Join("\n", newLines);
     }
 
     // TO READ NAMES OF ATTACK ANIMS
@@ -872,12 +854,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     // Inventory transfer hotfix
     [HarmonyPrefix]
     [HarmonyPatch(typeof(InventoryGui), "OnSelectedItem")]
-    private static void OnSelectedItem(InventoryGui __instance, InventoryGrid grid, ItemDrop.ItemData item, Vector2i pos, InventoryGrid.Modifier mod)
+    private static bool OnSelectedItem(InventoryGui __instance, InventoryGrid grid, ItemDrop.ItemData item, Vector2i pos, InventoryGrid.Modifier mod)
     {
         Player localPlayer = Player.m_localPlayer;
         if (localPlayer.IsTeleporting())
         {
-            return;
+            return false;
         }
         if ((bool)__instance.m_dragGo)
         {
@@ -887,12 +869,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Vector2i gridPos = __instance.m_dragItem.m_gridPos;
             if ((__instance.m_dragItem.m_shared.m_questItem || (item != null && item.m_shared.m_questItem)) && __instance.m_dragInventory != grid.GetInventory())
             {
-                return;
+                return false;
             }
             if (!__instance.m_dragInventory.ContainsItem(__instance.m_dragItem))
             {
                 __instance.SetupDragItem(null, null, 1);
-                return;
+                return false;
             }
             localPlayer.RemoveEquipAction(item);
             localPlayer.RemoveEquipAction(__instance.m_dragItem);
@@ -937,14 +919,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             if (item == null)
             {
-                return;
+                return false;
             }
             switch (mod)
             {
                 case InventoryGrid.Modifier.Move:
                     if (item.m_shared.m_questItem)
                     {
-                        return;
+                        return false;
                     }
                     if (__instance.m_currentContainer != null)
                     {
@@ -953,9 +935,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         if (grid.GetInventory() == __instance.m_currentContainer.GetInventory())
                         {
                             localPlayer.GetInventory().MoveItemToThis(grid.GetInventory(), item);
-                            Debug.Log("Moving from npc/container to player");
 
-                            //HumanoidNPC humanoidNPC_component = grid.gameObject.GetComponent<HumanoidNPC>();
+                            Debug.Log("Moving from npc/container to player");
                             if (instance.PlayerNPC)
                             {
                                 HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
@@ -963,7 +944,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                                 {
                                     if (item.IsEquipable())
                                     {
-                                        //humanoidNPC_component.m_visEquipment.m_chestItem = null;
                                         humanoidNPC_component.UnequipItem(item, true);
                                         //humanoidNPC_component.m_inventory.RemoveItem(item);
                                     }
@@ -973,8 +953,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         else
                         {
                             __instance.m_currentContainer.GetInventory().MoveItemToThis(localPlayer.GetInventory(), item);
-                            Debug.Log("Moving from player to npc/container");
 
+                            Debug.Log("Moving from player to npc/container");
                             if (instance.PlayerNPC)
                             {
                                 HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
@@ -982,7 +962,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                                 {
                                     if (item.IsEquipable())
                                     {
-                                        //humanoidNPC_component.m_visEquipment.m_chestItem = null;
                                         humanoidNPC_component.EquipItem(item, true);
                                         //humanoidNPC_component.m_inventory.RemoveItem(item);
                                     }
@@ -995,28 +974,142 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     {
                         __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
                     }
-                    return;
+                    return false;
                 case InventoryGrid.Modifier.Drop:
                     if (Player.m_localPlayer.DropItem(grid.GetInventory(), item, item.m_stack))
                     {
                         __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
                     }
-                    return;
+                    return false;
                 case InventoryGrid.Modifier.Split:
                     if (item.m_stack > 1)
                     {
                         __instance.ShowSplitDialog(item, grid.GetInventory());
-                        return;
+                        return false;
                     }
                     break;
             }
             __instance.SetupDragItem(item, grid.GetInventory(), item.m_stack);
         }
+
+
+        return false;
     }
 
 
-
-
+    /*[HarmonyPrefix]
+    [HarmonyPatch(typeof(InventoryGui), "OnSelectedItem")]
+    private static bool OnSelectedItem(InventoryGui __instance, InventoryGrid grid, ItemDrop.ItemData item, Vector2i pos, InventoryGrid.Modifier mod)
+    //private void OnSelectedItem(InventoryGrid grid, ItemDrop.ItemData item, Vector2i pos, InventoryGrid.Modifier mod)
+    {
+        Player localPlayer = Player.m_localPlayer;
+        if (localPlayer.IsTeleporting())
+        {
+            return false;
+        }
+        if ((bool)m_dragGo)
+        {
+            m_moveItemEffects.Create(base.transform.position, Quaternion.identity);
+            bool flag = localPlayer.IsItemEquiped(m_dragItem);
+            bool flag2 = item != null && localPlayer.IsItemEquiped(item);
+            Vector2i gridPos = m_dragItem.m_gridPos;
+            if ((m_dragItem.m_shared.m_questItem || (item != null && item.m_shared.m_questItem)) && m_dragInventory != grid.GetInventory())
+            {
+                return false;
+            }
+            if (!m_dragInventory.ContainsItem(m_dragItem))
+            {
+                SetupDragItem(null, null, 1);
+                return false;
+            }
+            localPlayer.RemoveEquipAction(item);
+            localPlayer.RemoveEquipAction(m_dragItem);
+            localPlayer.UnequipItem(m_dragItem, triggerEquipEffects: false);
+            localPlayer.UnequipItem(item, triggerEquipEffects: false);
+            bool num = grid.DropItem(m_dragInventory, m_dragItem, m_dragAmount, pos);
+            if (m_dragItem.m_stack < m_dragAmount)
+            {
+                m_dragAmount = m_dragItem.m_stack;
+            }
+            if (flag)
+            {
+                ItemDrop.ItemData itemAt = grid.GetInventory().GetItemAt(pos.x, pos.y);
+                if (itemAt != null)
+                {
+                    localPlayer.EquipItem(itemAt, triggerEquipEffects: false);
+                }
+                if (localPlayer.GetInventory().ContainsItem(m_dragItem))
+                {
+                    localPlayer.EquipItem(m_dragItem, triggerEquipEffects: false);
+                }
+            }
+            if (flag2)
+            {
+                ItemDrop.ItemData itemAt2 = m_dragInventory.GetItemAt(gridPos.x, gridPos.y);
+                if (itemAt2 != null)
+                {
+                    localPlayer.EquipItem(itemAt2, triggerEquipEffects: false);
+                }
+                if (localPlayer.GetInventory().ContainsItem(item))
+                {
+                    localPlayer.EquipItem(item, triggerEquipEffects: false);
+                }
+            }
+            if (num)
+            {
+                SetupDragItem(null, null, 1);
+                UpdateCraftingPanel();
+            }
+        }
+        else
+        {
+            if (item == null)
+            {
+                return false;
+            }
+            switch (mod)
+            {
+                case InventoryGrid.Modifier.Move:
+                    if (item.m_shared.m_questItem)
+                    {
+                        return false;
+                    }
+                    if (m_currentContainer != null)
+                    {
+                        localPlayer.RemoveEquipAction(item);
+                        localPlayer.UnequipItem(item);
+                        if (grid.GetInventory() == m_currentContainer.GetInventory())
+                        {
+                            localPlayer.GetInventory().MoveItemToThis(grid.GetInventory(), item);
+                        }
+                        else
+                        {
+                            m_currentContainer.GetInventory().MoveItemToThis(localPlayer.GetInventory(), item);
+                        }
+                        m_moveItemEffects.Create(base.transform.position, Quaternion.identity);
+                    }
+                    else if (Player.m_localPlayer.DropItem(grid.GetInventory(), item, item.m_stack))
+                    {
+                        m_moveItemEffects.Create(base.transform.position, Quaternion.identity);
+                    }
+                    return;
+                case InventoryGrid.Modifier.Drop:
+                    if (Player.m_localPlayer.DropItem(grid.GetInventory(), item, item.m_stack))
+                    {
+                        m_moveItemEffects.Create(base.transform.position, Quaternion.identity);
+                    }
+                    return;
+                case InventoryGrid.Modifier.Split:
+                    if (item.m_stack > 1)
+                    {
+                        ShowSplitDialog(item, grid.GetInventory());
+                        return;
+                    }
+                    break;
+            }
+            SetupDragItem(item, grid.GetInventory(), item.m_stack);
+        }
+    }*/
 
 
 
@@ -1078,7 +1171,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
 
-
+        instance.TogglePanel();
 
         VisEquipment npcInstanceVis = npcInstance.GetComponent<VisEquipment>();
         VisEquipment playerInstanceVis = localPlayer.GetComponent<VisEquipment>();
@@ -1086,23 +1179,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         npcInstanceVis.m_isPlayer = true;
         npcInstanceVis.m_emptyBodyTexture = playerInstanceVis.m_emptyBodyTexture;
         npcInstanceVis.m_emptyLegsTexture = playerInstanceVis.m_emptyLegsTexture;
-        //npcInstanceVis.m_bodyModel.sharedMesh = playerInstanceVis.m_bodyModel.sharedMesh;
-
-        /*npcInstanceVis.m_models = playerInstanceVis.m_models;
-        npcInstanceVis.m_bodyModel = playerInstanceVis.m_bodyModel;
-        npcInstanceVis.m_modelIndex = playerInstanceVis.m_modelIndex;
-        npcInstanceVis.m_currentModelIndex = playerInstanceVis.m_currentModelIndex; */
-
-        /*playerInstanceVis.m_models = npcInstanceVis.m_models;
-        playerInstanceVis.m_bodyModel = npcInstanceVis.m_bodyModel;*/
-
-
-        //CopyComponent<VisEquipment>(npcInstance, localPlayer.gameObject);
-        //CopyComponent<VisEquipment>(localPlayer.gameObject, npcInstance);
-
-
-        /*CopyVisEquipment(vanillaPlayer, npcInstance);
-        CopyAnimator(vanillaPlayer, npcInstance);*/
 
         instance.PlayerNPC = npcInstance;
 
@@ -1112,19 +1188,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         SetMonsterAIAggravated(monsterAIcomp, false);
         monsterAIcomp.MakeTame();
         monsterAIcomp.SetFollowTarget(localPlayer.gameObject);
+        monsterAIcomp.m_viewRange = 80f;
 
 
         // add item to inventory
         HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<HumanoidNPC>();
         if (humanoidNpc_Component != null)
         {
-            humanoidNpc_Component.m_name = "NPC";
-            //humanoidNpc_Component.m_visEquipment = npcInstanceVis;
+            LoadNPCData(humanoidNpc_Component);
+
+            /*humanoidNpc_Component.m_name = "NPC";
             humanoidNpc_Component.m_visEquipment.m_isPlayer = true;
-            //humanoidNpc_Component.m_visEquipment.SetModel(1);
             humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.8f, 0.6f, 0.4f));
-            //humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.2f, 0.2f, 0.2f));
-            humanoidNpc_Component.m_visEquipment.SetHairColor(new Vector3(1f, 1f, 1f));
+            humanoidNpc_Component.m_visEquipment.SetHairColor(new Vector3(1f, 1f, 1f));*/
 
             GameObject itemPrefab;
 
@@ -1164,6 +1240,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    // helper function to copy component values (not tested/not being used)
     T CopyComponent<T>(GameObject source, GameObject destination) where T : Component
     {
         T sourceComp = source.GetComponent<T>();
@@ -1181,41 +1258,292 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return null;
     }
 
-    /*void CopyVisEquipment(GameObject source, GameObject target)
-    {
-        if (source)
-            Debug.Log("source");
-        if (target)
-            Debug.Log("target");
-        VisEquipment sourceEquipment = source.GetComponent<VisEquipment>();
-        if (sourceEquipment != null)
-        {
-            //VisEquipment targetEquipment = target.GetComponent<VisEquipment>();// ?? target.AddComponent<VisEquipment>();
 
-            // Copy the main properties related to equipment visualization
-            *//*targetEquipment.m_models = sourceEquipment.m_models;
-            targetEquipment.m_bodyModel = sourceEquipment.m_bodyModel;
-            targetEquipment.m_nview = sourceEquipment.m_nview;
-            targetEquipment.m_isPlayer = sourceEquipment.m_isPlayer;*//*
+    private void Follow_Start(GameObject target, string NPCDialogueMessage = "Right behind ya!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Follow_Start failed, instance.PlayerNPC == null");
+            return;
         }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        SetMonsterAIAggravated(monsterAIcomponent, false);
+        monsterAIcomponent.SetFollowTarget(target);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.FollowPlayer;
+        Debug.Log("Follow_Start activated!");
     }
 
-    void CopyAnimator(GameObject source, GameObject target)
+    private void Follow_Stop(string NPCDialogueMessage = "I'm gonna wander off on my own now!")
     {
-        Animator sourceAnimator = source.GetComponent<Animator>();
-        if (sourceAnimator != null)
+        if (instance.PlayerNPC == null)
         {
-            Animator targetAnimator = target.GetComponent<Animator>() ?? target.AddComponent<Animator>();
-
-            // Copy the Animator Controller
-            targetAnimator.runtimeAnimatorController = sourceAnimator.runtimeAnimatorController;
-
-            // Copy other relevant Animator properties
-            targetAnimator.applyRootMotion = sourceAnimator.applyRootMotion;
-            targetAnimator.updateMode = sourceAnimator.updateMode;
-            targetAnimator.cullingMode = sourceAnimator.cullingMode;
+            Debug.Log("NPC command Follow_Stop failed, instance.PlayerNPC == null");
+            return;
         }
-    }*/
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        SetMonsterAIAggravated(monsterAIcomponent, false);
+        monsterAIcomponent.SetFollowTarget(null);  
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Follow_Stop activated!");
+    }
+
+    private void Combat_StartAttacking(GameObject target, string NPCDialogueMessage = "Watch out, here I come!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Combat_StartAttacking failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        /*GameObject[] allEnemies = FindEnemies();
+        GameObject nearestUntamedEnemy = allEnemies
+        .Where(enemy => enemy.GetComponent<MonsterAI>() != null && !enemy.GetComponent<MonsterAI>().m_character.m_tamed)
+        .OrderBy(enemy => Vector3.Distance(instance.PlayerNPC.transform.position, enemy.transform.position))
+        .FirstOrDefault();*/
+
+        // disregard nearby enemies
+        monsterAIcomponent.SetFollowTarget(null);
+        monsterAIcomponent.m_alerted = false;
+        monsterAIcomponent.m_aggravatable = true;
+        monsterAIcomponent.SetHuntPlayer(true);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.CombatAttack;
+        Debug.Log("Combat_StartAttacking activated!");
+    }
+
+    private void Combat_StartSneakAttacking(GameObject target, string NPCDialogueMessage = "Sneaking up on em!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Combat_StartSneakAttacking failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        // disregard nearby enemies
+        monsterAIcomponent.SetFollowTarget(null);
+        monsterAIcomponent.m_alerted = false;
+        monsterAIcomponent.m_aggravatable = true;
+        monsterAIcomponent.SetHuntPlayer(true);
+        humanoidnpc_component.SetCrouch(true);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.CombatSneakAttack;
+        Debug.Log("Combat_StartSneakAttacking activated!");
+    }
+
+    private void Combat_StartDefending(GameObject target, string NPCDialogueMessage = "Don't worry, I'm here with you!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Combat_StartDefending failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        // disregard nearby enemies
+        monsterAIcomponent.SetFollowTarget(null);
+        SetMonsterAIAggravated(monsterAIcomponent, false);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.CombatDefend;
+        Debug.Log("Combat_StartDefending activated!");
+    }
+
+    private void Combat_StopAttacking(string NPCDialogueMessage = "I'll give em a break!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Combat_StopAttacking failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        // disregard nearby enemies
+        monsterAIcomponent.SetFollowTarget(null);
+        SetMonsterAIAggravated(monsterAIcomponent, false);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Combat_StopAttacking activated!");
+    }
+
+    private void Inventory_DropAll(string NPCDialogueMessage = "Here is all I got!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Inventory_DropAll failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        DropAllItems(humanoidnpc_component);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        //instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Inventory_DropAll activated!");
+    }
+    private void Inventory_DropItem(string ItemName, string NPCDialogueMessage = "Here is what you asked for!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Inventory_DropItem failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        DropItem(ItemName, humanoidnpc_component);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        //instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Inventory_DropItem activated!");
+    }
+
+    private void Inventory_EquipItem(string ItemName, string NPCDialogueMessage = "On it boss!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Inventory_EquipItem failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        EquipItem(ItemName, humanoidnpc_component);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        //instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Inventory_EquipItem activated!");
+    }
+
+    private void Harvesting_Start(string ResourceName, string NPCDialogueMessage = "On it boss!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Harvesting_Start failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        ResourceName = "Beech";
+        GameObject resource = FindClosestResource(instance.PlayerNPC, ResourceName);
+        if (resource == null)
+        {
+            // inform API that resource was not found and wasn't processed
+            Debug.Log("NPC command Harvesting_Start failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        monsterAIcomponent.SetFollowTarget(resource);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.HarvestResource;
+        Debug.Log("Harvesting_Start activated!");
+    }
+
+    private void Harvesting_Stop(string NPCDialogueMessage = "No more labor!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Harvesting_Stop failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        monsterAIcomponent.SetFollowTarget(null);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Harvesting_Stop activated!");
+    }
+
+    private void Patrol_Start(string NPCDialogueMessage = "I'm keeping guard around here! They know not to try!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Patrol_Start failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        instance.patrol_position = Player.m_localPlayer.transform.position;
+        instance.patrol_harvest = true;
+
+        //Vector3 randLocation = GetRandomReachableLocationInRadius(humanoidNPC_component.patrol_position, patrol_radius);
+
+        monsterAIcomponent.SetFollowTarget(null);
+        SetMonsterAIAggravated(monsterAIcomponent, false);
+        SetMonsterAIAggravated(monsterAIcomponent, true);
+        
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.PatrolArea;
+        Debug.Log("Patrol_Start activated!");
+    }
+
+    private void Patrol_Stop(string NPCDialogueMessage = "My job is done here!")
+    {
+        if (instance.PlayerNPC == null)
+        {
+            Debug.Log("NPC command Patrol_Stop failed, instance.PlayerNPC == null");
+            return;
+        }
+
+        MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+        HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        monsterAIcomponent.SetFollowTarget(null);
+
+        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+
+        instance.eNPCMode = NPCCommand.CommandType.Idle;
+        Debug.Log("Patrol_Stop activated!");
+    }
+
+
 
     private void StartPatrol(Player player)
     {
@@ -1285,7 +1613,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void StartAttacking(Player player)
     {
-        instance.eNPCMode = ValheimAIModLoader.NPCCommand.CommandType.AttackTarget;
+        instance.eNPCMode = ValheimAIModLoader.NPCCommand.CommandType.CombatAttack;
 
         GameObject[] allEnemies = FindEnemies();
         /*foreach (GameObject npc in allEnemies)
@@ -1300,7 +1628,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             // disregard nearby enemies
             monsterAIcomponent.SetFollowTarget(null);
-            monsterAIcomponent.m_viewRange = 80f;
+            
             monsterAIcomponent.m_alerted = false;
             monsterAIcomponent.m_aggravatable = true;
             monsterAIcomponent.SetHuntPlayer(true);
@@ -1323,16 +1651,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
             HumanoidNPC humanoidComponent = npc.GetComponent<HumanoidNPC>();
 
-            Debug.Log("SendUpdateToBrain");
+            //Debug.Log("SendUpdateToBrain");
             SendUpdateToBrain(npc);
             instance.lastSentToBrainTime = Time.time;
 
             AddChatTalk(humanoidComponent, "NPC", "...");
-
-            /*UserInfo userInfo = new UserInfo();
-            userInfo.Name = "NPC";
-            Vector3 headPoint = humanoidComponent.GetEyePoint();
-            Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, "...");*/
         }
     }
 
@@ -1436,8 +1759,44 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         humanoidNPC.m_inventory.RemoveAll();
     }
 
+    private void DropItem(string ItemName, HumanoidNPC humanoidNPC)
+    {
+        List<ItemDrop.ItemData> allItems = humanoidNPC.m_inventory.GetAllItems();
+        int num = 1;
+        foreach (ItemDrop.ItemData item in allItems)
+        {
+            if (ItemName == item.m_shared.m_name)
+            {
+                Debug.Log("Dropping " + item.m_shared.m_name);
+                //Vector3 position = humanoidNPC.transform.position + Vector3.up * 0.5f + UnityEngine.Random.insideUnitSphere * 0.3f;
+                Vector3 position = humanoidNPC.transform.position + Vector3.up * 2f + UnityEngine.Random.insideUnitSphere * 0.3f + humanoidNPC.transform.forward * 2.5f;
+                Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
+                ItemDrop.DropItem(item, item.m_stack, position, rotation);
+                num++;
+                humanoidNPC.m_inventory.RemoveOneItem(item);
+                return;
+            }
+        }
+       
+    }
 
-   
+    private void EquipItem(string ItemName, HumanoidNPC humanoidNPC)
+    {
+        List<ItemDrop.ItemData> allItems = humanoidNPC.m_inventory.GetAllItems();
+        foreach (ItemDrop.ItemData item in allItems)
+        {
+            if (ItemName == item.m_shared.m_name)
+            {
+                Debug.Log("Equipping  " + item.m_shared.m_name);
+                humanoidNPC.EquipItem(item);
+                return;
+            }
+        }
+
+    }
+
+
+
 
     private void AddChatTalk(Character character, string name, string text)
     {
@@ -1446,6 +1805,42 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
         Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
         Chat.instance.AddString("NPC", text, Talker.Type.Normal);
+    }
+
+    public void BrainSynthesizeAudio(string text, string voice, Action<byte[]> onComplete, Action<string> onError)
+    {
+        using (WebClient client = new WebClient())
+        {
+            // Construct the URL with query parameters
+            string url = $"{brainBaseURL}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}";
+
+            client.DownloadStringCompleted += OnBrainSynthesizeAudioResponse;
+            client.DownloadStringAsync(new Uri(url));
+        }
+    }
+
+    private void OnBrainSynthesizeAudioResponse(object sender, DownloadStringCompletedEventArgs e)
+    {
+        if (e.Error != null)
+        {
+            Debug.Log($"Download failed: {e.Error.Message}");
+            return;
+        }
+
+        try
+        {
+            JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(e.Result);
+            string audio_file_id = responseObject["audio_file_id"].ToString();
+            string text = responseObject["text"].ToString();
+            HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+            AddChatTalk(npc, "NPC", text);
+            DownloadAudioFile(audio_file_id);
+        }
+        catch (Exception ex)
+        {
+            Debug.Log($"Failed to parse JSON: {ex.Message}");
+        }
     }
 
     private void SendUpdateToBrain(GameObject npc)
@@ -1460,15 +1855,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         // Send the POST request
         webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
-        webClient.UploadStringCompleted += OnSendUpdateToBrainCompleted;
+        webClient.UploadStringCompleted += OnSendUpdateToBrainResponse;
     }
 
-    private void OnSendUpdateToBrainCompleted(object sender, UploadStringCompletedEventArgs e)
+    private void OnSendUpdateToBrainResponse(object sender, UploadStringCompletedEventArgs e)
     {
         if (e.Error == null)
         {
             string responseJson = e.Result;
-            Debug.Log("Response from /instruct_agent: " + responseJson);
 
             // Parse the response JSON using SimpleJSON's DeserializeObject
             JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
@@ -1482,15 +1876,34 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             // Check if agent_commands array exists and has at least one element
             if (agentCommands != null && agentCommands.Count > 0)
             {
-                // Get the first command object from the array
-                JsonObject commandObject = agentCommands[agentCommands.Count - 1] as JsonObject;
-
-                // Get the action_str value from the command object
-                if (commandObject.ContainsKey("action_str"))
+                Debug.Log("Agent command not null!");
+                for (int i=0; i<agentCommands.Count; i++)
                 {
-                    string actionStr = commandObject["action_str"].ToString();
-                    Debug.Log("Action String: " + actionStr);
-                    ProcessNPCCommand(actionStr);
+                    Debug.Log("forloop");
+                    JsonObject commandObject = agentCommands[i] as JsonObject;
+
+                    if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
+                    {
+                        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                        AddChatTalk(npc, "NPC", agent_text_response);
+
+                        Debug.Log("Agent command response from brain was incomplete. Command's Action or Category is missing!");
+                        continue;
+                    }
+
+                    string action = commandObject["action"].ToString();
+                    string category = commandObject["category"].ToString();
+
+                    string[] parameters = {};
+
+                    /*if (commandObject.ContainsKey("parameters"))
+                    {
+                        List<string> jsonparams = commandObject["parameters"] as List<string>;
+                        parameters = jsonparams.ToArray();
+                    }*/
+
+                    Debug.Log("Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
+                    ProcessNPCCommand(category, action, parameters, agent_text_response);
                 }
             }
             else
@@ -1498,20 +1911,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 Debug.Log("No agent commands found.");
             }
 
-            Chat.instance.AddString(Player.m_localPlayer.GetPlayerName(), player_instruction_transcription, Talker.Type.Normal);
-
-            GameObject[] npcs = FindPlayerNPCs();
-            if (npcs.Length > 0 && npcs[0])
-            {
-                HumanoidNPC humanoidnpc_component = npcs[0].GetComponent<HumanoidNPC>();
-
-                AddChatTalk(humanoidnpc_component, "NPC", agent_text_response);
-
-                /*UserInfo userInfo = new UserInfo();
-                userInfo.Name = "NPC";
-                Vector3 headPoint = humanoidnpc_component.GetEyePoint() + Vector3.up * 15f;
-                Chat.instance.AddInworldText(npcs[0], 0, headPoint, Talker.Type.Normal, userInfo, agent_text_response);*/
-            }
+            Debug.Log("Response from brain");
+            Debug.Log("You said: " + player_instruction_transcription);
+            Debug.Log("NPC said: " + agent_text_response);
+            Debug.Log("Full response from brain: " + responseJson);
 
             // Download the audio file asynchronously
             DownloadAudioFile(audioFileId);
@@ -1556,24 +1959,84 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private void ProcessNPCCommand(string BrainResponseCommand)
+    private void ProcessNPCCommand(string category, string action, string[] parameters, string agent_text_response)
     {
         Player localPlayer = Player.m_localPlayer;
-        if (BrainResponseCommand == "StartFollowingPlayer")
+
+        string firstParameter = parameters.Length > 0 ? parameters[0] : "NULL";
+
+        if (category == "Follow")
         {
-            instance.StartFollowing(localPlayer);
+            if (action == "Start")
+            {
+                instance.Follow_Start(localPlayer.gameObject, agent_text_response);
+            }
+            else if (action == "Stop")
+            {
+                instance.Follow_Stop(agent_text_response);
+            }
         }
-        else if (BrainResponseCommand == "StartAttacking")
+
+        else if (category == "Combat")
         {
-            instance.StartAttacking(localPlayer);
+            if (action == "StartAttacking")
+            {
+                instance.Combat_StartAttacking(null, agent_text_response);
+            }
+            else if (action == "Sneak")
+            {
+                instance.Combat_StartSneakAttacking(null, agent_text_response);
+            }
+            else if (action == "Defend")
+            {
+                instance.Combat_StartDefending(null, agent_text_response);
+            }
+            else if (action == "StopAttacking")
+            {
+                instance.Combat_StopAttacking(agent_text_response);
+            }
         }
-        else if (BrainResponseCommand == "StartHarvesting")
+
+        else if (category == "Inventory")
         {
-            instance.StartHarvesting(localPlayer);
+            if (action == "DropAll")
+            {
+                instance.Inventory_DropAll(agent_text_response);
+            }
+            else if (action == "DropItem")
+            {
+                instance.Inventory_DropItem(firstParameter, agent_text_response);
+            }
+            else if (action == "EquipItem")
+            {
+                instance.Inventory_EquipItem(firstParameter, agent_text_response);
+            }
+            else if (action == "PickupItem")
+            {
+
+            }
         }
-        else if (BrainResponseCommand == "StartPatrolling")
+        else if (category == "Harvesting")
         {
-            instance.StartPatrol(localPlayer);
+            if (action == "Start")
+            {
+                instance.Harvesting_Start(firstParameter, agent_text_response);
+            }
+            else if (action == "Stop")
+            {
+                instance.Harvesting_Stop(agent_text_response);
+            }
+        }
+        else if (category == "Patrol")
+        {
+            if (action == "Start")
+            {
+                instance.Patrol_Start(agent_text_response);
+            }
+            else if (action == "Stop")
+            {
+                instance.Patrol_Stop(agent_text_response);
+            }
         }
     }
 
@@ -1750,7 +2213,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private string GetRecordingDevice()
+    /*private string GetRecordingDevice()
     {
         if (Microphone.devices.Length > MicrophoneIndex.Value)
         {
@@ -1758,12 +2221,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         return null;
-    }
+    }*/
 
     private void StartRecording()
     {
-        instance.recordedAudioClip = Microphone.Start(instance.MicrophoneName, false, recordingLength, sampleRate);
+        instance.recordedAudioClip = Microphone.Start(Microphone.devices[instance.MicrophoneIndex], false, recordingLength, sampleRate);
         instance.IsRecording = true;
+        instance.recordingStartedTime = Time.time;
         AddChatTalk(Player.m_localPlayer, Player.m_localPlayer.GetPlayerName(), "...");
         //Debug.Log("Recording started");
     }
@@ -2137,7 +2601,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["player_instruction_audio_file_base64"] = base64audio,
             ["timestamp"] = Time.time,
             ["personality"] = instance.personalityText,
-            ["voice"] = instance.NPCVoice.ToLower(),
+            ["voice"] = npcVoices[instance.NPCVoice].ToLower(),
             ["gender"] = instance.NPCGender,
         };
 
@@ -2145,11 +2609,144 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         jsonObject["player_instruction_audio_file_base64"] = "";
         string jsonString2 = SimpleJson.SimpleJson.SerializeObject(jsonObject);
-        Debug.Log(jsonString);
+        Debug.Log("Sending to brain: " + jsonString2);
 
         return jsonString;
     }
 
+    public static void SaveNPCData(GameObject character)
+    {
+        HumanoidNPC humanoidNPC = character.GetComponent<HumanoidNPC>();
+        MonsterAI monsterAI = character.GetComponent<MonsterAI>();
+
+        JsonObject data = new JsonObject();
+
+        data["name"] = humanoidNPC.m_name;
+        data["personality"] = instance.personalityText;
+        data["voice"] = instance.NPCVoice;
+        data["gender"] = instance.NPCGender;
+        
+
+        // inventory
+        var inventoryItems = new JsonArray();
+        foreach (ItemDrop.ItemData item in humanoidNPC.m_inventory.m_inventory)
+        {
+            var itemData = new JsonObject
+            {
+                ["name"] = item.m_shared.m_name,
+                ["stack"] = item.m_stack,
+            };
+            inventoryItems.Add(itemData);
+        }
+        data["inventory"] = inventoryItems;
+
+
+        JsonArray skinColorArray = new JsonArray();
+        skinColorArray.Add(humanoidNPC.m_visEquipment.m_skinColor.x);
+        skinColorArray.Add(humanoidNPC.m_visEquipment.m_skinColor.y);
+        skinColorArray.Add(humanoidNPC.m_visEquipment.m_skinColor.z);
+        data["skinColor"] = skinColorArray;
+
+        JsonArray hairColorArray = new JsonArray();
+        hairColorArray.Add(humanoidNPC.m_visEquipment.m_hairColor.x);
+        hairColorArray.Add(humanoidNPC.m_visEquipment.m_hairColor.y);
+        hairColorArray.Add(humanoidNPC.m_visEquipment.m_hairColor.z);
+        data["hairColor"] = skinColorArray;
+
+        string json = SimpleJson.SimpleJson.SerializeObject(data);
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string filePath = Path.Combine(desktopPath, "egoaimod.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log("Saved NPC data to " + filePath);
+    }
+
+    public static void LoadNPCData(HumanoidNPC npc)
+    {
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string filePath = Path.Combine(desktopPath, "egoaimod.json");
+        Debug.Log("Loading NPC data from " + filePath);
+
+        if (File.Exists(filePath))
+        {
+            string jsonString = File.ReadAllText(filePath);
+            JsonObject data = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(jsonString);
+
+
+            npc.m_name = data["name"].ToString();
+            instance.personalityText = data["personality"].ToString();
+            instance.personalityInputText.text = instance.personalityText;
+            instance.personalityInputField.text = instance.personalityText;
+            instance.personalityInputField.textComponent.text = instance.personalityText;
+            instance.personalityInputField.SetTextWithoutNotify(instance.personalityText);
+
+
+            instance.NPCVoice = int.Parse(data["voice"].ToString());
+            instance.voiceDropdownComp.SetValueWithoutNotify(instance.NPCVoice);
+
+            instance.NPCGender = int.Parse(data["gender"].ToString());
+            if (instance.NPCGender == 0)
+            {
+                instance.toggleMasculine.isOn = true;
+                instance.toggleFeminine.isOn = false;
+            }
+            else
+            {
+                instance.toggleMasculine.isOn = false;
+                instance.toggleFeminine.isOn = true;
+            }
+
+            // Load inventory
+            JsonArray inventoryArray = data["inventory"] as JsonArray;
+            npc.m_inventory.RemoveAll();
+            foreach (JsonObject itemData in inventoryArray)
+            {
+                string itemName = itemData["name"].ToString();
+                int stack = int.Parse(itemData["stack"].ToString());
+                // Create and add item to inventory
+                // You'll need to implement this part based on how your item system works
+                // For example:
+                // ItemDrop.ItemData newItem = ItemDrop.ItemData.CreateItem(itemName, stack);
+                // npc.m_inventory.AddItem(newItem);
+
+                GameObject itemPrefab = ZNetScene.instance.GetPrefab(itemName);
+                if (itemPrefab != null)
+                {
+                    ItemDrop.ItemData itemdata = npc.PickupPrefab(itemPrefab, stack);
+                    npc.EquipItem(itemdata);
+                }
+            }
+
+            // Load skin color
+            JsonArray skinColorArray = data["skinColor"] as JsonArray;
+            if (skinColorArray.Count == 3)
+            {
+                npc.m_visEquipment.SetSkinColor(new Vector3(
+                    int.Parse(skinColorArray[0].ToString()),
+                    int.Parse(skinColorArray[1].ToString()),
+                    int.Parse(skinColorArray[2].ToString())
+                ));
+            }
+
+            // Load skin color
+            JsonArray hairColorArray = data["hairColor"] as JsonArray;
+            if (hairColorArray.Count == 3)
+            {
+                npc.m_visEquipment.SetHairColor(new Vector3(
+                    int.Parse(hairColorArray[0].ToString()),
+                    int.Parse(hairColorArray[1].ToString()),
+                    int.Parse(hairColorArray[2].ToString())
+                ));
+            }
+
+            Debug.Log($"NPC data loaded for {npc.m_name}");
+        }
+        else
+        {
+            Debug.LogWarning("No saved NPC data found.");
+        }
+    }
 
 
     /*
@@ -2447,22 +3044,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void CreatePanel()
     {
-        // ... (existing panel creation code)
-
-        //var leftBox = new VerticalBox(TestPanel.transform, new Vector2(200, -150), new Vector2(350, 400), new Color(0.1f, 0.1f, 0.1f, 0.8f));
-
-        /*GameObject scrollViewObject = GUIManager.Instance.CreateScrollView(
-            parent: TestPanel.transform,
-            showHorizontalScrollbar: false,
-            showVerticalScrollbar: true,
-            handleSize: 20f,
-            handleDistanceToBorder: 5f,
-            handleColors: ColorBlock.defaultColorBlock,
-            slidingAreaBackgroundColor: Color.gray,
-            width: 300f,
-            height: 200f
-        );*/
-
         // Task Queue
         //CreateTaskQueue(leftBox);
         //CreateTaskQueue(new Vector2(-200, 200));
@@ -2592,16 +3173,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("Creating task queue contents");
         //CreateTaskQueueTitle();
 
-        CreateTask("Gathering: Wood (20)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
-        CreateTask("Crafting: Axe (1)");
+        CreateTask("UNDER DEVELOPMENT...");
     }
 
     /*private void CreateTaskQueueTitle()
@@ -2684,12 +3256,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
 
         string[] bindings = {
-            "[U] Empty Inventory",
-            "[F] Spawn/Reset Spawn",
+            "[Y] Open/close menu",
             "[T] Talk",
-            "[K] Attack Mode",
-            "[H] Harvest Mode",
-            "[P] Follow/Patrol"
+            "[G] Spawn/Reset Spawn",
+            "[K] Attack",
+            "[H] Harvest",
+            "[F] Follow/Patrol"
         };
 
         GUIManager.Instance.CreateText(
@@ -2805,8 +3377,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnMicInputDropdownChanged(int index)
     {
-        instance.MicrophoneName = Microphone.devices[index];
-        Debug.Log("new MicrophoneName " + instance.MicrophoneName);
+        Debug.Log("new MicrophoneName " + Microphone.devices[MicrophoneIndex]);
     }
 
     private void CreateEgoBanner(Vector2 startPosition)
@@ -2907,7 +3478,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }
 
     private GameObject inputFieldObject;
-    private InputField inputField;
+    private InputField personalityInputField;
     private Text placeholderText;
     public Text personalityInputText;
     public string personalityText = "";
@@ -2926,9 +3497,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         "Helios",
         "Zeus"
     };
-    public string NPCGender = "Masculine";
-    public string NPCVoice = npcVoices[0];
+    public int NPCGender = 0;
+    public int NPCVoice = 0;
     public float NPCVolume = 90f;
+    private int MicrophoneIndex = 0;
 
     public void CreateMultilineInputField(Transform parent, string placeholder, int fontSize = 16, int width = 300, int height = 100)
     {
@@ -2941,12 +3513,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         background.color = new Color(0.7f, 0.7f, 0.7f, 0.3f);
 
         // Create InputField component
-        inputField = inputFieldObject.AddComponent<InputField>();
-        inputField.lineType = InputField.LineType.MultiLineNewline;
-        inputField.onValueChanged.AddListener(OnPersonalityTextChanged);
+        personalityInputField = inputFieldObject.AddComponent<InputField>();
+        personalityInputField.lineType = InputField.LineType.MultiLineNewline;
+        personalityInputField.onValueChanged.AddListener(OnPersonalityTextChanged);
 
         // Set up RectTransform
-        RectTransform rectTransform = inputField.GetComponent<RectTransform>();
+        RectTransform rectTransform = personalityInputField.GetComponent<RectTransform>();
         rectTransform.sizeDelta = new Vector2(width, height);
         rectTransform.position = rectTransform.position + new Vector3(0, -20, 0);
 
@@ -2969,21 +3541,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Create input text
         GameObject textObj = new GameObject("Text");
         textObj.transform.SetParent(inputFieldObject.transform, false);
-        personalityInputText = textObj.AddComponent<Text>();
-        personalityInputText.font = GUIManager.Instance.AveriaSerifBold;
-        personalityInputText.fontSize = fontSize;
-        personalityInputText.color = Color.white;
+        instance.personalityInputText = textObj.AddComponent<Text>();
+        instance.personalityInputText.font = GUIManager.Instance.AveriaSerifBold;
+        instance.personalityInputText.fontSize = fontSize;
+        instance.personalityInputText.color = Color.white;
 
         // Set up input text RectTransform
-        RectTransform textTransform = personalityInputText.GetComponent<RectTransform>();
+        RectTransform textTransform = instance.personalityInputText.GetComponent<RectTransform>();
         textTransform.anchorMin = new Vector2(0, 0);
         textTransform.anchorMax = new Vector2(1, 1);
         textTransform.offsetMin = new Vector2(10, 10);
         textTransform.offsetMax = new Vector2(-10, -10);
 
         // Assign text components to InputField
-        inputField.placeholder = placeholderText;
-        inputField.textComponent = personalityInputText;
+        personalityInputField.placeholder = placeholderText;
+        personalityInputField.textComponent = instance.personalityInputText;
     }
 
     private void OnPersonalityTextChanged(string newText)
@@ -2992,6 +3564,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         instance.personalityText = newText;
         Debug.Log("New personality " + instance.personalityInputText.text);
     }
+
+    Dropdown voiceDropdownComp;
+    Slider volumeSliderComp;
 
     private void CreateVoiceAndVolumeControls(Vector2 position)
     {
@@ -3038,15 +3613,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             width: 200f,
             height: 30f);
 
-        Dropdown voiceDropdownComp = voiceDropdown.GetComponent<Dropdown>();
-        voiceDropdownComp.AddOptions(npcVoices);
+        instance.voiceDropdownComp = voiceDropdown.GetComponent<Dropdown>();
+        instance.voiceDropdownComp.AddOptions(npcVoices);
 
         /*// Load the saved value
         int savedIndex = PlayerPrefs.GetInt("SelectedVoiceIndex", 0);
         voiceDropdownComp.value = savedIndex;*/
 
         // Add listener for value change
-        voiceDropdownComp.onValueChanged.AddListener(OnNPCVoiceDropdownChanged);
+        instance.voiceDropdownComp.onValueChanged.AddListener(OnNPCVoiceDropdownChanged);
 
 
         GUIManager.Instance.CreateText(
@@ -3077,13 +3652,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             width: 200f,
             height: 20f);
 
-        Slider volumeSliderComp = volumeSlider.GetComponent<Slider>();
-        volumeSliderComp.onValueChanged.AddListener(OnVolumeSliderValueChanged);
+        instance.volumeSliderComp = volumeSlider.GetComponent<Slider>();
+        instance.volumeSliderComp.onValueChanged.AddListener(OnVolumeSliderValueChanged);
     }
 
     private void OnNPCVoiceDropdownChanged(int index)
     {
-        instance.NPCVoice = npcVoices[index];
+        instance.NPCVoice = index;
         Debug.Log("new instance.NPCVoice " + instance.NPCVoice);
     }
 
@@ -3092,6 +3667,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         instance.NPCVolume = value;
         Debug.Log("new companion volume " + instance.NPCVolume);
     }
+
+
+    Toggle toggleMasculine;
+    Toggle toggleFeminine;
 
     private void CreateBodyTypeToggle(Vector2 position)
     {
@@ -3133,14 +3712,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject toggleObj1 = CreateToggle(backgroundPanel.transform, "Masculine", "Masculine", -25);
         GameObject toggleObj2 = CreateToggle(backgroundPanel.transform, "Feminine", "Feminine", -55);
 
-        Toggle toggle1 = toggleObj1.GetComponent<Toggle>();
-        Toggle toggle2 = toggleObj2.GetComponent<Toggle>();
+        instance.toggleMasculine = toggleObj1.GetComponent<Toggle>();
+        instance.toggleFeminine = toggleObj2.GetComponent<Toggle>();
 
-        toggle1.isOn = true;
+        instance.toggleMasculine.isOn = true;
 
         // Add listeners
-        toggle1.onValueChanged.AddListener(isOn => OnToggleChanged(toggle1, toggle2, isOn));
-        toggle2.onValueChanged.AddListener(isOn => OnToggleChanged(toggle2, toggle1, isOn));
+        instance.toggleMasculine.onValueChanged.AddListener(isOn => OnToggleChanged(instance.toggleMasculine, instance.toggleFeminine, isOn));
+        instance.toggleFeminine.onValueChanged.AddListener(isOn => OnToggleChanged(instance.toggleFeminine, instance.toggleMasculine, isOn));
     }
 
     GameObject CreateToggle(Transform parent, string name, string label, float positionY)
@@ -3272,28 +3851,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             otherToggle.isOn = false;
         }
-        instance.NPCGender = changedToggle.name;
-        int newModel = -1;
-        if (instance.NPCGender == "Masculine")
-        {
-            newModel = 0;
-        }
-        else
-        {
-            newModel = 1;
-        }
+        instance.NPCGender = changedToggle.name == "Masculine" ? 0 : 1;
 
         if (instance.PlayerNPC)
         {
             VisEquipment npcVisEquipment = instance.PlayerNPC.GetComponent<VisEquipment>();
-            npcVisEquipment.SetModel(newModel);
+            npcVisEquipment.SetModel(instance.NPCGender);
         }
         else
         {
             Debug.Log("ontogglechanged instance.PlayerNPC is null");
         }
 
-        Debug.Log("new NPCGender " + instance.NPCGender.ToString());
+        Debug.Log("new NPCGender " + instance.NPCGender);
     }
 
     private void CreateButtons(Vector2 position)
@@ -3325,6 +3895,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         TestPanel.SetActive(false);
         instance.IsModMenuShowing = false;
         GUIManager.BlockInput(false);
+        if (instance.PlayerNPC)
+            SaveNPCData(instance.PlayerNPC);
     }
 
     // Make sure to include your existing CreateTask and CreateSlider methods here
@@ -3408,74 +3980,3 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
  * 
  * 
  */
-
-public class VerticalBox
-{
-    public GameObject ScrollViewContainer { get; private set; }
-    public GameObject ContentContainer { get; private set; }
-    public RectTransform ContentRect { get; private set; }
-    public VerticalLayoutGroup LayoutGroup { get; private set; }
-    public Image Background { get; private set; }
-    public ScrollRect ScrollRect { get; private set; }
-
-    public VerticalBox(Transform parent, Vector2 position, Vector2 size, Color backgroundColor)
-    {
-        // Create the main container with ScrollRect
-        ScrollViewContainer = new GameObject("ScrollViewContainer", typeof(RectTransform));
-        ScrollViewContainer.transform.SetParent(parent, false);
-        RectTransform scrollRectTransform = ScrollViewContainer.GetComponent<RectTransform>();
-        scrollRectTransform.anchorMin = new Vector2(0, 1);
-        scrollRectTransform.anchorMax = new Vector2(0, 1);
-        scrollRectTransform.anchoredPosition = position;
-        scrollRectTransform.sizeDelta = size;
-
-        // Add ScrollRect component
-        ScrollRect = ScrollViewContainer.AddComponent<ScrollRect>();
-
-        // Create the content container
-        ContentContainer = new GameObject("ContentContainer", typeof(RectTransform));
-        ContentContainer.transform.SetParent(ScrollViewContainer.transform, false);
-        ContentRect = ContentContainer.GetComponent<RectTransform>();
-        ContentRect.anchorMin = new Vector2(0, 1);
-        ContentRect.anchorMax = new Vector2(1, 1);
-        ContentRect.anchoredPosition = Vector2.zero;
-        ContentRect.sizeDelta = new Vector2(0, 0);
-
-        // Set up ScrollRect
-        ScrollRect.content = ContentRect;
-        ScrollRect.vertical = true;
-        ScrollRect.horizontal = false;
-
-        // Add background image
-        Background = ContentContainer.AddComponent<Image>();
-        Background.color = backgroundColor;
-
-        // Add VerticalLayoutGroup to content
-        LayoutGroup = ContentContainer.AddComponent<VerticalLayoutGroup>();
-        LayoutGroup.childAlignment = TextAnchor.UpperLeft;
-        LayoutGroup.childControlHeight = false;
-        LayoutGroup.childForceExpandHeight = false;
-        LayoutGroup.spacing = 5;
-        LayoutGroup.padding = new RectOffset(10, 10, 10, 10);
-
-        // Add ContentSizeFitter to adjust content height
-        ContentSizeFitter contentSizeFitter = ContentContainer.AddComponent<ContentSizeFitter>();
-        contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-    }
-
-    public void SetAlignment(TextAnchor alignment)
-    {
-        LayoutGroup.childAlignment = alignment;
-    }
-
-    public void SetBackgroundColor(Color color)
-    {
-        Background.color = color;
-    }
-
-    public void AddElement(GameObject element)
-    {
-        //element.transform.SetParent(Container.transform, false);
-        element.transform.SetParent(ContentContainer.transform, false);
-    }
-}

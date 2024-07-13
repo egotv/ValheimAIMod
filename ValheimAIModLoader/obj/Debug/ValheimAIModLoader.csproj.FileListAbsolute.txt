@@ -59,3 +59,5 @@ C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\Platf
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.ParticleSystemModule.xml
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.AudioModule.xml
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.TerrainModule.dll
+C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\Unity.InputSystem.dll
+C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\UnityEngine.InputModule.dll

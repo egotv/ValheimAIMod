@@ -14,11 +14,23 @@ namespace ValheimAIModLoader
         public enum CommandType
         {
             Idle,
+
             FollowPlayer,
-            MoveToLocation,
-            AttackTarget,
+
+            CombatAttack,
+            CombatSneakAttack,
+            CombatDefend,
+
+            /*InventoryDropAll,
+            InventoryDropItem,
+            InventoryEquipItem,
+            InventoryPickupItem,*/
+
             HarvestResource,
+
             PatrolArea,
+
+            MoveToLocation
         }
 
         public GameObject NPC;
