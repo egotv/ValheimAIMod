@@ -211,7 +211,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             else if (instance.eNPCMode == NPCCommand.CommandType.FollowPlayer)
             {
-                instance.StartPatrol(__instance);
+                instance.Patrol_Start();
             }
             return;
         }
@@ -1876,10 +1876,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             // Check if agent_commands array exists and has at least one element
             if (agentCommands != null && agentCommands.Count > 0)
             {
-                Debug.Log("Agent command not null!");
                 for (int i=0; i<agentCommands.Count; i++)
                 {
-                    Debug.Log("forloop");
                     JsonObject commandObject = agentCommands[i] as JsonObject;
 
                     if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
@@ -1902,12 +1900,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         parameters = jsonparams.ToArray();
                     }*/
 
-                    Debug.Log("Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
+                    Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
                     ProcessNPCCommand(category, action, parameters, agent_text_response);
                 }
             }
             else
             {
+                HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                AddChatTalk(npc, "NPC", agent_text_response);
                 Debug.Log("No agent commands found.");
             }
 
