@@ -15,9 +15,7 @@ using System.IO;
 using System.Net;
 using Jotunn.Managers;
 using UnityEngine.UI;
-using System.Security.Cryptography;
 using UnityEngine.InputSystem.Utilities;
-//using System.Numerics;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -1310,7 +1308,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("Follow_Stop activated!");
     }
 
-    private void Combat_StartAttacking(GameObject target, string NPCDialogueMessage = "Watch out, here I come!")
+    private void Combat_StartAttacking(string EnemyName, string NPCDialogueMessage = "Watch out, here I come!")
     {
         if (instance.PlayerNPC == null)
         {
@@ -1327,8 +1325,32 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         .OrderBy(enemy => Vector3.Distance(instance.PlayerNPC.transform.position, enemy.transform.position))
         .FirstOrDefault();*/
 
-        // disregard nearby enemies
-        monsterAIcomponent.SetFollowTarget(null);
+        GameObject closestEnemy = null;
+
+        if (EnemyName != "")
+        {
+            Debug.Log($"Trying to find enemy {EnemyName}");
+            closestEnemy = FindClosestEnemy(instance.PlayerNPC, EnemyName);
+        }
+        else
+        {
+            Debug.Log("EnemyName was null");
+        }
+
+            
+
+        if (closestEnemy != null)
+        {
+            monsterAIcomponent.SetFollowTarget(closestEnemy);
+            Debug.Log($"Combat_StartAttacking closestEnemy found! " + closestEnemy.name);
+        }
+        else
+        {
+            monsterAIcomponent.SetFollowTarget(null);
+            Debug.Log("Combat_StartAttacking closestEnemy not found!");
+        }
+            
+
         monsterAIcomponent.m_alerted = false;
         monsterAIcomponent.m_aggravatable = true;
         monsterAIcomponent.SetHuntPlayer(true);
@@ -2008,7 +2030,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             if (action == "StartAttacking")
             {
-                instance.Combat_StartAttacking(null, agent_text_response);
+                instance.Combat_StartAttacking(parameter, agent_text_response);
             }
             else if (action == "Sneak")
             {
@@ -2099,6 +2121,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 .ToArray();
         AllEnemiesInstancesLastRefresh = Time.time;
         return instance.AllEnemiesInstances;
+    }
+
+    private static GameObject FindClosestEnemy(GameObject character, string EnemyName)
+    {
+        //return GameObject.FindObjectsOfType<GameObject>(true)
+            return instance.FindEnemies()
+                //.Where(go => go.name.Contains(EnemyName) && go.HasAnyComponent("Character", "Humanoid" , "BaseAI", "MonsterAI"))
+                .Where(go => go.name.StartsWith(EnemyName))
+                .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
+                .FirstOrDefault();
     }
 
     private GameObject[] FindPlayerNPCs()
@@ -2225,7 +2257,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
     Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
-    Dictionary<string, float> nearbyResourcesXRotation = new Dictionary<string, float>();
+
+    string CleanKey(string key)
+    {
+        // Remove everything after and including the last opening parenthesis
+        int lastParenIndex = key.LastIndexOf('(');
+        if (lastParenIndex != -1)
+        {
+            key = key.Substring(0, lastParenIndex);
+        }
+
+        // Trim any remaining whitespace
+        key = key.Trim();
+
+        // Remove any trailing numbers
+        while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
+        {
+            key = key.Substring(0, key.Length - 1);
+        }
+
+        // Trim again in case there was whitespace before the numbers
+        return key.Trim();
+    }
 
     private string GetNearbyResources(GameObject source)
     {
@@ -2236,28 +2289,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("pickables len " + pickables.Length);
         Debug.Log("destructibles len " + destructibles.Length);
         Debug.Log("trees len " + trees.Length);
-
-        string CleanKey(string key)
-        {
-            // Remove everything after and including the last opening parenthesis
-            int lastParenIndex = key.LastIndexOf('(');
-            if (lastParenIndex != -1)
-            {
-                key = key.Substring(0, lastParenIndex);
-            }
-
-            // Trim any remaining whitespace
-            key = key.Trim();
-
-            // Remove any trailing numbers
-            while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
-            {
-                key = key.Substring(0, key.Length - 1);
-            }
-
-            // Trim again in case there was whitespace before the numbers
-            return key.Trim();
-        }
 
         void ProcessResource(Component resource, string key)
         {
@@ -2274,7 +2305,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             else
                 nearbyResourcesDistance[key] = distance;
 
-            Vector3 directionToResource = resource.transform.position - source.transform.position;
+            /*Vector3 directionToResource = resource.transform.position - source.transform.position;
             float xRotationDifference = Vector3.SignedAngle(Vector3.ProjectOnPlane(source.transform.forward, Vector3.up), Vector3.ProjectOnPlane(directionToResource, Vector3.up), Vector3.up);
 
             if (nearbyResourcesXRotation.ContainsKey(key))
@@ -2287,7 +2318,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 }
             }
             else
-                nearbyResourcesXRotation[key] = xRotationDifference;
+                nearbyResourcesXRotation[key] = xRotationDifference;*/
         }
 
         foreach (Pickable pickable in pickables)
@@ -2315,6 +2346,61 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         int totalResources = nearbyResources.Values.Sum();
         Debug.Log($"Total resources: {totalResources}");
+
+        //string json = jarray.ToString();
+        string json = SimpleJson.SimpleJson.SerializeObject(jarray);
+        Debug.Log(json);
+        return json;
+    }
+
+    Dictionary<string, int> nearbyEnemies = new Dictionary<string, int>();
+    Dictionary<string, float> nearbyEnemiesDistance = new Dictionary<string, float>();
+    private string GetNearbyEnemies(GameObject source)
+    {
+        Character[] characters = GameObject.FindObjectsOfType<Character>(true);
+        Humanoid[] humanoids = GameObject.FindObjectsOfType<Humanoid>(true);
+
+        Debug.Log("characters len " + characters.Length);
+        Debug.Log("humanoids len " + humanoids.Length);
+
+        
+
+        void ProcessResource(Component resource, string key)
+        {
+            key = CleanKey(key);
+
+            if (nearbyEnemies.ContainsKey(key))
+                nearbyEnemies[key]++;
+            else
+                nearbyEnemies[key] = 1;
+
+            float distance = resource.transform.position.DistanceTo(source.transform.position);
+            if (nearbyEnemiesDistance.ContainsKey(key))
+                nearbyEnemiesDistance[key] = Mathf.Min(nearbyEnemiesDistance[key], distance);
+            else
+                nearbyEnemiesDistance[key] = distance;
+        }
+
+        foreach (Character character in characters)
+            ProcessResource(character, character.name);
+
+        foreach (Humanoid humanoid in humanoids)
+            ProcessResource(humanoid, humanoid.name);
+
+        var jarray = new JsonArray();
+
+        foreach (var kvp in nearbyEnemies)
+        {
+            JsonObject thisJobject = new JsonObject();
+            thisJobject["name"] = kvp.Key;
+            thisJobject["quantity"] = kvp.Value;
+            thisJobject["nearestDistance"] = nearbyEnemiesDistance[kvp.Key];
+
+            jarray.Add(thisJobject);
+        }
+
+        int totalEnemies = nearbyEnemies.Values.Sum();
+        Debug.Log($"Total enemies: {totalEnemies}");
 
         //string json = jarray.ToString();
         string json = SimpleJson.SimpleJson.SerializeObject(jarray);
@@ -2685,7 +2771,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MonsterAI monsterAI = character.GetComponent<MonsterAI>();
 
 
-        var inventoryItems = new JsonArray();
+        var npcInventoryItems = new JsonArray();
         foreach (ItemDrop.ItemData item in humanoidNPC.m_inventory.m_inventory)
         {
             var itemData = new JsonObject
@@ -2693,7 +2779,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 ["name"] = item.m_shared.m_name,
                 ["amount"] = item.m_stack,
             };
-            inventoryItems.Add(itemData);
+            npcInventoryItems.Add(itemData);
+        }
+
+        var playerInventoryItems = new JsonArray();
+        foreach (ItemDrop.ItemData item in Player.m_localPlayer.m_inventory.m_inventory)
+        {
+            var itemData = new JsonObject
+            {
+                ["name"] = item.m_shared.m_name,
+                ["amount"] = item.m_stack,
+            };
+            playerInventoryItems.Add(itemData);
         }
 
         var gameState = new JsonObject
@@ -2701,7 +2798,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["Name"] = humanoidNPC.m_name,
             ["Health"] = humanoidNPC.GetHealth(),
             ["Stamina"] = humanoidNPC.m_stamina,
-            ["Inventory"] = inventoryItems,
+            ["Inventory"] = npcInventoryItems,
+            ["PlayerInventory"] = playerInventoryItems,
             //["position"] = humanoidNPC.transform.position.ToString(),
 
 
@@ -2721,6 +2819,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             //["nearbyVegetationCount"] = instance.DetectVegetation(),
             ["nearbyItems"] = instance.GetNearbyResources(character),
+            ["nearbyEnemies"] = instance.GetNearbyEnemies(character),
     };
 
         //string base64audio = instance.GetBase64AudioData(instance.recordedAudioClip);
