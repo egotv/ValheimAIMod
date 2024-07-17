@@ -42,6 +42,8 @@ Compile and Install Mod
 	Output ValheimAIModLoader.dll and ValheimAIModLivePatch.dll files should be in ValheimAIModLoader/bin/Debug/
 	Copy ValheimAIModLoader.dll to Valheim/BepInEx/plugins
 	Copy ValheimAIModLivePatch .dll to Valheim/BepInEx/scripts
+
+	The above steps can also be executed via PatchValheim_MUST_EDIT.bat. You need to edit the .bat file to point to the install directory of Valheim first.
 	
 	ValheimAIModLoader's code is run once when the game starts
 	ValheimAIModLivePatch's code compiles everytime you press F6, for fast-testing without reopening the game.
