@@ -16,6 +16,7 @@ using System.Net;
 using Jotunn.Managers;
 using UnityEngine.UI;
 using System.Security.Cryptography;
+using UnityEngine.InputSystem.Utilities;
 //using System.Numerics;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
@@ -78,6 +79,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     public Vector3 patrol_position = Vector3.zero;
     public float patrol_radius = 10f;
     public bool patrol_harvest = false;
+    public string CurrentHarvestResourceName = "Beech";
     public bool MovementLock = false;
     public float chaseUntilPatrolRadiusDistance = 20f;
 
@@ -98,6 +100,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         /*PopulateCraftingRequirements();
         PopulateBuildingRequirements();*/
+        PopulateMonsterPrefabs();
+        PopulateAllItems();
 
         FindPlayerNPCs();
 
@@ -265,8 +269,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             return;
         }
+        
+        if (ZInput.GetKeyDown(KeyCode.L))
+        {
+            instance.GetNearbyResources(__instance.gameObject);
 
-
+            return;
+        }
 
         //instance.PlayRecordedAudio("");
         //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
@@ -353,12 +362,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 humanoidNPC.StartAttack(humanoidNPC, false);
             }
 
-            if (__instance.m_follow == null)
+            if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid"))
             {
                 GameObject newfollow;
-                newfollow = FindClosestResource(__instance.gameObject, "Beech_small");
-
-                __instance.SetFollowTarget(newfollow);
+                
+                newfollow = FindClosestResource(__instance.gameObject, instance.CurrentHarvestResourceName);
+                
+                if (newfollow != null)
+                    __instance.SetFollowTarget(newfollow);
             }
         }
 
@@ -1461,13 +1472,20 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
         HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
-        ResourceName = "Beech";
-        GameObject resource = FindClosestResource(instance.PlayerNPC, ResourceName);
+        instance.CurrentHarvestResourceName = ResourceName;
+        Debug.Log("resource name " + instance.CurrentHarvestResourceName);
+
+        //ResourceName = "Beech";
+        GameObject resource = FindClosestResource(instance.PlayerNPC, instance.CurrentHarvestResourceName);
         if (resource == null)
         {
             // inform API that resource was not found and wasn't processed
-            Debug.Log("NPC command Harvesting_Start failed, instance.PlayerNPC == null");
+            Debug.Log($"couldn't find resource name {resource}");
             return;
+        }
+        else
+        {
+            Debug.Log("resource valid");
         }
 
         monsterAIcomponent.SetFollowTarget(resource);
@@ -1893,15 +1911,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     string category = commandObject["category"].ToString();
 
                     string[] parameters = {};
+                    string p = "";
 
-                    /*if (commandObject.ContainsKey("parameters"))
+                    if (commandObject.ContainsKey("parameters"))
                     {
-                        List<string> jsonparams = commandObject["parameters"] as List<string>;
-                        parameters = jsonparams.ToArray();
-                    }*/
+                        JsonArray jsonparams = commandObject["parameters"] as JsonArray;
+                        if (jsonparams != null && jsonparams.Count > 0)
+                        {
+                            p = jsonparams[0].ToString();
+                        }
+                    }
+
+                    foreach (string pa in parameters)
+                    {
+                        Debug.Log($"param {pa}");
+                    }
 
                     Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
-                    ProcessNPCCommand(category, action, parameters, agent_text_response);
+                    ProcessNPCCommand(category, action, p, agent_text_response);
                 }
             }
             else
@@ -1959,11 +1986,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private void ProcessNPCCommand(string category, string action, string[] parameters, string agent_text_response)
+    private void ProcessNPCCommand(string category, string action, string parameter, string agent_text_response)
     {
         Player localPlayer = Player.m_localPlayer;
 
-        string firstParameter = parameters.Length > 0 ? parameters[0] : "NULL";
+        //string firstParameter = parameters.Length > 0 ? parameters[0] : "NULL";
 
         if (category == "Follow")
         {
@@ -2005,11 +2032,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             else if (action == "DropItem")
             {
-                instance.Inventory_DropItem(firstParameter, agent_text_response);
+                instance.Inventory_DropItem(parameter, agent_text_response);
             }
             else if (action == "EquipItem")
             {
-                instance.Inventory_EquipItem(firstParameter, agent_text_response);
+                instance.Inventory_EquipItem(parameter, agent_text_response);
             }
             else if (action == "PickupItem")
             {
@@ -2020,7 +2047,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             if (action == "Start")
             {
-                instance.Harvesting_Start(firstParameter, agent_text_response);
+                Debug.Log($"harvesting start {parameter}");
+                instance.Harvesting_Start(parameter, agent_text_response);
             }
             else if (action == "Stop")
             {
@@ -2037,6 +2065,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 instance.Patrol_Stop(agent_text_response);
             }
+        }
+        else
+        {
+            Debug.Log($"ProcessNPCCommand failed {category} {action}");
         }
     }
 
@@ -2166,7 +2198,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static GameObject FindClosestResource(GameObject character, string ResourceName)
     {
         return GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.StartsWith(ResourceName))
+                .Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
     }
@@ -2190,6 +2222,105 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return instance.SmallTrees;
     }
 
+
+    Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
+    Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
+    Dictionary<string, float> nearbyResourcesXRotation = new Dictionary<string, float>();
+
+    private string GetNearbyResources(GameObject source)
+    {
+        Pickable[] pickables = GameObject.FindObjectsOfType<Pickable>(true);
+        Destructible[] destructibles = GameObject.FindObjectsOfType<Destructible>(true);
+        TreeBase[] trees = GameObject.FindObjectsOfType<TreeBase>(true);
+
+        Debug.Log("pickables len " + pickables.Length);
+        Debug.Log("destructibles len " + destructibles.Length);
+        Debug.Log("trees len " + trees.Length);
+
+        string CleanKey(string key)
+        {
+            // Remove everything after and including the last opening parenthesis
+            int lastParenIndex = key.LastIndexOf('(');
+            if (lastParenIndex != -1)
+            {
+                key = key.Substring(0, lastParenIndex);
+            }
+
+            // Trim any remaining whitespace
+            key = key.Trim();
+
+            // Remove any trailing numbers
+            while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
+            {
+                key = key.Substring(0, key.Length - 1);
+            }
+
+            // Trim again in case there was whitespace before the numbers
+            return key.Trim();
+        }
+
+        void ProcessResource(Component resource, string key)
+        {
+            key = CleanKey(key);
+
+            if (nearbyResources.ContainsKey(key))
+                nearbyResources[key]++;
+            else
+                nearbyResources[key] = 1;
+
+            float distance = resource.transform.position.DistanceTo(source.transform.position);
+            if (nearbyResourcesDistance.ContainsKey(key))
+                nearbyResourcesDistance[key] = Mathf.Min(nearbyResourcesDistance[key], distance);
+            else
+                nearbyResourcesDistance[key] = distance;
+
+            Vector3 directionToResource = resource.transform.position - source.transform.position;
+            float xRotationDifference = Vector3.SignedAngle(Vector3.ProjectOnPlane(source.transform.forward, Vector3.up), Vector3.ProjectOnPlane(directionToResource, Vector3.up), Vector3.up);
+
+            if (nearbyResourcesXRotation.ContainsKey(key))
+            {
+                float currentRotation = nearbyResourcesXRotation[key];
+                if (Mathf.Abs(xRotationDifference) < Mathf.Abs(currentRotation) ||
+                    (Mathf.Abs(xRotationDifference) == Mathf.Abs(currentRotation) && distance < nearbyResourcesDistance[key]))
+                {
+                    nearbyResourcesXRotation[key] = xRotationDifference;
+                }
+            }
+            else
+                nearbyResourcesXRotation[key] = xRotationDifference;
+        }
+
+        foreach (Pickable pickable in pickables)
+            ProcessResource(pickable, pickable.name);
+
+        foreach (Destructible destructible in destructibles)
+            ProcessResource(destructible, destructible.name);
+
+        foreach (TreeBase tree in trees)
+            ProcessResource(tree, tree.name);
+
+        var jarray = new JsonArray();
+
+        foreach (var kvp in nearbyResources)
+        {
+            //Debug.Log($"{kvp.Key}: {kvp.Value} | nearest's distance: {nearbyResourcesDistance[kvp.Key]:F2} | X rotation difference: {nearbyResourcesXRotation[kvp.Key]:F2}°");
+
+            JsonObject thisJobject = new JsonObject();
+            thisJobject["name"] = kvp.Key;
+            thisJobject["quantity"] = kvp.Value;
+            thisJobject["nearestDistance"] = nearbyResourcesDistance[kvp.Key];
+
+            jarray.Add(thisJobject);
+        }
+
+        int totalResources = nearbyResources.Values.Sum();
+        Debug.Log($"Total resources: {totalResources}");
+
+        //string json = jarray.ToString();
+        string json = SimpleJson.SimpleJson.SerializeObject(jarray);
+        Debug.Log(json);
+        return json;
+    }
 
     /*
      * 
@@ -2589,6 +2720,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["currentBiome"] = Heightmap.FindBiome(character.transform.position).ToString(),
 
             //["nearbyVegetationCount"] = instance.DetectVegetation(),
+            ["nearbyItems"] = instance.GetNearbyResources(character),
     };
 
         //string base64audio = instance.GetBase64AudioData(instance.recordedAudioClip);
@@ -2929,6 +3061,67 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         File.WriteAllText(filePath, json);
         Debug.Log($"Building requirements exported to {filePath}");
+    }
+
+    private void PopulateMonsterPrefabs()
+    {
+        var monsterList = new JsonArray();
+
+        foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
+        {
+            Character prechar = prefab.GetComponent<Character>();
+            Humanoid prehum = prefab.GetComponent<Humanoid>();
+
+            if (prechar != null)
+            {
+                JsonObject thisJsonObject = new JsonObject();
+                thisJsonObject["name"] = prechar.name;
+                thisJsonObject["itemName"] = prechar.m_name;
+                monsterList.Add(thisJsonObject);
+            }
+
+            if (prehum != null)
+            {
+                JsonObject thisJsonObject = new JsonObject();
+                thisJsonObject["name"] = prehum.name;
+                thisJsonObject["itemName"] = prehum.m_name;
+                monsterList.Add(thisJsonObject);
+            }
+        }
+
+        string json = monsterList.ToString();
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string filePath = Path.Combine(desktopPath, "monsters.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log($"Monster prefab list exported to {filePath}");
+    }
+
+    private void PopulateAllItems()
+    {
+        var allItemsList = new JsonArray();
+        foreach (GameObject prefab in ObjectDB.instance.m_items)
+        {
+            ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+            if (itemDrop != null)
+            {
+                var thisJsonObject = new JsonObject();
+
+                thisJsonObject["name"] = itemDrop.name;
+                thisJsonObject["itemName"] = itemDrop.m_itemData.m_shared.m_name;
+
+                allItemsList.Add(thisJsonObject);
+            }
+        }
+
+        string json = allItemsList.ToString();
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string filePath = Path.Combine(desktopPath, "all_items_list.json");
+
+        File.WriteAllText(filePath, json);
+        Debug.Log($"Crafting requirements exported to {filePath}");
     }
 
     /*private void PopulateResourceLocations()
