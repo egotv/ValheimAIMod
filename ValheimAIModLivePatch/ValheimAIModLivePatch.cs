@@ -16,6 +16,7 @@ using System.Net;
 using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
+using UnityEngine.EventSystems;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -43,7 +44,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> ToggleAttackKey;
     private ConfigEntry<KeyboardShortcut> InventoryKey;
     private ConfigEntry<KeyboardShortcut> TalkKey;
-    private ConfigEntry<KeyboardShortcut> SendToBrainKey;
+    private ConfigEntry<KeyboardShortcut> SendRecordingToBrainKey;
 
     private ConfigEntry<int> MicrophoneIndex;
     private ConfigEntry<float> CompanionVolume;*/
@@ -160,7 +161,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         ToggleAttackKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleAttackKey", new KeyboardShortcut(KeyCode.K), "The key used to command all NPCs to attack enemies.");
         InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.U), "The key used to command all NPCs to -");
         TalkKey = Config.Bind<KeyboardShortcut>("Keybinds", "TalkKey", new KeyboardShortcut(KeyCode.T), "The key used to talk into the game");
-        SendToBrainKey = Config.Bind<KeyboardShortcut>("Keybinds", "SendToBrainKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
+        SendRecordingToBrainKey = Config.Bind<KeyboardShortcut>("Keybinds", "SendRecordingToBrainKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
 
         MicrophoneIndex = Config.Bind<int>("Integer", "MicrophoneIndex", 0, "Input device index in Windows Sound Settings.");
         CompanionVolume = Config.Bind<float>("Float", "CompanionVolume", 1f, "NPC dialogue volume (0-1)");*/
@@ -189,14 +190,31 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // ... any other cleanup code
     }
 
+    //private bool isTextFieldFocused = false;
+
     // PROCESS PLAYER INPUT
     [HarmonyPostfix]
     [HarmonyPatch(typeof(Player), "Update")]
     private static void Player_Update_Postfix(Player __instance)
     {
+        if (EventSystem.current.currentSelectedGameObject != null)
+        {
+            var input = EventSystem.current.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>();
+            return;
+        }
+
         if (!ZNetScene.instance || !Player.m_localPlayer)
         {
             // Player is not in a world, allow input
+            return;
+        }
+
+        if (ZInput.GetKeyDown(KeyCode.Y))
+        {
+            //instance.TogglePanel();
+            instance.panelManager.TogglePanel("Settings");
+            instance.panelManager.TogglePanel("Thrall Customization");
+
             return;
         }
 
@@ -205,7 +223,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //Debug.Log("Menu visible");
             return;
         }
-
 
         if (ZInput.GetKeyDown(KeyCode.G))
         {
@@ -268,23 +285,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 instance.shortRecordingWarningShown = false;
                 instance.StopRecording();
-                instance.SendToBrain();
+                instance.SendRecordingToBrain();
             }
             else if (!instance.shortRecordingWarningShown)
             {
                 //Debug.Log("Recording was too short. Has to be atleast 1 second long");
-                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Recording has to be atleast 1 second long.");
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Recording must be atleast 1 second long.");
                 instance.shortRecordingWarningShown = true;
             }
-            return;
-        }
-
-        if (ZInput.GetKeyDown(KeyCode.Y))
-        {
-            //instance.TogglePanel();
-            instance.panelManager.TogglePanel("Settings");
-            instance.panelManager.TogglePanel("Thrall Customization");
-
             return;
         }
         
@@ -305,6 +313,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static bool MonsterAI_CustomFixedUpdate_Prefix(MonsterAI __instance)
     {
         if (!__instance.name.Contains("HumanoidNPC")) return true;
+
+
+        HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
+        GameObject newfollow = null;
+
+        newfollow = FindClosestItemDrop(__instance.gameObject);
+
+        if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(humanoidNPC.transform.position) < 8f)
+        {
+            Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
+            __instance.SetFollowTarget(newfollow);
+        }
 
         if (instance.eNPCMode == NPCCommand.CommandType.PatrolArea && instance.patrol_position != Vector3.zero)
         {
@@ -347,7 +367,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                                 (!followtarget.HasAnyComponent("Pickable") && !followtarget.HasAnyComponent("ItemDrop")))
                 {
                     //Debug.Log("new follow");
-                    GameObject newfollow;
+
                     newfollow = FindClosestPickableResource(__instance.gameObject, instance.patrol_position, instance.chaseUntilPatrolRadiusDistance);
                     if (newfollow == null)
                     {
@@ -373,7 +393,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         else if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource)
         {
-            HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
 
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
             if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack() && humanoidNPC.GetTimeSinceLastAttack() > 1f)
@@ -383,8 +402,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid"))
             {
-                GameObject newfollow;
-                
                 newfollow = FindClosestResource(__instance.gameObject, instance.CurrentHarvestResourceName);
                 
                 if (newfollow != null)
@@ -1738,7 +1755,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }
 
     float lastSentToBrainTime = 0f;
-    private void SendToBrain()
+    private void SendRecordingToBrain()
     {
         if (instance.IsRecording)
         {
@@ -1751,8 +1768,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
             HumanoidNPC humanoidComponent = npc.GetComponent<HumanoidNPC>();
 
-            //Debug.Log("SendUpdateToBrain");
-            SendUpdateToBrain(npc);
+            //Debug.Log("BrainSendInstruction");
+            BrainSendInstruction(npc);
             instance.lastSentToBrainTime = Time.time;
 
             AddChatTalk(humanoidComponent, "NPC", "...");
@@ -1947,7 +1964,93 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private void SendUpdateToBrain(GameObject npc)
+    private void BrainSendPeriodicUpdate(GameObject npc)
+    {
+        string jsonData = GetJSONForBrain(npc, false);
+
+        WebClient webClient = new WebClient();
+        webClient.Headers.Add("Content-Type", "application/json");
+
+        webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
+        webClient.UploadStringCompleted += OnBrainSendPeriodicUpdateResponse;
+    }
+
+    private void OnBrainSendPeriodicUpdateResponse(object sender, UploadStringCompletedEventArgs e)
+    {
+        if (e.Error == null)
+        {
+            string responseJson = e.Result;
+
+            // Parse the response JSON using SimpleJSON's DeserializeObject
+            JsonObject responseObject = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(responseJson);
+            string audioFileId = responseObject["agent_text_response_audio_file_id"].ToString();
+            string agent_text_response = responseObject["agent_text_response"].ToString();
+            string player_instruction_transcription = responseObject["player_instruction_transcription"].ToString();
+
+            // Get the agent_commands array
+            JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
+
+            // Check if agent_commands array exists and has at least one element
+            if (agentCommands != null && agentCommands.Count > 0)
+            {
+                for (int i = 0; i < agentCommands.Count; i++)
+                {
+                    JsonObject commandObject = agentCommands[i] as JsonObject;
+
+                    if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
+                    {
+                        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                        AddChatTalk(npc, "NPC", agent_text_response);
+
+                        Debug.Log("Agent command response from brain was incomplete. Command's Action or Category is missing!");
+                        continue;
+                    }
+
+                    string action = commandObject["action"].ToString();
+                    string category = commandObject["category"].ToString();
+
+                    string[] parameters = { };
+                    string p = "";
+
+                    if (commandObject.ContainsKey("parameters"))
+                    {
+                        JsonArray jsonparams = commandObject["parameters"] as JsonArray;
+                        if (jsonparams != null && jsonparams.Count > 0)
+                        {
+                            p = jsonparams[0].ToString();
+                        }
+                    }
+
+                    foreach (string pa in parameters)
+                    {
+                        Debug.Log($"param {pa}");
+                    }
+
+                    Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
+                    ProcessNPCCommand(category, action, p, agent_text_response);
+
+                    Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
+
+
+                    AddItemToScrollBox(TaskListScrollBox, $"{action} {category} ({p})", defaultSprite);
+                }
+            }
+            else
+            {
+                HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                AddChatTalk(npc, "NPC", agent_text_response);
+                Debug.Log("No agent commands found.");
+            }
+
+            Debug.Log("Brain periodic update response: " + responseJson);
+        }
+        else
+        {
+            Debug.LogError("Request failed: " + e.Error.Message);
+        }
+    }
+
+    private void BrainSendInstruction(GameObject npc)
     {
         string jsonData = GetJSONForBrain(npc);
 
@@ -1959,10 +2062,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         // Send the POST request
         webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
-        webClient.UploadStringCompleted += OnSendUpdateToBrainResponse;
+        webClient.UploadStringCompleted += OnBrainSendInstructionResponse;
     }
 
-    private void OnSendUpdateToBrainResponse(object sender, UploadStringCompletedEventArgs e)
+    private void OnBrainSendInstructionResponse(object sender, UploadStringCompletedEventArgs e)
     {
         if (e.Error == null)
         {
@@ -2301,6 +2404,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return GameObject.FindObjectsOfType<GameObject>(true)
                 //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .Where(go => CleanKey(go.name) == ResourceName && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
+                .FirstOrDefault();
+    }
+
+    private static GameObject FindClosestItemDrop(GameObject character)
+    {
+        return GameObject.FindObjectsOfType<GameObject>(true)
+                //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                .Where(go => go.HasAnyComponent("ItemDrop"))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
     }

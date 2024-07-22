@@ -73,7 +73,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ViewState": "AQIAAAMAAAAAAAAAAAAAABEAAAA1AAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAA0AAAAWAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:36:27.344Z",
               "EditorCaption": ""
@@ -86,7 +86,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAABcAAAABAAAA",
+              "ViewState": "AQIAAA0BAAAAAAAAAAAUwCIBAAANAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:47:42.829Z",
               "EditorCaption": ""
@@ -125,8 +125,7 @@
               "RelativeToolTip": "..\\ValheimAIModLoader\\HumanoidNPC.cs",
               "ViewState": "AQIAAD0AAAAAAAAAAAAiwMYAAAAJAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-06-05T20:01:59.079Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-06-05T20:01:59.079Z"
             },
             {
               "$type": "Document",
@@ -138,8 +137,7 @@
               "RelativeToolTip": "assembly_valheim\\Character.cs",
               "ViewState": "AQIAAIYMAAAAAAAAAAAwwJsMAAAjAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-30T00:30:19.983Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-05-30T00:30:19.983Z"
             },
             {
               "$type": "Document",
