@@ -19,6 +19,7 @@ using UnityEngine.InputSystem.Utilities;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
+[BepInDependency("egovalheimmod.ValheimAIModLoader", BepInDependency.DependencyFlags.HardDependency)]
 public class ValheimAIModLivePatch : BaseUnityPlugin
 {
     private static ValheimAIModLivePatch instance;
@@ -78,6 +79,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     public float patrol_radius = 10f;
     public bool patrol_harvest = false;
     public string CurrentHarvestResourceName = "Beech";
+    public string CurrentWeaponName = "";
     public bool MovementLock = false;
     public float chaseUntilPatrolRadiusDistance = 20f;
 
@@ -86,6 +88,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private AudioClip recordedAudioClip;
     public bool IsRecording = false;
     private float recordingStartedTime = 0f;
+    private bool shortRecordingWarningShown = false;
     public bool IsModMenuShowing = false;
 
 
@@ -101,7 +104,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         PopulateMonsterPrefabs();
         PopulateAllItems();
 
-        FindPlayerNPCs();
+        instance.FindPlayerNPCs();
 
         playerDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "playerdialogue.wav");
         npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
@@ -109,14 +112,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         Chat.instance.SendText(Talker.Type.Normal, "EGO.AI MOD LOADED!");
 
-        GetRecordingDevices();
-
-        //MinimapManager.OnVanillaMapAvailable += CreateMapOverlay;
-
-        /*if (!ZInput.instance.m_buttons.ContainsKey("FollowPlayer"))
-        {
-            ZInput.instance.AddButton("FollowPlayer", Key.F);
-        }*/
+        CreateModMenuUI();
 
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
@@ -173,11 +169,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnDestroy() 
     {
-        TestPanel.SetActive(false);
-        Destroy(TestPanel);
-        Destroy(instance);
+        /*TestPanel.SetActive(false);
+        Destroy(TestPanel);*/
+
+        if (panelManager != null)
+        {
+            panelManager.DestroyAllPanels();
+        }
 
         harmony.UnpatchSelf();
+    }
+
+    private void OnUnload()
+    {
+        if (panelManager != null)
+        {
+            panelManager.DestroyAllPanels();
+        }
+        // ... any other cleanup code
     }
 
     // PROCESS PLAYER INPUT
@@ -205,6 +214,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
+        if (ZInput.GetKeyDown(KeyCode.X))
+        {
+            Console.instance.TryRunCommand("despawn_all");
+            return;
+        }
+
         if (ZInput.GetKeyDown(KeyCode.F))
         {
             if (instance.eNPCMode == NPCCommand.CommandType.Idle || instance.eNPCMode == NPCCommand.CommandType.PatrolArea)
@@ -227,14 +242,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
-        if (ZInput.GetKeyDown(KeyCode.K))
+        /*if (ZInput.GetKeyDown(KeyCode.K))
         {
             if (instance.eNPCMode == NPCCommand.CommandType.CombatSneakAttack || instance.eNPCMode == NPCCommand.CommandType.CombatAttack)
                 instance.Combat_StopAttacking();
             else
                 instance.Combat_StartAttacking(null);
             return;
-        }
+        }*/
 
         if (ZInput.GetKeyDown(KeyCode.I))
         {
@@ -249,31 +264,36 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         else if (!ZInput.GetKey(KeyCode.T) && instance.IsRecording)
         {
-            instance.StopRecording();
             if (Time.time - instance.recordingStartedTime > 1f)
             {
+                instance.shortRecordingWarningShown = false;
+                instance.StopRecording();
                 instance.SendToBrain();
             }
-            else
+            else if (!instance.shortRecordingWarningShown)
             {
-                Debug.Log("Recording was too short. Has to be atleast 1 second long");
+                //Debug.Log("Recording was too short. Has to be atleast 1 second long");
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Recording has to be atleast 1 second long.");
+                instance.shortRecordingWarningShown = true;
             }
             return;
         }
 
         if (ZInput.GetKeyDown(KeyCode.Y))
         {
-            instance.TogglePanel();
+            //instance.TogglePanel();
+            instance.panelManager.TogglePanel("Settings");
+            instance.panelManager.TogglePanel("Thrall Customization");
 
             return;
         }
         
-        if (ZInput.GetKeyDown(KeyCode.L))
+        /*if (ZInput.GetKeyDown(KeyCode.L))
         {
             instance.GetNearbyResources(__instance.gameObject);
 
             return;
-        }
+        }*/
 
         //instance.PlayRecordedAudio("");
         //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
@@ -354,6 +374,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         else if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource)
         {
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
+
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
             if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack() && humanoidNPC.GetTimeSinceLastAttack() > 1f)
             {
@@ -388,13 +409,31 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     public Minimap.PinType pinType = Minimap.PinType.Icon0;
 
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(HumanoidNPC), "CustomFixedUpdate")]
+    private static void HumanoidNPC_CustomFixedUpdate_Prefix(HumanoidNPC __instance)
+    {
+        Minimap.PinData tbd = null;
+        foreach (Minimap.PinData pd in Minimap.instance.m_pins)
+        {
+            if (pd.m_author == "NPC")
+                tbd = pd;
+        }
+
+        if (tbd != null)
+        {
+            Minimap.instance.RemovePin(tbd);
+        }
+    }
+
+
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(HumanoidNPC), "CustomFixedUpdate")]
     private static void HumanoidNPC_CustomFixedUpdate_Postfix(HumanoidNPC __instance)
     {
         /*Minimap.instance.UpdatePins();
         Minimap.instance.SetMapPin(__instance.name, __instance.transform.position);*/
-
 
 
         MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
@@ -593,7 +632,26 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return false;
     }
 
-    // OVERRIDE NPC OVERLAY HUD
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Character), "GetHoverText")]
+    private static bool Character_GetHoverText_Prefix(Character __instance, ref string __result)
+    {
+        if (__instance.name.Contains("HumanoidNPC"))
+        {
+            HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
+
+            __result = __instance.m_name;
+            __result += "\n<color=yellow><b>[I]</b></color> Inventory";
+            __result += "\n<color=yellow><b>[T]</b></color> Push to Talk";
+            __result += "\n<color=yellow><b>[Y]</b></color> Menu";
+
+            return false; // Skip original method
+        }
+
+        return true; // Continue to original method
+    }
+
+    /*// OVERRIDE NPC OVERLAY HUD
     [HarmonyPostfix]
     [HarmonyPatch(typeof(Character), "GetHoverText")]
     private static void Character_GetHoverText_Postfix(Character __instance, ref string __result)
@@ -607,7 +665,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             __result += "\n<color=orange><b>" + humanoidNPC_component.m_stamina.ToString("F2") + "</b></color>";
             __result += "\n<color=purple><b>" + instance.eNPCMode.ToString().ToUpper() + "</b></color>";
         }
-    }
+    }*/
 
     private static string RemoveCustomText(string text)
     {
@@ -1137,9 +1195,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject[] npcs = FindPlayerNPCs();
         if (npcs.Length > 0)
         {
-            Console.instance.TryRunCommand("despawn_all");
+            //Console.instance.TryRunCommand("despawn_all");
             Debug.Log("Spawning more than one NPC is disabled");
-            //return;
+            return;
         }
         Player localPlayer = Player.m_localPlayer;
         GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
@@ -1180,7 +1238,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
 
-        instance.TogglePanel();
+        //instance.TogglePanel();
 
         VisEquipment npcInstanceVis = npcInstance.GetComponent<VisEquipment>();
         VisEquipment playerInstanceVis = localPlayer.GetComponent<VisEquipment>();
@@ -1475,6 +1533,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
         HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
+        instance.CurrentWeaponName = ItemName;
+
         EquipItem(ItemName, humanoidnpc_component);
 
         AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -1494,7 +1554,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
         HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
-        instance.CurrentHarvestResourceName = ResourceName;
+        instance.CurrentHarvestResourceName = CleanKey(ResourceName);
         Debug.Log("resource name " + instance.CurrentHarvestResourceName);
 
         //ResourceName = "Beech";
@@ -1706,6 +1766,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
             InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
             PrintInventoryItems(humanoidNPC_component.m_inventory);
+        }
+        else
+        {
+            Debug.Log("OnInventoryKeyPressed instance.PlayerNPC is null ");
         }
 
         /*Debug.Log(craftingRequirements.Count());
@@ -1951,6 +2015,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                     Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
                     ProcessNPCCommand(category, action, p, agent_text_response);
+
+                    Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
+
+                    
+                    AddItemToScrollBox(TaskListScrollBox, $"{action} {category} ({p})", defaultSprite);
                 }
             }
             else
@@ -2117,7 +2186,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return instance.AllEnemiesInstances;
         }
         instance.AllEnemiesInstances = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.HasAnyComponent("MonsterAI"))
+                .Where(go => go.HasAnyComponent("MonsterAI", "BaseAI", "AnimalAI"))
                 .ToArray();
         AllEnemiesInstancesLastRefresh = Time.time;
         return instance.AllEnemiesInstances;
@@ -2128,7 +2197,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         //return GameObject.FindObjectsOfType<GameObject>(true)
             return instance.FindEnemies()
                 //.Where(go => go.name.Contains(EnemyName) && go.HasAnyComponent("Character", "Humanoid" , "BaseAI", "MonsterAI"))
-                .Where(go => go.name.StartsWith(EnemyName))
+                .Where(go => go.name.StartsWith(CleanKey(EnemyName)))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
     }
@@ -2230,7 +2299,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static GameObject FindClosestResource(GameObject character, string ResourceName)
     {
         return GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                .Where(go => CleanKey(go.name) == ResourceName && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
     }
@@ -2258,7 +2328,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
     Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
 
-    string CleanKey(string key)
+    public static string CleanKey(string key)
     {
         // Remove everything after and including the last opening parenthesis
         int lastParenIndex = key.LastIndexOf('(');
@@ -2382,10 +2452,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         foreach (Character character in characters)
+        {
+            if (character.name.Contains("Player") || character.name.Contains("HumanoidNPC"))
+                continue;
             ProcessResource(character, character.name);
+        }
 
-        foreach (Humanoid humanoid in humanoids)
-            ProcessResource(humanoid, humanoid.name);
+        /*foreach (Humanoid humanoid in humanoids)
+            ProcessResource(humanoid, humanoid.name);*/
 
         var jarray = new JsonArray();
 
@@ -2416,29 +2490,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
      * 
      */
 
-    private int recordingLength = 6; // Maximum recording length in seconds
+    private int recordingLength = 10; // Maximum recording length in seconds
     private int sampleRate = 22050; // Reduced from 44100
     private int bitDepth = 8; // Reduced from 16
-
-    private void GetRecordingDevices()
-    {
-        string[] microphoneDevices = Microphone.devices;
-
-        foreach (string deviceName in microphoneDevices)
-        {
-            Debug.Log("Microphone device: " + deviceName);
-        }
-    }
-
-    /*private string GetRecordingDevice()
-    {
-        if (Microphone.devices.Length > MicrophoneIndex.Value)
-        {
-            return Microphone.devices[MicrophoneIndex.Value];
-        }
-
-        return null;
-    }*/
 
     private void StartRecording()
     {
@@ -2600,7 +2654,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
         audioSource.clip = clip;
         audioSource.spatialBlend = 0f;
-        audioSource.volume = instance.NPCVolume;
+        audioSource.volume = instance.npcVolume;
         audioSource.bypassEffects = true;
         audioSource.bypassListenerEffects = true;
         audioSource.bypassReverbZones = true;
@@ -2763,7 +2817,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return randomDirection;
     }
 
-    public static string GetJSONForBrain(GameObject character)
+    public static string GetJSONForBrain(GameObject character, bool includeRecordedAudio = true)
     {
         Dictionary<string, object> characterData = new Dictionary<string, object>();
 
@@ -2782,7 +2836,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             npcInventoryItems.Add(itemData);
         }
 
-        var playerInventoryItems = new JsonArray();
+        /*var playerInventoryItems = new JsonArray();
         foreach (ItemDrop.ItemData item in Player.m_localPlayer.m_inventory.m_inventory)
         {
             var itemData = new JsonObject
@@ -2791,7 +2845,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 ["amount"] = item.m_stack,
             };
             playerInventoryItems.Add(itemData);
-        }
+        }*/
 
         var gameState = new JsonObject
         {
@@ -2799,7 +2853,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["Health"] = humanoidNPC.GetHealth(),
             ["Stamina"] = humanoidNPC.m_stamina,
             ["Inventory"] = npcInventoryItems,
-            ["PlayerInventory"] = playerInventoryItems,
+            //["PlayerInventory"] = playerInventoryItems,
             //["position"] = humanoidNPC.transform.position.ToString(),
 
 
@@ -2823,7 +2877,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     };
 
         //string base64audio = instance.GetBase64AudioData(instance.recordedAudioClip);
-        string base64audio = instance.GetBase64FileData(instance.playerDialogueAudioPath);
+        string base64audio = includeRecordedAudio ? instance.GetBase64FileData(instance.playerDialogueAudioPath) : "";
 
         var jsonObject = new JsonObject
         {
@@ -2831,9 +2885,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["game_state"] = gameState,
             ["player_instruction_audio_file_base64"] = base64audio,
             ["timestamp"] = Time.time,
-            ["personality"] = instance.personalityText,
-            ["voice"] = npcVoices[instance.NPCVoice].ToLower(),
-            ["gender"] = instance.NPCGender,
+            ["personality"] = instance.npcPersonality,
+            ["voice"] = npcVoices[instance.npcVoice].ToLower(),
+            ["gender"] = instance.npcGender,
         };
 
         string jsonString = SimpleJson.SimpleJson.SerializeObject(jsonObject);
@@ -2853,9 +2907,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         JsonObject data = new JsonObject();
 
         data["name"] = humanoidNPC.m_name;
-        data["personality"] = instance.personalityText;
-        data["voice"] = instance.NPCVoice;
-        data["gender"] = instance.NPCGender;
+        data["personality"] = instance.npcPersonality;
+        data["voice"] = instance.npcVoice;
+        data["gender"] = instance.npcGender;
         
 
         // inventory
@@ -2882,7 +2936,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         hairColorArray.Add(humanoidNPC.m_visEquipment.m_hairColor.x);
         hairColorArray.Add(humanoidNPC.m_visEquipment.m_hairColor.y);
         hairColorArray.Add(humanoidNPC.m_visEquipment.m_hairColor.z);
-        data["hairColor"] = skinColorArray;
+        data["hairColor"] = hairColorArray;
 
         string json = SimpleJson.SimpleJson.SerializeObject(data);
 
@@ -2904,29 +2958,41 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             string jsonString = File.ReadAllText(filePath);
             JsonObject data = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(jsonString);
 
+            
+            instance.npcName = data["name"].ToString();
 
-            npc.m_name = data["name"].ToString();
-            instance.personalityText = data["personality"].ToString();
-            instance.personalityInputText.text = instance.personalityText;
-            instance.personalityInputField.text = instance.personalityText;
-            instance.personalityInputField.textComponent.text = instance.personalityText;
-            instance.personalityInputField.SetTextWithoutNotify(instance.personalityText);
+            instance.npcPersonality = data["personality"].ToString();
 
+            instance.npcVoice = int.Parse(data["voice"].ToString());
+            
 
-            instance.NPCVoice = int.Parse(data["voice"].ToString());
-            instance.voiceDropdownComp.SetValueWithoutNotify(instance.NPCVoice);
+            instance.npcGender = int.Parse(data["gender"].ToString());
 
-            instance.NPCGender = int.Parse(data["gender"].ToString());
-            if (instance.NPCGender == 0)
+            // Load skin color
+            JsonArray skinColorArray = data["skinColor"] as JsonArray;
+            if (skinColorArray.Count == 3)
             {
-                instance.toggleMasculine.isOn = true;
-                instance.toggleFeminine.isOn = false;
+                instance.skinColor = new Color(
+                    float.Parse(skinColorArray[0].ToString()),
+                    float.Parse(skinColorArray[1].ToString()),
+                    float.Parse(skinColorArray[2].ToString())
+                );
+
             }
-            else
+
+            // Load skin color
+            JsonArray hairColorArray = data["hairColor"] as JsonArray;
+            if (hairColorArray.Count == 3)
             {
-                instance.toggleMasculine.isOn = false;
-                instance.toggleFeminine.isOn = true;
+                instance.hairColor = new Color(
+                    float.Parse(hairColorArray[0].ToString()),
+                    float.Parse(hairColorArray[1].ToString()),
+                    float.Parse(hairColorArray[2].ToString())
+                );
             }
+
+            ApplyNPCData(npc);
+
 
             // Load inventory
             JsonArray inventoryArray = data["inventory"] as JsonArray;
@@ -2935,40 +3001,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 string itemName = itemData["name"].ToString();
                 int stack = int.Parse(itemData["stack"].ToString());
-                // Create and add item to inventory
-                // You'll need to implement this part based on how your item system works
-                // For example:
-                // ItemDrop.ItemData newItem = ItemDrop.ItemData.CreateItem(itemName, stack);
-                // npc.m_inventory.AddItem(newItem);
 
-                GameObject itemPrefab = ZNetScene.instance.GetPrefab(itemName);
+
+                string prefabRealName = TransformToPrefabName(LocalizationManager.Instance.TryTranslate(itemName));
+
+                Debug.Log($"trying to add to inventory: {itemName} x{stack} {prefabRealName}");
+                
+
+                GameObject itemPrefab = ZNetScene.instance.GetPrefab(prefabRealName);
                 if (itemPrefab != null)
                 {
                     ItemDrop.ItemData itemdata = npc.PickupPrefab(itemPrefab, stack);
-                    npc.EquipItem(itemdata);
+                    if (itemdata.IsEquipable())
+                    {
+                        npc.EquipItem(itemdata);
+                        Debug.Log($"equipable: {itemName} x{stack}");
+                    }
+                    else
+                    {
+                        npc.GetInventory().AddItem(itemPrefab.gameObject, stack);
+                        Debug.Log($"non equipable: {itemName} x{stack}");
+                    }
                 }
-            }
-
-            // Load skin color
-            JsonArray skinColorArray = data["skinColor"] as JsonArray;
-            if (skinColorArray.Count == 3)
-            {
-                npc.m_visEquipment.SetSkinColor(new Vector3(
-                    int.Parse(skinColorArray[0].ToString()),
-                    int.Parse(skinColorArray[1].ToString()),
-                    int.Parse(skinColorArray[2].ToString())
-                ));
-            }
-
-            // Load skin color
-            JsonArray hairColorArray = data["hairColor"] as JsonArray;
-            if (hairColorArray.Count == 3)
-            {
-                npc.m_visEquipment.SetHairColor(new Vector3(
-                    int.Parse(hairColorArray[0].ToString()),
-                    int.Parse(hairColorArray[1].ToString()),
-                    int.Parse(hairColorArray[2].ToString())
-                ));
             }
 
             Debug.Log($"NPC data loaded for {npc.m_name}");
@@ -2977,6 +3031,49 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             Debug.LogWarning("No saved NPC data found.");
         }
+    }
+
+    static string TransformToPrefabName(string localizedName)
+    {
+        // Split the name into words
+        string[] words = localizedName.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        // Capitalize the first letter of each word and join them
+        string prefabName = string.Join("", words.Select(word => char.ToUpper(word[0]) + word.Substring(1)));
+
+        return prefabName;
+    }
+
+    public static void ApplyNPCData(HumanoidNPC npc)
+    {
+        npc.m_name = instance.npcName;
+        instance.nameInputField.SetTextWithoutNotify(instance.npcName);
+        instance.personalityInputField.SetTextWithoutNotify(instance.npcPersonality);
+        instance.voiceDropdownComp.SetValueWithoutNotify(instance.npcVoice);
+        if (instance.npcGender == 0)
+        {
+            instance.toggleMasculine.isOn = true;
+            instance.toggleFeminine.isOn = false;
+        }
+        else
+        {
+            instance.toggleMasculine.isOn = false;
+            instance.toggleFeminine.isOn = true;
+        }
+
+        npc.m_visEquipment.SetHairColor(new Vector3(
+            instance.hairColor.r,
+            instance.hairColor.g,
+            instance.hairColor.b
+        ));
+
+        npc.m_visEquipment.SetSkinColor(new Vector3(
+            instance.skinColor.r,
+            instance.skinColor.g,
+            instance.skinColor.b
+        ));
+
+        
     }
 
 
@@ -3287,100 +3384,230 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
      * 
      */
 
-    private Texture2D TestTex;
-    private Sprite TestSprite;
-    private GameObject TestPanel;
+    int MenuTitleFontSize = 36;
+    int MenuSectionTitleFontSize = 24;
+    Vector2 MenuSectionTitlePosition = new Vector2(10f, -5f);
 
-    // Toggle our test panel with button
-    private void TogglePanel()
+    public class PanelManager
     {
-        // Create the panel if it does not exist
-        if (!TestPanel)
+        private Dictionary<string, GameObject> panels = new Dictionary<string, GameObject>();
+
+        public GameObject CreatePanel(string panelName, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, float width, float height, bool draggable, Vector2 pivot = new Vector2())
         {
-            if (GUIManager.Instance == null)
+            if (panels.ContainsKey(panelName))
             {
-                Logger.LogError("GUIManager instance is null");
-                return;
+                Debug.Log($"Panel {panelName} already exists.");
+                return panels[panelName];
             }
 
-            if (!GUIManager.CustomGUIFront)
+            if (GUIManager.Instance == null || GUIManager.CustomGUIFront == null)
             {
-                Logger.LogError("GUIManager CustomGUI is null");
-                return;
+                Debug.Log("GUIManager instance or CustomGUI is null");
+                return null;
             }
 
-            // Create the panel object
-            TestPanel = GUIManager.Instance.CreateWoodpanel(
+            GameObject panel = GUIManager.Instance.CreateWoodpanel(
                 parent: GUIManager.CustomGUIFront.transform,
-                anchorMin: new Vector2(0.5f, 0.5f),
-                anchorMax: new Vector2(0.5f, 0.5f),
-                position: new Vector2(0, 0),
-                width: 850,
-                height: 700,
-                draggable: true);
-            TestPanel.SetActive(false);
+                anchorMin: anchorMin,
+                anchorMax: anchorMax,
+                position: position,
+                width: width,
+                height: height,
+                draggable: draggable);
 
-            CreatePanel();
+            RectTransform rectTransform = panel.GetComponent<RectTransform>();
+            rectTransform.pivot = pivot;
+
+            AddTitleText(panel, panelName);
+
+            panel.SetActive(false);
+            panels[panelName] = panel;
+
+            return panel;
         }
 
-        // Switch the current state
-        bool state = !TestPanel.activeSelf;
+        private void AddTitleText(GameObject panel, string title)
+        {
+            // Create a new GameObject for the text
+            GameObject titleObject = new GameObject("PanelTitle");
+            titleObject.transform.SetParent(panel.transform, false);
 
-        // Set the active state of the panel
-        TestPanel.SetActive(state);
-        instance.IsModMenuShowing = state;
+            // Add Text component
+            Text titleText = titleObject.AddComponent<Text>();
+            titleText.text = title.ToUpper();
+            titleText.font = GUIManager.Instance.NorseBold;
+            titleText.fontSize = instance.MenuTitleFontSize;
+            titleText.color = GUIManager.Instance.ValheimOrange;
+            titleText.alignment = TextAnchor.MiddleCenter;
 
-        // Toggle input for the player and camera while displaying the GUI
-        GUIManager.BlockInput(state);
+            // Set up RectTransform for the text
+            RectTransform rectTransform = titleText.GetComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0, 1);
+            rectTransform.anchorMax = new Vector2(1, 1);
+            rectTransform.anchoredPosition = new Vector2(0, -40);
+            rectTransform.sizeDelta = new Vector2(0, 40);
+            rectTransform.pivot = new Vector2(0, 1);
+        }
+
+        public void TogglePanel(string panelName)
+        {
+            if (!panels.ContainsKey(panelName))
+            {
+                Debug.Log($"Panel {panelName} does not exist.");
+                return;
+            }
+
+            GameObject panel = panels[panelName];
+            bool state = !panel.activeSelf;
+
+            panel.SetActive(state);
+            // Assuming instance is accessible, you might need to adjust this
+            instance.IsModMenuShowing = state;
+
+            GUIManager.BlockInput(state);
+        }
+
+        public void DestroyAllPanels()
+        {
+            foreach (var panel in panels.Values)
+            {
+                if (panel != null)
+                {
+                    GameObject.Destroy(panel);
+                }
+            }
+            panels.Clear();
+        }
+
+
+        public GameObject CreateSubPanel(GameObject parentPanel, string subPanelName, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, float width, float height, Vector2 pivot = new Vector2())
+        {
+            GameObject subPanel = new GameObject(subPanelName);
+            RectTransform rectTransform = subPanel.AddComponent<RectTransform>();
+            Image image = subPanel.AddComponent<Image>();
+
+            // Set up the RectTransform
+            rectTransform.SetParent(parentPanel.transform, false);
+            rectTransform.anchorMin = anchorMin;
+            rectTransform.anchorMax = anchorMax;
+            rectTransform.anchoredPosition = position;
+            rectTransform.sizeDelta = new Vector2(width, height);
+            rectTransform.pivot = pivot;
+
+            // Set up the Image component for the black background
+            image.color = new Color(0, 0, 0, 0.5f); // Opaque black with slight transparency
+
+            return subPanel;
+        }
     }
 
-    private void CreatePanel()
+    private PanelManager panelManager = new PanelManager();
+    private GameObject settingsPanel;
+    private GameObject thrallCustomizationPanel;
+
+
+    private GameObject taskQueueSubPanel;
+    private GameObject keybindsSubPanel;
+    private GameObject micInputSubPanel;
+    private GameObject egoBannerSubPanel;
+
+
+    private GameObject npcNameSubPanel;
+    private GameObject npcPersonalitySubPanel;
+    private GameObject npcVoiceSubPanel;
+    private GameObject npcBodyTypeSubPanel;
+    private GameObject npcAppearanceSubPanel;
+
+
+    
+    public string npcName = "";
+    public string npcPersonality = "";
+    public int npcPersonalityIndex = 0;
+
+    public int npcGender = 0;
+    public int npcVoice = 0;
+    public float npcVolume = 90f;
+    public int MicrophoneIndex = 0;
+
+    public Color skinColor;
+    public Color hairColor;
+
+    private void CreateModMenuUI()
     {
-        // Task Queue
-        //CreateTaskQueue(leftBox);
-        //CreateTaskQueue(new Vector2(-200, 200));
-        CreateScrollableTaskQueue(new Vector2(200, -150));
+        float TopOffset = 375f;
 
-        // Key Bindings
-        CreateKeyBindings(new Vector2(25, -320));
+        settingsPanel = panelManager.CreatePanel(
+            "Settings",
+            anchorMin: new Vector2(0f, .5f),
+            anchorMax: new Vector2(0f, .5f),
+            position: new Vector2(100, TopOffset),
+            width: 480,
+            height: 700,
+            draggable: false,
+            pivot: new Vector2(0, 1f)
+        );
 
-        // Ego Banner
-        CreateMicInput(new Vector2(25, -530));
+        thrallCustomizationPanel = panelManager.CreatePanel(
+            "Thrall Customization",
+            anchorMin: new Vector2(1f, .5f),
+            anchorMax: new Vector2(1f, .5f),
+            position: new Vector2(-100, TopOffset),
+            width: 450,
+            height: 880,
+            draggable: false,
+            pivot: new Vector2(1, 1f)
+        );
 
-        // Ego Banner
-        CreateEgoBanner(new Vector2(25, -630));
+        taskQueueSubPanel = panelManager.CreateSubPanel(settingsPanel, "Task Queue", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -100f), 430, 180, pivot: new Vector2(0.5f, 1f));
+        keybindsSubPanel = panelManager.CreateSubPanel(taskQueueSubPanel, "Keybinds", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -200f), 430, 170, pivot: new Vector2(0.5f, 1f));
+        micInputSubPanel = panelManager.CreateSubPanel(keybindsSubPanel, "Mic Input", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -190f), 430, 80, pivot: new Vector2(0.5f, 1f));
+        egoBannerSubPanel = panelManager.CreateSubPanel(micInputSubPanel, "Ego Banner", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -100f), 430, 30, pivot: new Vector2(0.5f, 1f));
+        
+        
+        
+        npcNameSubPanel = panelManager.CreateSubPanel(thrallCustomizationPanel, "Name", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -100f), 400, 80, pivot: new Vector2(0.5f, 1f));
+        npcPersonalitySubPanel = panelManager.CreateSubPanel(npcNameSubPanel, "Personality", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -90f), 400, 250, pivot: new Vector2(0.5f, 1f));
+        npcVoiceSubPanel = panelManager.CreateSubPanel(npcPersonalitySubPanel, "Voice", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -260f), 400, 110, pivot: new Vector2(0.5f, 1f));
+        npcBodyTypeSubPanel = panelManager.CreateSubPanel(npcVoiceSubPanel, "Body Type", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -120f), 400, 100, pivot: new Vector2(0.5f, 1f));
+        npcAppearanceSubPanel = panelManager.CreateSubPanel(npcBodyTypeSubPanel, "Appearance", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -110f), 400, 120, pivot: new Vector2(0.5f, 1f));
+        
 
-        // Personality
-        CreatePersonalitySection(new Vector2(200, -20));
 
-        // Voice and Volume   
-        CreateVoiceAndVolumeControls(new Vector2(200, -250));
+        CreateScrollableTaskQueue();
 
-        // Body Type
-        CreateBodyTypeToggle(new Vector2(200, -400));
+        CreateKeyBindings();
 
-        // Buttons
-        CreateButtons(new Vector2(0, -400));
+        CreateMicInput();
 
-       
+        CreateEgoBanner();
+
+        CreateNameSection();
+
+        CreatePersonalitySection();
+
+        CreateVoiceAndVolumeControls();
+
+        CreateBodyTypeToggle();
+
+        CreateAppearanceSection();
+
+        CreateButtons();
     }
 
-    private ScrollRect scrollRectTaskQueue;
-    private RectTransform contentPanelTaskQueue;
-    private RectTransform viewportRectTaskQueue;
-    private void CreateScrollableTaskQueue(Vector2 position)
+    GameObject[] TasksList = {};
+    GameObject TaskListScrollBox;
+
+    private void CreateScrollableTaskQueue()
     {
-        GUIManager.Instance.CreateText(
+        GameObject textObject = GUIManager.Instance.CreateText(
             text: "Task Queue",
-            parent: TestPanel.transform,
+            parent: taskQueueSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f),*/
-            position: new Vector2(200f, -40f),
-            //position: startPosition + new Vector2(170, 0),
+            position: MenuSectionTitlePosition,
+            //position: new Vector2(150f, -30f),
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
+            fontSize: MenuSectionTitleFontSize,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3388,185 +3615,209 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
         Debug.Log("Creating scrollable task queue");
 
-        // Create a ScrollRect
-        GameObject scrollObject = new GameObject("TaskQueueScroll", typeof(RectTransform), typeof(ScrollRect));
-        scrollRectTaskQueue = scrollObject.GetComponent<ScrollRect>();
-        scrollRectTaskQueue.transform.SetParent(TestPanel.transform, false);
+        TaskListScrollBox = CreateScrollBox(taskQueueSubPanel, new Vector2(-10, -10), 400, 140);
 
-        // Set up the ScrollRect
-        scrollRectTaskQueue.horizontal = false;
-        scrollRectTaskQueue.vertical = true;
+        /*Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
 
-        // Create viewport
-        GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Mask), typeof(Image));
-        viewportRectTaskQueue = viewportObject.GetComponent<RectTransform>();
-        viewportRectTaskQueue.SetParent(scrollRectTaskQueue.transform, false);
-        viewportRectTaskQueue.anchorMin = Vector2.zero;
-        viewportRectTaskQueue.anchorMax = Vector2.one;
-        viewportRectTaskQueue.sizeDelta = Vector2.zero;
-        viewportRectTaskQueue.anchoredPosition = Vector2.zero;
+        // Add some items to the scroll box
+        for (int i = 0; i < 20; i++)
+        {
+            AddItemToScrollBox(scrollBox, $"Task {i + 1}", defaultSprite);
+        }*/
+    }
 
-        // Set up mask
-        Image viewportImage = viewportObject.GetComponent<Image>();
-        viewportImage.sprite = null;
-        //viewportImage.color = Color.black; // Changed to white for visibility
-        viewportImage.color = new Color(0, 0, 0, 0.3f); // Changed to white for visibility
+    public GameObject CreateScrollBox(GameObject parent, Vector2 position, float width, float height)
+    {
+        GameObject scrollViewObject = new GameObject("ScrollView");
+        scrollViewObject.transform.SetParent(parent.transform, false);
 
-        // Create content panel
-        GameObject contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup));
-        contentPanelTaskQueue = contentObject.GetComponent<RectTransform>();
-        contentPanelTaskQueue.SetParent(viewportRectTaskQueue, false);
+        ScrollRect scrollRect = scrollViewObject.AddComponent<ScrollRect>();
+        RectTransform scrollRectTransform = scrollViewObject.GetComponent<RectTransform>();
+        scrollRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        scrollRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        scrollRectTransform.anchoredPosition = position;
+        scrollRectTransform.sizeDelta = new Vector2(width, height);
 
-        // Set up the content panel
-        contentPanelTaskQueue.anchorMin = new Vector2(0, 1);
-        contentPanelTaskQueue.anchorMax = new Vector2(1, 1);
-        contentPanelTaskQueue.anchoredPosition = new Vector2(0, 0);
-        contentPanelTaskQueue.sizeDelta = new Vector2(0, 0);
+        GameObject viewportObject = new GameObject("Viewport");
+        viewportObject.transform.SetParent(scrollViewObject.transform, false);
+        RectTransform viewportRectTransform = viewportObject.AddComponent<RectTransform>();
+        viewportRectTransform.anchorMin = Vector2.zero;
+        viewportRectTransform.anchorMax = Vector2.one;
+        viewportRectTransform.sizeDelta = new Vector2(-20, 0); // Make room for scrollbar
+        viewportRectTransform.anchoredPosition = Vector2.zero;
 
-        // Add a Content Size Fitter
+        // Add mask to viewport
+        Image viewportImage = viewportObject.AddComponent<Image>();
+        viewportImage.color = Color.white;
+        Mask viewportMask = viewportObject.AddComponent<Mask>();
+        viewportMask.showMaskGraphic = false;
+
+        GameObject contentObject = new GameObject("Content");
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        RectTransform contentRectTransform = contentObject.AddComponent<RectTransform>();
+        VerticalLayoutGroup verticalLayout = contentObject.AddComponent<VerticalLayoutGroup>();
         ContentSizeFitter contentSizeFitter = contentObject.AddComponent<ContentSizeFitter>();
+
+        contentRectTransform.anchorMin = new Vector2(0, 1);
+        contentRectTransform.anchorMax = new Vector2(1, 1);
+        contentRectTransform.pivot = new Vector2(0f, 1f); // Set pivot to top center
+        contentRectTransform.sizeDelta = new Vector2(0, 0);
+        contentRectTransform.anchoredPosition = Vector2.zero;
+        verticalLayout.padding = new RectOffset(10, 10, 10, 10);
+        verticalLayout.spacing = 10;
+        verticalLayout.childAlignment = TextAnchor.UpperLeft;
+        verticalLayout.childForceExpandWidth = true;
+        verticalLayout.childControlWidth = true;
         contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        // Modify the VerticalLayoutGroup setup
-        VerticalLayoutGroup layoutGroup = contentPanelTaskQueue.GetComponent<VerticalLayoutGroup>();
-        layoutGroup.childAlignment = TextAnchor.UpperCenter;
-        layoutGroup.childControlHeight = true;
-        layoutGroup.childForceExpandHeight = false;
-        layoutGroup.childControlWidth = true;
-        layoutGroup.childForceExpandWidth = true;
-        layoutGroup.spacing = 20;
-        layoutGroup.padding = new RectOffset(5, 5, 5, 5);
+        scrollRect.content = contentRectTransform;
+        scrollRect.viewport = viewportRectTransform;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
 
-        // Assign the viewport and content panel to the ScrollRect
-        scrollRectTaskQueue.viewport = viewportRectTaskQueue;
-        scrollRectTaskQueue.content = contentPanelTaskQueue;
+        GameObject scrollbarObject = new GameObject("Scrollbar");
+        scrollbarObject.transform.SetParent(scrollViewObject.transform, false);
+        Scrollbar scrollbar = scrollbarObject.AddComponent<Scrollbar>();
+        Image scrollbarImage = scrollbarObject.AddComponent<Image>();
+        scrollbarImage.color = new Color(0.5f, 0.5f, 0.5f, 0.5f); // Semi-transparent gray
+        RectTransform scrollbarRectTransform = scrollbarObject.GetComponent<RectTransform>();
+        scrollbarRectTransform.anchorMin = new Vector2(1, 0);
+        scrollbarRectTransform.anchorMax = Vector2.one;
+        scrollbarRectTransform.sizeDelta = new Vector2(20, 0);
+        scrollbarRectTransform.anchoredPosition = Vector2.zero;
 
-        // Set up the ScrollRect's RectTransform
-        RectTransform scrollRectTransform = scrollRectTaskQueue.GetComponent<RectTransform>();
-        scrollRectTransform.anchorMin = new Vector2(0, 1);
-        scrollRectTransform.anchorMax = new Vector2(0, 1);
-        scrollRectTransform.anchoredPosition = position + new Vector2(0, -30f);
-        scrollRectTransform.sizeDelta = new Vector2(350, 250);
+        GameObject scrollbarHandleObject = new GameObject("Handle");
+        scrollbarHandleObject.transform.SetParent(scrollbarObject.transform, false);
+        Image handleImage = scrollbarHandleObject.AddComponent<Image>();
+        handleImage.color = new Color(0.7f, 0.7f, 0.7f, 0.7f); // Semi-transparent light gray
+        RectTransform handleRectTransform = scrollbarHandleObject.GetComponent<RectTransform>();
+        handleRectTransform.sizeDelta = Vector2.zero;
 
-        scrollRectTaskQueue.movementType = ScrollRect.MovementType.Clamped;
-        contentPanelTaskQueue.pivot = new Vector2(0, 1);
-        //scrollRectTransform.pivot = new Vector2(0, 0);
+        scrollbar.handleRect = handleRectTransform;
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
 
-        Debug.Log($"ScrollRect created at position: {position}, size: {scrollRectTransform.sizeDelta}");
+        scrollRect.verticalScrollbar = scrollbar;
 
-
-        CreateTaskQueue();
+        return scrollViewObject;
     }
 
-    private void CreateTaskQueue()
+    public void AddItemToScrollBox(GameObject scrollBox, string text, Sprite icon)
     {
-        Debug.Log("Creating task queue contents");
-        //CreateTaskQueueTitle();
-
-        CreateTask("UNDER DEVELOPMENT...");
-    }
-
-    /*private void CreateTaskQueueTitle()
-    {
-        GameObject titleObject = new GameObject("TaskQueueTitle", typeof(RectTransform), typeof(Text));
-        titleObject.transform.SetParent(contentPanelTaskQueue, false);
-
-        Text titleText = titleObject.GetComponent<Text>();
-        titleText.text = "Task Queue";
-        titleText.font = GUIManager.Instance.AveriaSerifBold;
-        titleText.fontSize = 26;
-        titleText.color = GUIManager.Instance.ValheimOrange;
-        titleText.alignment = TextAnchor.UpperLeft;
-
-        RectTransform titleRect = titleObject.GetComponent<RectTransform>();
-        titleRect.sizeDelta = new Vector2(340, 40);
-
-        Debug.Log("Task queue title created");
-    }*/
-
-    private void CreateTask(string taskText)
-    {
-        GameObject taskObject = new GameObject("Task", typeof(RectTransform), typeof(Text));
-        taskObject.transform.SetParent(contentPanelTaskQueue, false);
-
-        Text taskTextComponent = taskObject.GetComponent<Text>();
-        taskTextComponent.text = taskText;
-        taskTextComponent.font = GUIManager.Instance.AveriaSerif;
-        taskTextComponent.fontSize = 18;
-        taskTextComponent.color = Color.white;
-        taskTextComponent.alignment = TextAnchor.MiddleLeft;
-
-        RectTransform taskRect = taskObject.GetComponent<RectTransform>();
-        taskRect.sizeDelta = new Vector2(340, 30);
-
-        // Create X button
-        GameObject xButton = GUIManager.Instance.CreateButton(
-            text: "X",
-            parent: taskObject.transform,
-            anchorMin: new Vector2(1, 0.5f),
-            anchorMax: new Vector2(1, 0.5f),
-            position: new Vector2(-10, 0),
-            width: 20f,
-            height: 20f);
-        xButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-10, 0);
-
-        Debug.Log($"Task created: {taskText}");
-    }
-
-    // Call this method after adding or removing tasks to update the content size
-    private void UpdateContentSize()
-    {
-        // Calculate the total height of all tasks
-        float totalHeight = 40f; // Initial height for the "Task Queue" text
-        foreach (RectTransform child in contentPanelTaskQueue)
+        Transform contentTransform = scrollBox.transform.Find("Viewport/Content");
+        if (contentTransform != null)
         {
-            totalHeight += child.rect.height;
-        }
+            GameObject itemObject = new GameObject("Item");
+            itemObject.transform.SetParent(contentTransform, false);
 
-        // Set the content panel's height
-        contentPanelTaskQueue.sizeDelta = new Vector2(contentPanelTaskQueue.sizeDelta.x, totalHeight);
+            HorizontalLayoutGroup horizontalLayout = itemObject.AddComponent<HorizontalLayoutGroup>();
+            horizontalLayout.padding = new RectOffset(5, 5, 5, 5);
+            horizontalLayout.spacing = 10;
+            horizontalLayout.childAlignment = TextAnchor.MiddleLeft;
+            horizontalLayout.childForceExpandWidth = true;
+            horizontalLayout.childControlWidth = false;
+
+            LayoutElement itemLayout = itemObject.AddComponent<LayoutElement>();
+            itemLayout.minHeight = 40;
+            itemLayout.flexibleWidth = 1;
+
+            // Image
+            GameObject imageObject = new GameObject("Icon");
+            imageObject.transform.SetParent(itemObject.transform, false);
+            Image imageComponent = imageObject.AddComponent<Image>();
+            imageComponent.sprite = icon;
+            RectTransform imageRect = imageObject.GetComponent<RectTransform>();
+            imageRect.sizeDelta = new Vector2(30, 30);
+            LayoutElement imageLayout = imageObject.AddComponent<LayoutElement>();
+            imageLayout.minWidth = 30;
+            imageLayout.minHeight = 30;
+            imageLayout.flexibleWidth = 0;
+
+            // Text
+            GameObject textObject = new GameObject("Text");
+            textObject.transform.SetParent(itemObject.transform, false);
+            Text textComponent = textObject.AddComponent<Text>();
+            textComponent.text = text;
+            textComponent.font = GUIManager.Instance.AveriaSerif;
+            textComponent.fontSize = 20;
+            textComponent.color = Color.white;
+            textComponent.alignment = TextAnchor.MiddleLeft;
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            LayoutElement textLayout = textObject.AddComponent<LayoutElement>();
+            textLayout.flexibleWidth = 1;
+
+            // Spacer (to push the delete button to the right)
+            GameObject spacerObject = new GameObject("Spacer");
+            spacerObject.transform.SetParent(itemObject.transform, false);
+            LayoutElement spacerLayout = spacerObject.AddComponent<LayoutElement>();
+            spacerLayout.flexibleWidth = 1;
+
+            // Delete Button
+            GameObject buttonObject = new GameObject("DeleteButton");
+            buttonObject.transform.SetParent(itemObject.transform, false);
+            Button buttonComponent = buttonObject.AddComponent<Button>();
+            Image buttonImage = buttonObject.AddComponent<Image>();
+            buttonImage.color = Color.clear;
+            RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+            buttonRect.sizeDelta = new Vector2(25, 25);
+            LayoutElement buttonLayout = buttonObject.AddComponent<LayoutElement>();
+            buttonLayout.minWidth = 25;
+            buttonLayout.minHeight = 25;
+            buttonLayout.flexibleWidth = 0;
+
+            // Button Text
+            GameObject buttonTextObject = new GameObject("ButtonText");
+            buttonTextObject.transform.SetParent(buttonObject.transform, false);
+            Text buttonTextComponent = buttonTextObject.AddComponent<Text>();
+            buttonTextComponent.text = "X";
+            buttonTextComponent.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            buttonTextComponent.fontSize = 18;
+            buttonTextComponent.color = Color.white;
+            buttonTextComponent.alignment = TextAnchor.MiddleCenter;
+            RectTransform buttonTextRect = buttonTextObject.GetComponent<RectTransform>();
+            buttonTextRect.anchorMin = Vector2.zero;
+            buttonTextRect.anchorMax = Vector2.one;
+            buttonTextRect.sizeDelta = Vector2.zero;
+
+            // Delete functionality
+            buttonComponent.onClick.AddListener(() => {
+                GameObject.Destroy(itemObject);
+            });
+
+            TasksList.AddItem(itemObject);
+        }
     }
 
-    private void CreateKeyBindings(Vector2 startPosition)
+    public void DeleteAllTasks()
     {
-        // Create background panel
-        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
-        backgroundPanel.transform.SetParent(TestPanel.transform, false);
+        foreach (GameObject itemObject in TasksList)
+        {
+            GameObject.Destroy(itemObject);
+        }
+    }
 
-        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = new Vector2(0f, 1f);
-        backgroundRect.anchorMax = new Vector2(0f, 1f);
-        /*backgroundRect.anchorMin = new Vector2(1, 1);
-        backgroundRect.anchorMax = new Vector2(1, 1);*/
-        backgroundRect.anchoredPosition = startPosition;
-        backgroundRect.sizeDelta = new Vector2(300f, 200f); // Adjust size as needed
-        backgroundRect.pivot = new Vector2(0f, 1);
 
-        Image backgroundImage = backgroundPanel.GetComponent<Image>();
-        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
 
+    private void CreateKeyBindings()
+    {
         string[] bindings = {
-            "[Y] Open/close menu",
-            "[T] Talk",
-            "[G] Spawn/Reset Spawn",
-            "[K] Attack",
+            "[G] Spawn",
+            "[X] Dismiss",
             "[H] Harvest",
             "[F] Follow/Patrol"
         };
 
-        GUIManager.Instance.CreateText(
+        GameObject textObject = GUIManager.Instance.CreateText(
             text: "Keybinds",
-            parent: backgroundPanel.transform,
+            parent: keybindsSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f),*/
-            position: new Vector2(190f, -25f),
-            //position: startPosition + new Vector2(170, 0),
+            position: MenuSectionTitlePosition,
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
+            fontSize: MenuSectionTitleFontSize,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3574,56 +3825,40 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
         for (int i = 0; i < bindings.Length; i++)
         {
-            GUIManager.Instance.CreateText(
+            GameObject textObject2 = GUIManager.Instance.CreateText(
                 text: bindings[i],
-                parent: backgroundPanel.transform,
+                parent: keybindsSubPanel.transform,
                 anchorMin: new Vector2(0f, 1f),
                 anchorMax: new Vector2(0f, 1f),
-                //position: startPosition + new Vector2(170, (-i * 20)),
-                position: new Vector2(100f, -75f) + new Vector2(100, (-i * 20)),
+                position: new Vector2(10f, -40f) + new Vector2(0, (-i * 30)),
                 font: GUIManager.Instance.AveriaSerif,
-                fontSize: 16,
+                fontSize: 20,
                 color: Color.white,
                 outline: true,
                 outlineColor: Color.black,
                 width: 350f,
                 height: 40f,
                 addContentSizeFitter: false);
+
+            textObject2.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
         }
     }
 
 
-    private void CreateMicInput(Vector2 startPosition)
+    private void CreateMicInput()
     {
-        // Create background panel
-        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
-        backgroundPanel.transform.SetParent(TestPanel.transform, false);
-
-        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = new Vector2(0f, 1f);
-        backgroundRect.anchorMax = new Vector2(0f, 1f);
-        /*backgroundRect.anchorMin = new Vector2(1, 1);
-        backgroundRect.anchorMax = new Vector2(1, 1);*/
-        backgroundRect.anchoredPosition = startPosition;
-        backgroundRect.sizeDelta = new Vector2(300f, 90f); // Adjust size as needed
-        backgroundRect.pivot = new Vector2(0f, 1);
-
-        Image backgroundImage = backgroundPanel.GetComponent<Image>();
-        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
-
-        GUIManager.Instance.CreateText(
+        GameObject textObject = GUIManager.Instance.CreateText(
             text: "Mic Input",
-            parent: backgroundImage.transform,
+            parent: micInputSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /**//*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f), *//**/
-            position: new Vector2(190f, -22.5f),
+            position: MenuSectionTitlePosition,
             font: GUIManager.Instance.AveriaSerifBold,
             fontSize: 26,
-            //color: GUIManager.Instance.ValheimOrange,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3631,11 +3866,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
         var micDropdown = GUIManager.Instance.CreateDropDown(
-            parent: backgroundPanel.transform,
+            parent: micInputSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            position: new Vector2(110f, -60f),
+            position: new Vector2(0f, 0f),
             fontSize: 16,
             width: 280f,
             height: 30f);
@@ -3646,10 +3883,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         RectTransform dropdownRect = micDropdown.GetComponent<RectTransform>();
 
-        // Set the pivot
-        // (0,0) is bottom-left, (1,1) is top-right, (0.5,0.5) is center
-        dropdownRect.pivot = new Vector2(0f, 1f);  // This sets the pivot to top-left
-        dropdownRect.anchoredPosition = new Vector2(10f, -50f);
+        dropdownRect.pivot = new Vector2(0f, 1f);
+        dropdownRect.anchoredPosition = new Vector2(10f, -40f);
 
 
         /*// Load the saved value
@@ -3672,36 +3907,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("new MicrophoneName " + Microphone.devices[MicrophoneIndex]);
     }
 
-    private void CreateEgoBanner(Vector2 startPosition)
+    private void CreateEgoBanner()
     {
-        // Create background panel
-        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
-        backgroundPanel.transform.SetParent(TestPanel.transform, false);
-
-        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = new Vector2(0f, 1f);
-        backgroundRect.anchorMax = new Vector2(0f, 1f);
-        /*backgroundRect.anchorMin = new Vector2(1, 1);
-        backgroundRect.anchorMax = new Vector2(1, 1);*/
-        backgroundRect.anchoredPosition = startPosition;
-        backgroundRect.sizeDelta = new Vector2(300f, 50f); // Adjust size as needed
-        backgroundRect.pivot = new Vector2(0f, 1);
-
-        Image backgroundImage = backgroundPanel.GetComponent<Image>();
-        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
-
-
-        GUIManager.Instance.CreateText(
+        GameObject textObject = GUIManager.Instance.CreateText(
             text: "egovalheimmod.ai",
-            parent: backgroundPanel.transform,
+            parent: egoBannerSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
             /*anchorMin: new Vector2(0f, 0f),
             anchorMax: new Vector2(0f, 0f),*/
-            position: new Vector2(190f, -30f),
+            position: new Vector2(10f, -2f),
             //position: startPosition + new Vector2(170, 0),
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
+            fontSize: 22,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3709,37 +3927,25 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
+        rectTransform.pivot = new Vector2(0, 1f);
+
     }
 
-    private void CreatePersonalitySection(Vector2 position)
+
+    
+    private InputField nameInputField;
+
+    private void CreateNameSection()
     {
-        // Create background panel
-        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
-        backgroundPanel.transform.SetParent(TestPanel.transform, false);
-
-        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = new Vector2(0.5f, 1f);
-        backgroundRect.anchorMax = new Vector2(0.5f, 1f);
-        /*backgroundRect.anchorMin = new Vector2(1, 1);
-        backgroundRect.anchorMax = new Vector2(1, 1);*/
-        backgroundRect.anchoredPosition = position;
-        backgroundRect.sizeDelta = new Vector2(420f, 220f); // Adjust size as needed
-        backgroundRect.pivot = new Vector2(0.5f, 1);
-
-        Image backgroundImage = backgroundPanel.GetComponent<Image>();
-        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
-
-        GUIManager.Instance.CreateText(
-            text: "Personality",
-            parent: backgroundImage.transform,
+        GameObject textObject = GUIManager.Instance.CreateText(
+            text: "Name",
+            parent: npcNameSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /**//*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f), *//**/
-            position: new Vector2(190f, -22.5f),
+            position: MenuSectionTitlePosition,
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
-            //color: GUIManager.Instance.ValheimOrange,
+            fontSize: instance.MenuSectionTitleFontSize,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3747,34 +3953,114 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
-        CreateMultilineInputField(
-            parent: backgroundPanel.transform,
-            placeholder: "She's strong, stoic, tomboyish, confident and serious...",
-            fontSize: 14,
-            width: 400,
-            height: 150
-        );
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
 
-        /* GUIManager.Instance.CreateInputField(
-            parent: backgroundPanel.transform,
-            anchorMin: new Vector2(0.5f, 1f),
-            anchorMax: new Vector2(0.5f, 1f),
-            *//*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f),*//*
-            position: new Vector2(0, -120f),
-            contentType: InputField.ContentType.Standard,
-            placeholderText: "She's strong, stoic, tomboyish, confident and serious... Behind her cold exterior she is soft and caring, but she's not always good at showing it. She secretly wants a husband but is not good when it comes to romance and love, very oblivious to it.",
-            fontSize: 18,
-            width: 400f,
-            height: 150f);*/
+        GameObject textFieldObject = GUIManager.Instance.CreateInputField(
+           parent: npcNameSubPanel.transform,
+           anchorMin: new Vector2(0f, 1f),
+           anchorMax: new Vector2(0f, 1f),
+           position: new Vector2(10f, -40f),
+           contentType: InputField.ContentType.Standard,
+           placeholderText: "Valkyrie",
+           fontSize: 20,
+           width: 350f,
+           height: 30f);
+
+        textFieldObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
+        nameInputField = textFieldObject.GetComponent<InputField>();
+        nameInputField.onValueChanged.AddListener(OnNPCNameChanged);
+        nameInputField.interactable = true;
     }
 
-    private GameObject inputFieldObject;
+    private void OnNPCNameChanged(string newValue)
+    {
+        Debug.Log("Input value changed to: " + newValue);
+
+        if (!instance.PlayerNPC) return;
+
+        instance.npcName = newValue;
+        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+        npc.m_name = newValue;
+        nameInputField.SetTextWithoutNotify(newValue);
+
+    }
+
+    Dropdown personalityDropdownComp;
+
+    private void CreatePersonalitySection()
+    {
+        GameObject textObject = GUIManager.Instance.CreateText(
+            text: "Personality",
+            parent: npcPersonalitySubPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: MenuSectionTitlePosition,
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: instance.MenuSectionTitleFontSize,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
+        rectTransform.pivot = new Vector2(0, 1);
+
+        var personalityDropdown = GUIManager.Instance.CreateDropDown(
+            parent: npcPersonalitySubPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(10f, -40f),
+            fontSize: 20,
+            width: 200f,
+            height: 30f);
+
+        rectTransform = personalityDropdown.GetComponent<RectTransform>();
+        rectTransform.pivot = new Vector2(0, 1);
+
+        instance.personalityDropdownComp = personalityDropdown.GetComponent<Dropdown>();
+        instance.personalityDropdownComp.AddOptions(npcPersonalities);
+
+        /*// Load the saved value
+        int savedIndex = PlayerPrefs.GetInt("SelectedVoiceIndex", 0);
+        personalityDropdownComp.value = savedIndex;*/
+
+        // Add listener for value change
+        instance.personalityDropdownComp.onValueChanged.AddListener(OnNPCPersonalityDropdownChanged);
+
+        CreateMultilineInputField(
+            parent: npcPersonalitySubPanel.transform,
+            placeholder: "She's strong, stoic, tomboyish, confident and serious...",
+            fontSize: 14
+        );
+    }
+
+    private void OnNPCPersonalityDropdownChanged(int index)
+    {
+        instance.npcPersonalityIndex = index;
+        Debug.Log("new NPCPersonality " + instance.npcPersonalityIndex);
+    }
+
     private InputField personalityInputField;
-    private Text placeholderText;
-    public Text personalityInputText;
-    public string personalityText = "";
     
+    static public List<String> npcPersonalities = new List<string> {
+        "Freiya",
+        "Mean",
+        "Bag Chaser",
+    };
+
+    static public Dictionary<String, String> npcPersonalitiesMap = new Dictionary<String, String>
+    {
+      {"Freiya", "" },
+      {"Mean", "Mean and angry. Always responds rudely."},
+      {"Bag Chaser", "Only cares about the money. Mentions money every time"},
+      {"Creditor", "He gave me 10000 dollars which I haven't returned. He brings it up everytime we talk."},
+    };
+
+
+
     static public List<String> npcVoices = new List<string> { 
         "Asteria",
         "Luna",
@@ -3789,15 +4075,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         "Helios",
         "Zeus"
     };
-    public int NPCGender = 0;
-    public int NPCVoice = 0;
-    public float NPCVolume = 90f;
-    private int MicrophoneIndex = 0;
 
-    public void CreateMultilineInputField(Transform parent, string placeholder, int fontSize = 16, int width = 300, int height = 100)
+    public void CreateMultilineInputField(Transform parent, string placeholder, int fontSize = 16, int width = 380, int height = 150)
     {
         // Create main GameObject for the input field
-        inputFieldObject = new GameObject("CustomInputField");
+        GameObject inputFieldObject = new GameObject("CustomInputField");
         inputFieldObject.transform.SetParent(parent, false);
 
         // Add Image component for background
@@ -3812,12 +4094,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Set up RectTransform
         RectTransform rectTransform = personalityInputField.GetComponent<RectTransform>();
         rectTransform.sizeDelta = new Vector2(width, height);
-        rectTransform.position = rectTransform.position + new Vector3(0, -20, 0);
+        rectTransform.position = rectTransform.position + new Vector3(0, -40, 0);
 
         // Create placeholder text
         GameObject placeholderObj = new GameObject("Placeholder");
         placeholderObj.transform.SetParent(inputFieldObject.transform, false);
-        placeholderText = placeholderObj.AddComponent<Text>();
+        Text placeholderText = placeholderObj.AddComponent<Text>();
         placeholderText.text = placeholder;
         placeholderText.font = GUIManager.Instance.AveriaSerifBold;
         placeholderText.fontSize = fontSize;
@@ -3829,66 +4111,48 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         placeholderTransform.anchorMax = new Vector2(1, 1);
         placeholderTransform.offsetMin = new Vector2(10, 10);
         placeholderTransform.offsetMax = new Vector2(-10, -10);
+        //placeholderTransform.pivot = new Vector2(0, 1);
 
         // Create input text
         GameObject textObj = new GameObject("Text");
         textObj.transform.SetParent(inputFieldObject.transform, false);
-        instance.personalityInputText = textObj.AddComponent<Text>();
-        instance.personalityInputText.font = GUIManager.Instance.AveriaSerifBold;
-        instance.personalityInputText.fontSize = fontSize;
-        instance.personalityInputText.color = Color.white;
+        Text personalityInputText = textObj.AddComponent<Text>();
+        personalityInputText.font = GUIManager.Instance.AveriaSerifBold;
+        personalityInputText.fontSize = fontSize;
+        personalityInputText.color = Color.white;
 
         // Set up input text RectTransform
-        RectTransform textTransform = instance.personalityInputText.GetComponent<RectTransform>();
+        RectTransform textTransform = personalityInputText.GetComponent<RectTransform>();
         textTransform.anchorMin = new Vector2(0, 0);
         textTransform.anchorMax = new Vector2(1, 1);
         textTransform.offsetMin = new Vector2(10, 10);
         textTransform.offsetMax = new Vector2(-10, -10);
+        //textTransform.pivot = new Vector2(0, 1);
 
         // Assign text components to InputField
         personalityInputField.placeholder = placeholderText;
-        personalityInputField.textComponent = instance.personalityInputText;
+        personalityInputField.textComponent = personalityInputText;
     }
 
     private void OnPersonalityTextChanged(string newText)
     {
-        instance.personalityInputText.text = newText;
-        instance.personalityText = newText;
-        Debug.Log("New personality " + instance.personalityInputText.text);
+        instance.npcPersonality = newText;
+        Debug.Log("New personality " + instance.npcPersonality);
     }
 
     Dropdown voiceDropdownComp;
     Slider volumeSliderComp;
 
-    private void CreateVoiceAndVolumeControls(Vector2 position)
+    private void CreateVoiceAndVolumeControls()
     {
-        // Create background panel
-        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
-        backgroundPanel.transform.SetParent(TestPanel.transform, false);
-
-        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = new Vector2(0.5f, 1f);
-        backgroundRect.anchorMax = new Vector2(0.5f, 1f);
-        /*backgroundRect.anchorMin = new Vector2(1, 1);
-        backgroundRect.anchorMax = new Vector2(1, 1);*/
-        backgroundRect.anchoredPosition = position;
-        backgroundRect.sizeDelta = new Vector2(420f, 120f); // Adjust size as needed
-        backgroundRect.pivot = new Vector2(0.5f, 1);
-
-        Image backgroundImage = backgroundPanel.GetComponent<Image>();
-        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
-
-        GUIManager.Instance.CreateText(
+        GameObject textObject = GUIManager.Instance.CreateText(
             text: "Voice",
-            parent: backgroundImage.transform,
+            parent: npcVoiceSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /**//*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f), *//**/
-            position: new Vector2(190f, -22.5f),
+            position: MenuSectionTitlePosition,
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
-            //color: GUIManager.Instance.ValheimOrange,
+            fontSize: MenuSectionTitleFontSize,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3896,11 +4160,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
         var voiceDropdown = GUIManager.Instance.CreateDropDown(
-            parent: backgroundPanel.transform,
+            parent: npcVoiceSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            position: new Vector2(110f, -60f),
+            position: new Vector2(110f, -50f),
             fontSize: 20,
             width: 200f,
             height: 30f);
@@ -3913,20 +4179,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         voiceDropdownComp.value = savedIndex;*/
 
         // Add listener for value change
-        instance.voiceDropdownComp.onValueChanged.AddListener(OnNPCVoiceDropdownChanged);
+        instance.voiceDropdownComp.onValueChanged.AddListener(OnnpcVoiceDropdownChanged);
 
 
-        GUIManager.Instance.CreateText(
+        textObject = GUIManager.Instance.CreateText(
             text: "Volume",
-            parent: backgroundImage.transform,
+            parent: npcVoiceSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /**//*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f), *//**/
-            position: new Vector2(190f, -105f),
+            position: new Vector2(10f, -75f),
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
-            //color: GUIManager.Instance.ValheimOrange,
+            fontSize: 20,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -3934,65 +4197,46 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
-
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
 
         var volumeSlider = CreateSlider(
-            parent: backgroundPanel.transform,
+            parent: npcVoiceSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            position: new Vector2(250f, -100f),
-            width: 200f,
-            height: 20f);
+            position: new Vector2(230f, -87.5f),
+            width: 250f,
+            height: 15f);
 
         instance.volumeSliderComp = volumeSlider.GetComponent<Slider>();
         instance.volumeSliderComp.onValueChanged.AddListener(OnVolumeSliderValueChanged);
     }
 
-    private void OnNPCVoiceDropdownChanged(int index)
+    private void OnnpcVoiceDropdownChanged(int index)
     {
-        instance.NPCVoice = index;
-        Debug.Log("new instance.NPCVoice " + instance.NPCVoice);
+        instance.npcVoice = index;
+        Debug.Log("new instance.npcVoice " + instance.npcVoice);
     }
 
     private void OnVolumeSliderValueChanged(float value)
     {
-        instance.NPCVolume = value;
-        Debug.Log("new companion volume " + instance.NPCVolume);
+        instance.npcVolume = value;
+        Debug.Log("new companion volume " + instance.npcVolume);
     }
 
 
     Toggle toggleMasculine;
     Toggle toggleFeminine;
 
-    private void CreateBodyTypeToggle(Vector2 position)
+    private void CreateBodyTypeToggle()
     {
-        // Create background panel
-        GameObject backgroundPanel = new GameObject("PersonalityBackground", typeof(RectTransform), typeof(Image));
-        backgroundPanel.transform.SetParent(TestPanel.transform, false);
-
-        RectTransform backgroundRect = backgroundPanel.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = new Vector2(0.5f, 1f);
-        backgroundRect.anchorMax = new Vector2(0.5f, 1f);
-        /*backgroundRect.anchorMin = new Vector2(1, 1);
-        backgroundRect.anchorMax = new Vector2(1, 1);*/
-        backgroundRect.anchoredPosition = position;
-        backgroundRect.sizeDelta = new Vector2(420f, 120f); // Adjust size as needed
-        backgroundRect.pivot = new Vector2(0.5f, 1);
-
-        Image backgroundImage = backgroundPanel.GetComponent<Image>();
-        backgroundImage.color = new Color(0, 0, 0, 0.3f); // Semi-transparent black, adjust as needed
-
-        GUIManager.Instance.CreateText(
+        GameObject textObject = GUIManager.Instance.CreateText(
             text: "Body Type",
-            parent: backgroundImage.transform,
+            parent: npcBodyTypeSubPanel.transform,
             anchorMin: new Vector2(0f, 1f),
             anchorMax: new Vector2(0f, 1f),
-            /**//*anchorMin: new Vector2(0f, 0f),
-            anchorMax: new Vector2(0f, 0f), *//**/
-            position: new Vector2(190f, -22.5f),
+            position: MenuSectionTitlePosition,
             font: GUIManager.Instance.AveriaSerifBold,
-            fontSize: 26,
-            //color: GUIManager.Instance.ValheimOrange,
+            fontSize: MenuSectionTitleFontSize,
             color: Color.white,
             outline: true,
             outlineColor: Color.black,
@@ -4000,9 +4244,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             height: 40f,
             addContentSizeFitter: false);
 
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
 
-        GameObject toggleObj1 = CreateToggle(backgroundPanel.transform, "Masculine", "Masculine", -25);
-        GameObject toggleObj2 = CreateToggle(backgroundPanel.transform, "Feminine", "Feminine", -55);
+
+        GameObject toggleObj1 = CreateToggle(npcBodyTypeSubPanel.transform, "Masculine", "Masculine", -20);
+        GameObject toggleObj2 = CreateToggle(npcBodyTypeSubPanel.transform, "Feminine", "Feminine", -50);
 
         instance.toggleMasculine = toggleObj1.GetComponent<Toggle>();
         instance.toggleFeminine = toggleObj2.GetComponent<Toggle>();
@@ -4010,8 +4256,305 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         instance.toggleMasculine.isOn = true;
 
         // Add listeners
-        instance.toggleMasculine.onValueChanged.AddListener(isOn => OnToggleChanged(instance.toggleMasculine, instance.toggleFeminine, isOn));
-        instance.toggleFeminine.onValueChanged.AddListener(isOn => OnToggleChanged(instance.toggleFeminine, instance.toggleMasculine, isOn));
+        instance.toggleMasculine.onValueChanged.AddListener(isOn => OnBodyTypeToggleChanged(instance.toggleMasculine, instance.toggleFeminine, isOn));
+        instance.toggleFeminine.onValueChanged.AddListener(isOn => OnBodyTypeToggleChanged(instance.toggleFeminine, instance.toggleMasculine, isOn));
+    }
+
+    void OnBodyTypeToggleChanged(Toggle changedToggle, Toggle otherToggle, bool isOn)
+    {
+        if (isOn && otherToggle.isOn)
+        {
+            otherToggle.isOn = false;
+        }
+        instance.npcGender = changedToggle.name == "Masculine" ? 0 : 1;
+
+        if (instance.PlayerNPC)
+        {
+            VisEquipment npcVisEquipment = instance.PlayerNPC.GetComponent<VisEquipment>();
+            npcVisEquipment.SetModel(instance.npcGender);
+        }
+        else
+        {
+            Debug.Log("OnBodyTypeToggleChanged instance.PlayerNPC is null");
+        }
+
+        Debug.Log("new npcGender " + instance.npcGender);
+    }
+
+
+    private void CreateAppearanceSection()
+    {
+        GameObject textObject = GUIManager.Instance.CreateText(
+            text: "Appearance",
+            parent: npcAppearanceSubPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: MenuSectionTitlePosition,
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: MenuSectionTitleFontSize,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
+        var skinColorButtonObject = GUIManager.Instance.CreateButton(
+            text: "",
+            parent: npcAppearanceSubPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(10, -40f),
+            width: 50f,
+            height: 30f);
+
+        skinColorButtonObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
+        GameObject skinColorTextObject = GUIManager.Instance.CreateText(
+            text: "Skin Tone",
+            parent: skinColorButtonObject.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(60,-3),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 20,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        skinColorTextObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
+        skinColorButtonObject.GetComponent<Button>().onClick.AddListener(CreateSkinColorPicker);
+
+
+
+
+
+        var hairColorButtonObject = GUIManager.Instance.CreateButton(
+            text: "",
+            parent: npcAppearanceSubPanel.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(10, -80f),
+            width: 50f,
+            height: 30f);
+
+        hairColorButtonObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
+        GameObject hairColorTextObject = GUIManager.Instance.CreateText(
+            text: "Hair Color",
+            parent: hairColorButtonObject.transform,
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(60, -3),
+            font: GUIManager.Instance.AveriaSerifBold,
+            fontSize: 20,
+            color: Color.white,
+            outline: true,
+            outlineColor: Color.black,
+            width: 350f,
+            height: 40f,
+            addContentSizeFitter: false);
+
+        hairColorTextObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+
+        hairColorButtonObject.GetComponent<Button>().onClick.AddListener(CreateHairColorPicker);
+    }
+
+    private void CreateSkinColorPicker()
+    {
+        GUIManager.Instance.CreateColorPicker(
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(500f, -500f),
+            original: Color.yellow,
+            message: "Skin Tone",
+            OnSkinColorChanged,
+            OnSkinColorSelected,
+            false
+        );
+    }
+
+    private void OnSkinColorChanged(Color changedColor)
+    {
+        if (!instance.PlayerNPC) return;
+
+        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+        npc.m_visEquipment.SetSkinColor(new Vector3(
+            instance.skinColor.r,
+            instance.skinColor.g,
+            instance.skinColor.b
+        ));
+        //Jotunn.Logger.LogInfo($"Color changing: {changedColor}");
+    }
+
+    private void OnSkinColorSelected(Color selectedColor)
+    {
+        if (!instance.PlayerNPC) return;
+
+        instance.skinColor = selectedColor;
+        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+        npc.m_visEquipment.SetSkinColor(new Vector3(
+            instance.skinColor.r,
+            instance.skinColor.g,
+            instance.skinColor.b
+        ));
+        Jotunn.Logger.LogInfo($"Selected color: {instance.skinColor}");
+        // You can save the color to a config file or use it in your mod here
+    }
+
+    private void CreateHairColorPicker()
+    {
+        GUIManager.Instance.CreateColorPicker(
+            anchorMin: new Vector2(0f, 1f),
+            anchorMax: new Vector2(0f, 1f),
+            position: new Vector2(500f, -500f),
+            original: Color.yellow,
+            message: "Hair Color",
+            OnHairColorChanged,
+            OnHairColorSelected,
+            false
+        );
+    }
+
+    private void OnHairColorChanged(Color changedColor)
+    {
+        if (!instance.PlayerNPC) return;
+
+        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+        npc.m_visEquipment.SetHairColor(new Vector3(
+            instance.hairColor.r,
+            instance.hairColor.g,
+            instance.hairColor.b
+        ));
+        //Jotunn.Logger.LogInfo($"Color changing: {changedColor}");
+    }
+
+    private void OnHairColorSelected(Color selectedColor)
+    {
+        if (!instance.PlayerNPC) return;
+
+        instance.hairColor = selectedColor;
+        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+        npc.m_visEquipment.SetHairColor(new Vector3(
+            instance.hairColor.r,
+            instance.hairColor.g,
+            instance.hairColor.b
+        ));
+        Jotunn.Logger.LogInfo($"Selected color: {instance.hairColor}");
+        // You can save the color to a config file or use it in your mod here
+    }
+
+    private void CreateButtons()
+    {
+        GameObject saveButton = GUIManager.Instance.CreateButton(
+            text: "SAVE",
+            parent: thrallCustomizationPanel.transform,
+            anchorMin: new Vector2(0.5f, 0f),
+            anchorMax: new Vector2(0.5f, 0f),
+            position: new Vector2(0, 25f),
+            width: 250f,
+            height: 40f);
+
+        saveButton.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0);
+
+        Button saveButtonComp = saveButton.GetComponent<Button>();
+        saveButtonComp.onClick.AddListener(() => OnSaveButtonClick(saveButtonComp));
+    }
+
+    private void OnSaveButtonClick(Button button)
+    {
+        instance.panelManager.TogglePanel("Settings");
+        instance.panelManager.TogglePanel("Thrall Customization");
+        instance.IsModMenuShowing = false;
+        GUIManager.BlockInput(false);
+        if (instance.PlayerNPC)
+            SaveNPCData(instance.PlayerNPC);
+    }
+
+    // Make sure to include your existing CreateTask and CreateSlider methods here
+
+
+
+
+    /*
+     * 
+     * UI GENERATOR FUNCTIONS
+     * 
+     */
+
+    private Slider CreateSlider(Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, float width, float height)
+    {
+        GameObject sliderObject = new GameObject("VolumeSlider", typeof(RectTransform));
+        sliderObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = sliderObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = anchorMin;
+        rectTransform.anchorMax = anchorMax;
+        rectTransform.anchoredPosition = position;
+        rectTransform.sizeDelta = new Vector2(width, height);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+        Slider slider = sliderObject.AddComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 100f;
+        slider.value = 90f; // Default value
+
+        // Create background
+        GameObject background = new GameObject("Background", typeof(RectTransform), typeof(Image));
+        background.transform.SetParent(sliderObject.transform, false);
+        background.GetComponent<Image>().color = new Color(0.2f, 0.2f, 0.2f);
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = Vector2.zero;
+        backgroundRect.anchorMax = Vector2.one;
+        backgroundRect.sizeDelta = Vector2.zero;
+
+        // Create fill area
+        GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
+        fillArea.transform.SetParent(sliderObject.transform, false);
+        RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
+        fillAreaRect.anchorMin = new Vector2(0, 0.25f);
+        fillAreaRect.anchorMax = new Vector2(1, 0.75f);
+        fillAreaRect.sizeDelta = Vector2.zero;
+
+        // Create fill
+        GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+        fill.transform.SetParent(fillArea.transform, false);
+        //fill.GetComponent<Image>().color = GUIManager.Instance.ValheimOrange;
+        fill.GetComponent<Image>().color = new Color(0.7f, 0.7f, 0.7f);
+        RectTransform fillRect = fill.GetComponent<RectTransform>();
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.sizeDelta = Vector2.zero;
+
+        // Create handle slide area
+        GameObject handleSlideArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+        handleSlideArea.transform.SetParent(sliderObject.transform, false);
+        RectTransform handleSlideAreaRect = handleSlideArea.GetComponent<RectTransform>();
+        handleSlideAreaRect.anchorMin = Vector2.zero;
+        handleSlideAreaRect.anchorMax = Vector2.one;
+        handleSlideAreaRect.sizeDelta = Vector2.zero;
+
+        // Create handle
+        GameObject handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+        handle.transform.SetParent(handleSlideArea.transform, false);
+        handle.GetComponent<Image>().color = GUIManager.Instance.ValheimOrange;
+        RectTransform handleRect = handle.GetComponent<RectTransform>();
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.sizeDelta = new Vector2(20, 0);
+
+        // Set up slider components
+        slider.fillRect = fillRect;
+        slider.handleRect = handleRect;
+        slider.targetGraphic = handle.GetComponent<Image>();
+
+        return slider;
     }
 
     GameObject CreateToggle(Transform parent, string name, string label, float positionY)
@@ -4022,7 +4565,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         RectTransform toggleRect = toggleObj.GetComponent<RectTransform>();
         toggleRect.anchorMin = new Vector2(0f, 1f);
         toggleRect.anchorMax = new Vector2(0f, 1f);
-        toggleRect.anchoredPosition = new Vector2(20, positionY);
+        toggleRect.anchoredPosition = new Vector2(10, positionY);
         toggleRect.sizeDelta = Vector2.zero;
 
         Toggle toggle = toggleObj.GetComponent<Toggle>();
@@ -4135,130 +4678,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         texture.SetPixels(colors);
         texture.Apply();
         return Sprite.Create(texture, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f));
-    }
-
-    void OnToggleChanged(Toggle changedToggle, Toggle otherToggle, bool isOn)
-    {
-        if (isOn && otherToggle.isOn)
-        {
-            otherToggle.isOn = false;
-        }
-        instance.NPCGender = changedToggle.name == "Masculine" ? 0 : 1;
-
-        if (instance.PlayerNPC)
-        {
-            VisEquipment npcVisEquipment = instance.PlayerNPC.GetComponent<VisEquipment>();
-            npcVisEquipment.SetModel(instance.NPCGender);
-        }
-        else
-        {
-            Debug.Log("ontogglechanged instance.PlayerNPC is null");
-        }
-
-        Debug.Log("new NPCGender " + instance.NPCGender);
-    }
-
-    private void CreateButtons(Vector2 position)
-    {
-        GameObject saveButton = GUIManager.Instance.CreateButton(
-            text: "Close",
-            parent: TestPanel.transform,
-            anchorMin: new Vector2(0.5f, 0.5f),
-                anchorMax: new Vector2(0.5f, 0.5f),
-            position: position + new Vector2(0, 50),
-            width: 250f,
-            height: 40f);
-
-        Button saveButtonComp = saveButton.GetComponent<Button>();
-        saveButtonComp.onClick.AddListener(() => OnSaveButtonClick(saveButtonComp));
-
-        /*GUIManager.Instance.CreateButton(
-            text: "Save",
-            parent: TestPanel.transform,
-            anchorMin: new Vector2(0.5f, 0.5f),
-                anchorMax: new Vector2(0.5f, 0.5f),
-            position: position,
-            width: 100f,
-            height: 40f);*/
-    }
-
-    private void OnSaveButtonClick(Button button)
-    {
-        TestPanel.SetActive(false);
-        instance.IsModMenuShowing = false;
-        GUIManager.BlockInput(false);
-        if (instance.PlayerNPC)
-            SaveNPCData(instance.PlayerNPC);
-    }
-
-    // Make sure to include your existing CreateTask and CreateSlider methods here
-
-    private Slider CreateSlider(Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, float width, float height)
-    {
-        GameObject sliderObject = new GameObject("VolumeSlider", typeof(RectTransform));
-        sliderObject.transform.SetParent(parent, false);
-
-        RectTransform rectTransform = sliderObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = anchorMin;
-        rectTransform.anchorMax = anchorMax;
-        rectTransform.anchoredPosition = position;
-        rectTransform.sizeDelta = new Vector2(width, height);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
-
-        Slider slider = sliderObject.AddComponent<Slider>();
-        slider.minValue = 0f;
-        slider.maxValue = 100f;
-        slider.value = 90f; // Default value
-
-        // Create background
-        GameObject background = new GameObject("Background", typeof(RectTransform), typeof(Image));
-        background.transform.SetParent(sliderObject.transform, false);
-        background.GetComponent<Image>().color = new Color(0.2f, 0.2f, 0.2f);
-        RectTransform backgroundRect = background.GetComponent<RectTransform>();
-        backgroundRect.anchorMin = Vector2.zero;
-        backgroundRect.anchorMax = Vector2.one;
-        backgroundRect.sizeDelta = Vector2.zero;
-
-        // Create fill area
-        GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
-        fillArea.transform.SetParent(sliderObject.transform, false);
-        RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
-        fillAreaRect.anchorMin = new Vector2(0, 0.25f);
-        fillAreaRect.anchorMax = new Vector2(1, 0.75f);
-        fillAreaRect.sizeDelta = Vector2.zero;
-
-        // Create fill
-        GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
-        fill.transform.SetParent(fillArea.transform, false);
-        fill.GetComponent<Image>().color = GUIManager.Instance.ValheimOrange;
-        RectTransform fillRect = fill.GetComponent<RectTransform>();
-        fillRect.anchorMin = Vector2.zero;
-        fillRect.anchorMax = Vector2.one;
-        fillRect.sizeDelta = Vector2.zero;
-
-        // Create handle slide area
-        GameObject handleSlideArea = new GameObject("Handle Slide Area", typeof(RectTransform));
-        handleSlideArea.transform.SetParent(sliderObject.transform, false);
-        RectTransform handleSlideAreaRect = handleSlideArea.GetComponent<RectTransform>();
-        handleSlideAreaRect.anchorMin = Vector2.zero;
-        handleSlideAreaRect.anchorMax = Vector2.one;
-        handleSlideAreaRect.sizeDelta = Vector2.zero;
-
-        // Create handle
-        GameObject handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
-        handle.transform.SetParent(handleSlideArea.transform, false);
-        handle.GetComponent<Image>().color = Color.white;
-        RectTransform handleRect = handle.GetComponent<RectTransform>();
-        handleRect.anchorMin = Vector2.zero;
-        handleRect.anchorMax = Vector2.one;
-        handleRect.sizeDelta = new Vector2(20, 0);
-
-        // Set up slider components
-        slider.fillRect = fillRect;
-        slider.handleRect = handleRect;
-        slider.targetGraphic = handle.GetComponent<Image>();
-
-        return slider;
     }
 }
 

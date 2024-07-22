@@ -198,11 +198,9 @@ namespace ValheimAIModLoader
         public void UpdatePin()
         {
             if (npcPinData != null)
-            {
                 Minimap.instance.RemovePin(npcPinData);
-            }
 
-            npcPinData = Minimap.instance.AddPin(this.transform.position, Minimap.PinType.Player, "NPC", true, false);
+            npcPinData = Minimap.instance.AddPin(this.transform.position, Minimap.PinType.Player, m_name, true, false, 0, "NPC");
         }
 
         public void UpdateLastPosition(float fixedDeltaTime)
@@ -384,6 +382,7 @@ namespace ValheimAIModLoader
                     {
                         Debug.Log("Picking up " + component.name);
                         Pickup(component.gameObject);
+                        //m_inventory.AddItem(component.m_itemData); // if pickup is not adding to inventory
                         continue;
                     }
 
