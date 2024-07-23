@@ -320,8 +320,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }*/
 
-        if (ZInput.GetKeyDown(KeyCode.I))
+        if (ZInput.GetKeyDown(KeyCode.E) && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5)
         {
+            Debug.Log("Trying to access NPC inventory");
             instance.OnInventoryKeyPressed(__instance);
             return;
         }
@@ -347,10 +348,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             return;
         }
-        
+
         /*if (ZInput.GetKeyDown(KeyCode.L))
         {
-            instance.GetNearbyResources(__instance.gameObject);
+            //instance.GetNearbyResources(__instance.gameObject);
+            instance.BrainSynthesizeAudio("Hello, my name is Don and I'm the best you will find!", "asteria");
 
             return;
         }*/
@@ -728,7 +730,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
 
             __result = __instance.m_name;
-            __result += "\n<color=yellow><b>[I]</b></color> Inventory";
+            __result += "\n<color=yellow><b>[E]</b></color> Inventory";
             __result += "\n<color=yellow><b>[T]</b></color> Push to Talk";
             __result += "\n<color=yellow><b>[Y]</b></color> Menu";
 
@@ -1312,6 +1314,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         instance.PlayerNPC = npcInstance;
 
+        if (npcInstance.HasAnyComponent("Tameable"))
+        {
+            Debug.Log("removing npc tameable comp");
+            Destroy(npcInstance.GetComponent<Tameable>());
+        }
+
         // make the monster tame
         MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
 
@@ -1320,12 +1328,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         monsterAIcomp.SetFollowTarget(localPlayer.gameObject);
         monsterAIcomp.m_viewRange = 80f;
 
+        
 
         // add item to inventory
         HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<HumanoidNPC>();
         if (humanoidNpc_Component != null)
         {
             LoadNPCData(humanoidNpc_Component);
+
+
+            Character character2 = humanoidNpc_Component;
+            character2.m_onDeath = (Action)Delegate.Combine(character2.m_onDeath, new Action(OnNPCDeath));
 
 
             GameObject itemPrefab;
@@ -1359,6 +1372,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             Logger.LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
         }
+    }
+
+    protected virtual void OnNPCDeath()
+    {
+        MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Your NPC died!");
+
+        SaveNPCData(instance.PlayerNPC);
     }
 
     // helper function to copy component values (not tested/not being used)
@@ -1801,14 +1821,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             instance.StopRecording();
         }
 
-        GameObject[] allNpcs = FindPlayerNPCs();
-        foreach (GameObject npc in allNpcs)
+        //GameObject[] allNpcs = FindPlayerNPCs();
+        if (instance.PlayerNPC)
         {
-            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-            HumanoidNPC humanoidComponent = npc.GetComponent<HumanoidNPC>();
+            MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+            HumanoidNPC humanoidComponent = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
             //Debug.Log("BrainSendInstruction");
-            BrainSendInstruction(npc);
+            BrainSendInstruction(instance.PlayerNPC);
             instance.lastSentToBrainTime = Time.time;
 
             AddChatTalk(humanoidComponent, "NPC", "...");
@@ -1961,14 +1981,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void AddChatTalk(Character character, string name, string text)
     {
+        text = text.TrimStart('\n');
+
         UserInfo userInfo = new UserInfo();
-        userInfo.Name = name;
+        userInfo.Name = character.m_name;
         Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
         Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
-        Chat.instance.AddString("NPC", text, Talker.Type.Normal);
+        if (text != "...")
+        {
+            Chat.instance.AddString(character.m_name, text, Talker.Type.Normal);
+            Chat.instance.m_hideTimer = 0f;
+            Chat.instance.m_chatWindow.gameObject.SetActive(value: true);
+        }
     }
 
-    public void BrainSynthesizeAudio(string text, string voice, Action<byte[]> onComplete, Action<string> onError)
+    public void BrainSynthesizeAudio(string text, string voice)
     {
         using (WebClient client = new WebClient())
         {
@@ -1995,13 +2022,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             string text = responseObject["text"].ToString();
             HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
-            AddChatTalk(npc, "NPC", text);
+            //AddChatTalk(npc, "NPC", text);
             DownloadAudioFile(audio_file_id);
         }
         catch (Exception ex)
         {
             Debug.Log($"Failed to parse JSON: {ex.Message}");
         }
+
+        instance.previewVoiceButton.SetActive(true);
     }
 
     private void BrainSendPeriodicUpdate(GameObject npc)
@@ -2129,6 +2158,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
                     {
                         HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                        AddChatTalk(Player.m_localPlayer, "Player", player_instruction_transcription);
                         AddChatTalk(npc, "NPC", agent_text_response);
 
                         Debug.Log("Agent command response from brain was incomplete. Command's Action or Category is missing!");
@@ -2167,6 +2197,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             else
             {
                 HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                AddChatTalk(Player.m_localPlayer, "Player", player_instruction_transcription);
                 AddChatTalk(npc, "NPC", agent_text_response);
                 Debug.Log("No agent commands found.");
             }
@@ -3744,7 +3775,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         CreateAppearanceSection();
 
-        CreateButtons();
+        CreateSaveButton();
     }
 
     GameObject[] TasksList = {};
@@ -4386,7 +4417,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         voiceDropdownComp.value = savedIndex;*/
 
         // Add listener for value change
-        instance.voiceDropdownComp.onValueChanged.AddListener(OnnpcVoiceDropdownChanged);
+        instance.voiceDropdownComp.onValueChanged.AddListener(OnNPCVoiceDropdownChanged);
+
+
+
+        instance.previewVoiceButton = GUIManager.Instance.CreateButton(
+            text: "Preview",
+            parent: voiceDropdown.transform,
+            anchorMin: new Vector2(0.5f, 0f),
+            anchorMax: new Vector2(0.5f, 0f),
+            position: new Vector2(190, 0f),
+            width: 100f,
+            height: 30f);
+
+        instance.previewVoiceButton.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0);
+        instance.previewVoiceButtonComp = instance.previewVoiceButton.GetComponent<Button>();
+        instance.previewVoiceButtonComp.onClick.AddListener(() => OnPreviewVoiceButtonClick(instance.previewVoiceButtonComp));
+
+
 
 
         textObject = GUIManager.Instance.CreateText(
@@ -4418,7 +4466,22 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         instance.volumeSliderComp.onValueChanged.AddListener(OnVolumeSliderValueChanged);
     }
 
-    private void OnnpcVoiceDropdownChanged(int index)
+
+    GameObject previewVoiceButton;
+    Button previewVoiceButtonComp;
+    private void CreatePreviewVoiceButton()
+    {
+        
+    }
+
+    private void OnPreviewVoiceButtonClick(Button button)
+    {
+        instance.BrainSynthesizeAudio("Hello, I am your friend sent by the team at Ego", npcVoices[instance.npcVoice].ToLower());
+        Debug.Log("Hello, I am your friend sent by the team at Ego. voice: " + npcVoices[instance.npcVoice].ToLower());
+        instance.previewVoiceButton.SetActive(false);
+    }
+
+    private void OnNPCVoiceDropdownChanged(int index)
     {
         instance.npcVoice = index;
         Debug.Log("new instance.npcVoice " + instance.npcVoice);
@@ -4657,7 +4720,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // You can save the color to a config file or use it in your mod here
     }
 
-    private void CreateButtons()
+    private void CreateSaveButton()
     {
         GameObject saveButton = GUIManager.Instance.CreateButton(
             text: "SAVE",
