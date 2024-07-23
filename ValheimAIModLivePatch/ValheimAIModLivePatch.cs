@@ -197,9 +197,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     [HarmonyPatch(typeof(Player), "Update")]
     private static void Player_Update_Postfix(Player __instance)
     {
-        if (EventSystem.current.currentSelectedGameObject != null)
+        if (EventSystem.current.currentSelectedGameObject != null && EventSystem.current.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>())
         {
-            var input = EventSystem.current.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>();
             return;
         }
 
@@ -320,7 +319,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         newfollow = FindClosestItemDrop(__instance.gameObject);
 
-        if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(humanoidNPC.transform.position) < 8f)
+        if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(humanoidNPC.transform.position) < 7f)
         {
             Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
             __instance.SetFollowTarget(newfollow);
@@ -360,7 +359,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 return true;
             }
 
-            if (instance.eNPCMode == NPCCommand.CommandType.PatrolArea && instance.patrol_harvest)
+            if (instance.patrol_harvest)
             {
                 //Debug.Log("patrol harvest");
                 if (followtarget == null || followtarget.transform.position.DistanceTo(instance.patrol_position) > instance.chaseUntilPatrolRadiusDistance ||
