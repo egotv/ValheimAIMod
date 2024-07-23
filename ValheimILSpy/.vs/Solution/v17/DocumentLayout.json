@@ -117,7 +117,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAADsRAAAAAAAAAADwv1kRAAAvAAAA",
+              "ViewState": "AQIAAP0AAAAAAAAAAAAUwBsBAAANAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:47:42.829Z",
               "EditorCaption": ""
@@ -180,8 +180,7 @@
               "RelativeToolTip": "assembly_valheim\\Player.cs",
               "ViewState": "AQIAANsIAAAAAAAAAADwvwwJAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-06-10T23:26:16.168Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-06-10T23:26:16.168Z"
             },
             {
               "$type": "Document",
@@ -193,8 +192,7 @@
               "RelativeToolTip": "assembly_valheim\\BaseAI.cs",
               "ViewState": "AQIAANEAAAAAAAAAAAAiwOUAAABYAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-06-14T20:19:47.773Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-06-14T20:19:47.773Z"
             },
             {
               "$type": "Document",

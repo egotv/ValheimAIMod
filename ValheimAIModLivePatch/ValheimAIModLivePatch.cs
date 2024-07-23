@@ -283,6 +283,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 return;
             }
 
+            SaveNPCData(instance.PlayerNPC);
             Destroy(instance.PlayerNPC);
             instance.PlayerNPC = null;
 
