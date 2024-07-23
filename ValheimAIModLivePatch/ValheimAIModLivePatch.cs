@@ -79,6 +79,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     public Vector3 patrol_position = Vector3.zero;
     public float patrol_radius = 10f;
     public bool patrol_harvest = false;
+    public string CurrentEnemyName = "Greyling";
     public string CurrentHarvestResourceName = "Beech";
     public string CurrentWeaponName = "";
     public bool MovementLock = false;
@@ -150,6 +151,49 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Apply the changes to the overlay
         // This also triggers the MinimapManager to display this overlay
         zoneOverlay.OverlayTex.Apply();
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(ZNetScene), "RemoveObjects")]
+    private static bool Prefix(ZNetScene __instance, List<ZDO> currentNearObjects, List<ZDO> currentDistantObjects)
+    {
+        //Debug.Log("enter RemoveObjects");
+        byte b = (byte)((uint)Time.frameCount & 0xFFu);
+        
+        foreach (ZDO currentNearObject in currentNearObjects)
+        {
+            currentNearObject.TempRemoveEarmark = b;
+        }
+        //Debug.Log("after 1 loop");
+        foreach (ZDO currentDistantObject in currentDistantObjects)
+        {
+            currentDistantObject.TempRemoveEarmark = b;
+        }
+        __instance.m_tempRemoved.Clear();
+        //Debug.Log("after 2 loop n clear");
+        foreach (ZNetView value in __instance.m_instances.Values)
+        {
+            if (value && value.GetZDO() != null && value.GetZDO().TempRemoveEarmark != b)
+            {
+                __instance.m_tempRemoved.Add(value);
+            }
+        }
+        //Debug.Log("after 3 loop");
+        for (int i = 0; i < __instance.m_tempRemoved.Count; i++)
+        {
+            ZNetView zNetView = __instance.m_tempRemoved[i];
+            ZDO zDO = zNetView.GetZDO();
+            zNetView.ResetZDO();
+            UnityEngine.Object.Destroy(zNetView.gameObject);
+            if (!zDO.Persistent && zDO.IsOwner())
+            {
+                ZDOMan.instance.DestroyZDO(zDO);
+            }
+            __instance.m_instances.Remove(zDO);
+        }
+        //Debug.Log("after 4 loop");
+
+        return false;
     }
 
     private void ConfigBindings()
@@ -328,10 +372,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         newfollow = FindClosestItemDrop(__instance.gameObject);
 
+        if (newfollow == __instance.m_follow)
+            return true;
+
         if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(humanoidNPC.transform.position) < 7f)
         {
             Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
             __instance.SetFollowTarget(newfollow);
+            return true;
         }
 
         if (instance.eNPCMode == NPCCommand.CommandType.PatrolArea && instance.patrol_position != Vector3.zero)
@@ -395,7 +443,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     }
                 }
             }
-            
+
             return true;
         }
 
@@ -411,9 +459,23 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid"))
             {
                 newfollow = FindClosestResource(__instance.gameObject, instance.CurrentHarvestResourceName);
-                
+
                 if (newfollow != null)
                     __instance.SetFollowTarget(newfollow);
+            }
+        }
+
+        else if (instance.eNPCMode == NPCCommand.CommandType.CombatAttack)
+        {
+            if (__instance.m_follow == null || !__instance.m_follow.HasAnyComponent("Character", "Humanoid", "BaseAI", "MonsterAI", "AnimalAI"))
+            {
+                newfollow = FindClosestEnemy(__instance.gameObject, instance.CurrentEnemyName);
+
+                if (newfollow != null)
+                {
+                    __instance.SetFollowTarget(newfollow);
+                    Debug.Log("New enemy target " + newfollow.name);
+                }
             }
         }
 
@@ -1374,6 +1436,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         .Where(enemy => enemy.GetComponent<MonsterAI>() != null && !enemy.GetComponent<MonsterAI>().m_character.m_tamed)
         .OrderBy(enemy => Vector3.Distance(instance.PlayerNPC.transform.position, enemy.transform.position))
         .FirstOrDefault();*/
+
+        instance.CurrentEnemyName = EnemyName;
 
         GameObject closestEnemy = null;
 
