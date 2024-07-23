@@ -101,9 +101,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         ConfigBindings();
 
         /*PopulateCraftingRequirements();
-        PopulateBuildingRequirements();*/
+        PopulateBuildingRequirements();
         PopulateMonsterPrefabs();
-        PopulateAllItems();
+        PopulateAllItems();*/
 
         instance.FindPlayerNPCs();
 
@@ -3101,16 +3101,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 if (itemPrefab != null)
                 {
                     ItemDrop.ItemData itemdata = npc.PickupPrefab(itemPrefab, stack);
-                    if (itemdata.IsEquipable())
+                    /*if (itemdata.IsEquipable())
                     {
                         npc.EquipItem(itemdata);
                         Debug.Log($"equipable: {itemName} x{stack}");
                     }
                     else
                     {
-                        npc.GetInventory().AddItem(itemPrefab.gameObject, stack/2);
+                        npc.GetInventory().AddItem(itemPrefab.gameObject, stack);
                         Debug.Log($"non equipable: {itemName} x{stack}");
-                    }
+                    }*/
                 }
             }
 
