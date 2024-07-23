@@ -232,7 +232,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         if (ZInput.GetKeyDown(KeyCode.X))
         {
-            Console.instance.TryRunCommand("despawn_all");
+            //Console.instance.TryRunCommand("despawn_all");
+            if (!instance.PlayerNPC)
+            {
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "There isn't an NPC in the world!");
+                return;
+            }
+
+            Destroy(instance.PlayerNPC);
+            instance.PlayerNPC = null;
+
             return;
         }
 
@@ -254,7 +263,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (instance.eNPCMode == NPCCommand.CommandType.HarvestResource)
                 instance.Harvesting_Stop();
             else
-                instance.Harvesting_Start("");
+                instance.Harvesting_Start("Beech_small");
             return;
         }
 
@@ -1211,16 +1220,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject[] npcs = FindPlayerNPCs();
         if (npcs.Length > 0)
         {
-            //Console.instance.TryRunCommand("despawn_all");
             Debug.Log("Spawning more than one NPC is disabled");
             return;
         }
         Player localPlayer = Player.m_localPlayer;
         GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
-        GameObject playerPrefab = ZNetScene.instance.GetPrefab("Player");
-        GameObject vanillaPlayer = localPlayer.gameObject;
-        //GameObject vanillaPlayer = Resources.Load("Player") as GameObject;
-        //GameObject npcPrefab = HumanoidNPCPrefab;
 
         
 
@@ -1234,27 +1238,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         //Vector3 spawnPosition = GetRandomSpawnPosition(10f);
         Quaternion spawnRotation = localPlayer.transform.rotation;
 
-        /*GameObject npcInstance = Instantiate<GameObject>(playerPrefab, spawnPosition, spawnRotation);
-        npcInstance.name = "HumanoidNPC";
-        Player npcPlayerComp = npcInstance.GetComponent<Player>();
-        Destroy(npcPlayerComp);
-        PlayerController npcPCComp = npcInstance.GetComponent<PlayerController>();
-        Destroy(npcPCComp);
-        BaseAI npcBaseAIComp = npcInstance.GetComponent<BaseAI>();
-        Destroy(npcBaseAIComp);*/
-
-        
-
-        /*MonsterAI monsterAIcomp = npcInstance.AddComponent<MonsterAI>();
-        HumanoidNPC humanoidNpc_Component = npcInstance.AddComponent<HumanoidNPC>();
-
-        humanoidNpc_Component.m_walkSpeed = localPlayer.m_walkSpeed;
-        humanoidNpc_Component.m_runSpeed = localPlayer.m_runSpeed;*/
-
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
-
-        //instance.TogglePanel();
 
         VisEquipment npcInstanceVis = npcInstance.GetComponent<VisEquipment>();
         VisEquipment playerInstanceVis = localPlayer.GetComponent<VisEquipment>();
@@ -1280,18 +1265,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             LoadNPCData(humanoidNpc_Component);
 
-            /*humanoidNpc_Component.m_name = "NPC";
-            humanoidNpc_Component.m_visEquipment.m_isPlayer = true;
-            humanoidNpc_Component.m_visEquipment.SetSkinColor(new Vector3(0.8f, 0.6f, 0.4f));
-            humanoidNpc_Component.m_visEquipment.SetHairColor(new Vector3(1f, 1f, 1f));*/
 
             GameObject itemPrefab;
-
-            /*itemPrefab = ZNetScene.instance.GetPrefab("ArmorRagsChest");
-            humanoidNpc_Component.GiveDefaultItem(itemPrefab);
-
-            itemPrefab = ZNetScene.instance.GetPrefab("ArmorRagsLegs");
-            humanoidNpc_Component.GiveDefaultItem(itemPrefab);*/
 
             // ADD DEFAULT SPAWN ITEMS TO NPC
             itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
@@ -1305,6 +1280,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             // COPY PROPERTIES FROM PLAYER
             humanoidNpc_Component.m_walkSpeed = localPlayer.m_walkSpeed;
+            humanoidNpc_Component.m_runSpeed = localPlayer.m_runSpeed;
 
             // COSMETICS
             humanoidNpc_Component.SetHair("Hair17");
@@ -1571,14 +1547,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
         instance.CurrentHarvestResourceName = CleanKey(ResourceName);
-        Debug.Log("resource name " + instance.CurrentHarvestResourceName);
+        Debug.Log("trying to harvest resource: " + instance.CurrentHarvestResourceName);
 
         //ResourceName = "Beech";
         GameObject resource = FindClosestResource(instance.PlayerNPC, instance.CurrentHarvestResourceName);
         if (resource == null)
         {
             // inform API that resource was not found and wasn't processed
-            Debug.Log($"couldn't find resource name {resource}");
+            Debug.Log($"couldn't find resource: {resource}");
             return;
         }
         else
@@ -1893,7 +1869,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
                 ItemDrop.DropItem(item, item.m_stack, position, rotation);
                 num++;
-                humanoidNPC.m_inventory.RemoveOneItem(item);
+                //humanoidNPC.m_inventory.RemoveOneItem(item);
+                humanoidNPC.m_inventory.RemoveItem(item, item.m_stack);
                 return;
             }
         }
@@ -2030,7 +2007,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                     Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
 
-
                     AddItemToScrollBox(TaskListScrollBox, $"{action} {category} ({p})", defaultSprite);
                 }
             }
@@ -2120,7 +2096,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                     Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
 
-                    
+                    DeleteAllTasks();
                     AddItemToScrollBox(TaskListScrollBox, $"{action} {category} ({p})", defaultSprite);
                 }
             }
@@ -3108,6 +3084,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             // Load inventory
             JsonArray inventoryArray = data["inventory"] as JsonArray;
             npc.m_inventory.RemoveAll();
+            npc.GetInventory().RemoveAll();
+            npc.m_inventory.m_inventory.Clear();
             foreach (JsonObject itemData in inventoryArray)
             {
                 string itemName = itemData["name"].ToString();
@@ -3130,7 +3108,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     }
                     else
                     {
-                        npc.GetInventory().AddItem(itemPrefab.gameObject, stack);
+                        npc.GetInventory().AddItem(itemPrefab.gameObject, stack/2);
                         Debug.Log($"non equipable: {itemName} x{stack}");
                     }
                 }
@@ -4066,14 +4044,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
 
-        GameObject textFieldObject = GUIManager.Instance.CreateInputField(
+        CreateNameInputField(npcNameSubPanel.transform, "Bilbo");
+
+        /*GameObject textFieldObject = GUIManager.Instance.CreateInputField(
            parent: npcNameSubPanel.transform,
            anchorMin: new Vector2(0f, 1f),
            anchorMax: new Vector2(0f, 1f),
            position: new Vector2(10f, -40f),
            contentType: InputField.ContentType.Standard,
            placeholderText: "Valkyrie",
-           fontSize: 20,
+           fontSize: 30,
            width: 350f,
            height: 30f);
 
@@ -4081,7 +4061,56 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         nameInputField = textFieldObject.GetComponent<InputField>();
         nameInputField.onValueChanged.AddListener(OnNPCNameChanged);
-        nameInputField.interactable = true;
+        nameInputField.interactable = true;*/
+    }
+
+    public void CreateNameInputField(Transform parent, string placeholder, int fontSize = 18, int width = 380, int height = 30)
+    {
+        GameObject inputFieldObject = new GameObject("CustomInputField");
+        inputFieldObject.transform.SetParent(parent, false);
+
+        Image background = inputFieldObject.AddComponent<Image>();
+        background.color = new Color(0.7f, 0.7f, 0.7f, 0.3f);
+
+        nameInputField = inputFieldObject.AddComponent<InputField>();
+        nameInputField.lineType = InputField.LineType.SingleLine;
+        nameInputField.onValueChanged.AddListener(OnNPCNameChanged);
+
+        RectTransform rectTransform = nameInputField.GetComponent<RectTransform>();
+        rectTransform.sizeDelta = new Vector2(width, height);
+        rectTransform.anchoredPosition = new Vector2(0, -15); // Move the field down
+
+        GameObject placeholderObj = new GameObject("Placeholder");
+        placeholderObj.transform.SetParent(inputFieldObject.transform, false);
+        Text placeholderText = placeholderObj.AddComponent<Text>();
+        placeholderText.text = placeholder;
+        placeholderText.font = GUIManager.Instance.AveriaSerifBold;
+        placeholderText.fontSize = fontSize;
+        placeholderText.color = new Color(0.7f, 0.7f, 0.7f, 0.5f);
+
+        RectTransform placeholderTransform = placeholderText.GetComponent<RectTransform>();
+        placeholderTransform.anchorMin = Vector2.zero;
+        placeholderTransform.anchorMax = Vector2.one;
+        placeholderTransform.offsetMin = new Vector2(10, 0);
+        placeholderTransform.offsetMax = new Vector2(-10, 0);
+        placeholderTransform.anchoredPosition = new Vector2(0, -4);
+
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(inputFieldObject.transform, false);
+        Text personalityInputText = textObj.AddComponent<Text>();
+        personalityInputText.font = GUIManager.Instance.AveriaSerifBold;
+        personalityInputText.fontSize = fontSize;
+        personalityInputText.color = Color.white;
+
+        RectTransform textTransform = personalityInputText.GetComponent<RectTransform>();
+        textTransform.anchorMin = Vector2.zero;
+        textTransform.anchorMax = Vector2.one;
+        textTransform.offsetMin = new Vector2(10, 0);
+        textTransform.offsetMax = new Vector2(-10, 0);
+        textTransform.anchoredPosition = new Vector2(0, -4);
+
+        nameInputField.placeholder = placeholderText;
+        nameInputField.textComponent = personalityInputText;
     }
 
     private void OnNPCNameChanged(string newValue)
@@ -4151,6 +4180,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void OnNPCPersonalityDropdownChanged(int index)
     {
         instance.npcPersonalityIndex = index;
+        instance.npcPersonality = npcPersonalitiesMap[npcPersonalities[index]];
+        instance.personalityInputField.SetTextWithoutNotify(npcPersonalitiesMap[npcPersonalities[index]]);
         Debug.Log("new NPCPersonality " + instance.npcPersonalityIndex);
     }
 
@@ -4160,11 +4191,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         "Freiya",
         "Mean",
         "Bag Chaser",
+        "Creditor"
     };
 
     static public Dictionary<String, String> npcPersonalitiesMap = new Dictionary<String, String>
     {
-      {"Freiya", "" },
+      {"Freiya", "She's strong, stoic, tomboyish, confident and serious. behind her cold exterior she is soft and caring, but she's not always good at showing it. She secretly wants a husband but is not good when it comes to romance and love, very oblivious to it." },
       {"Mean", "Mean and angry. Always responds rudely."},
       {"Bag Chaser", "Only cares about the money. Mentions money every time"},
       {"Creditor", "He gave me 10000 dollars which I haven't returned. He brings it up everytime we talk."},
