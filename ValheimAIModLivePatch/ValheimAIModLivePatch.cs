@@ -3444,6 +3444,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             instance.npcGender = int.Parse(data["gender"].ToString());
 
+            if (data.ContainsKey("MicrophoneIndex"))
             instance.MicrophoneIndex = int.Parse(data["MicrophoneIndex"].ToString());
 
             // Load skin color
