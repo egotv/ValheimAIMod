@@ -102,7 +102,7 @@ namespace ValheimAIModLoader
             UpdateStats(fixedDeltaTime);
 
             UpdateCrouch(fixedDeltaTime);
-            AutoPickup(fixedDeltaTime);
+            //AutoPickup(fixedDeltaTime);
 
             UpdateLastPosition(fixedDeltaTime);
             UpdatePin();
@@ -225,6 +225,8 @@ namespace ValheimAIModLoader
         {
             base.Awake();
             m_autoPickupMask = LayerMask.GetMask("item");
+            m_inventory.m_width = 10;
+            m_inventory.m_height = 6;
         }
 
         public void SetCurrentCommand(NPCCommand.CommandType NewCommand)
@@ -356,32 +358,81 @@ namespace ValheimAIModLoader
                 //Debug.Log("autopickup itemdrop is near");
                 if (!component.CanPickup())
                 {
-                    //Debug.Log("RequestOwn");
+                    Debug.Log("RequestOwn");
                     component.RequestOwn();
                 }
                 else
                 {
                     if (component.InTar())
                     {
-                        //Debug.Log("InTar");
+                        Debug.Log("InTar");
                         continue;
                     }
                     component.Load();
                     if (!m_inventory.CanAddItem(component.m_itemData) || component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight())
                     {
-                        //Debug.Log("CanAddItem");
+                        Debug.Log("!CanAddItem");
+                        Debug.Log($"!m_inventory.CanAddItem(component.m_itemData) {!m_inventory.CanAddItem(component.m_itemData)}");
+                        Debug.Log($"component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight() {component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight()}");
                         continue;
                     }
                     float num = Vector3.Distance(component.transform.position, vector);
                     if (num > m_autoPickupRange)
                     {
-                        //Debug.Log("num > m_autoPickupRange");
+                        Debug.Log("num > m_autoPickupRange");
                         continue;
                     }
-                    if (num < 0.3f)
+                    if (num < 0.8f)
                     {
                         Debug.Log("Picking up " + component.name);
                         Pickup(component.gameObject);
+
+                        if (component == null)
+                        {
+                            return;
+                        }
+                        if ((component.m_itemData.m_shared.m_icons == null || component.m_itemData.m_shared.m_icons.Length == 0 || component.m_itemData.m_variant >= component.m_itemData.m_shared.m_icons.Length))
+                        {
+                            return;
+                        }
+                        if (!component.CanPickup(true))
+                        {
+                            return;
+                        }
+                        if (m_inventory.ContainsItem(component.m_itemData))
+                        {
+                            return;
+                        }
+                        if (component.m_itemData.m_shared.m_questItem && HaveUniqueKey(component.m_itemData.m_shared.m_name))
+                        {
+                            Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name}");
+                            return;
+                        }
+                        int stack = component.m_itemData.m_stack;
+                        bool flag = m_inventory.AddItem(component.m_itemData);
+                        if (m_nview.GetZDO() == null)
+                        {
+                            UnityEngine.Object.Destroy(component.gameObject);
+                            return;
+                        }
+                        if (!flag)
+                        {
+                            Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name} because no room");
+                            //Message(MessageHud.MessageType.Center, "$msg_noroom");
+                            return;
+                        }
+                        if (component.m_itemData.m_shared.m_questItem)
+                        {
+                            AddUniqueKey(component.m_itemData.m_shared.m_name);
+                        }
+                        ZNetScene.instance.Destroy(component.gameObject);
+                        if (flag && component.m_itemData.IsWeapon() && m_rightItem == null && m_hiddenRightItem == null && (m_leftItem == null || !m_leftItem.IsTwoHanded()) && (m_hiddenLeftItem == null || !m_hiddenLeftItem.IsTwoHanded()))
+                        {
+                            EquipItem(component.m_itemData);
+                        }
+                        m_pickupEffects.Create(base.transform.position, Quaternion.identity);
+
+
                         //m_inventory.AddItem(component.m_itemData); // if pickup is not adding to inventory
                         continue;
                     }

@@ -17,6 +17,9 @@ using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
+using System.Runtime.InteropServices.WindowsRuntime;
+using UnityEngine.Assertions.Must;
+using System.Security.Policy;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -65,9 +68,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private GameObject[] AllEnemiesInstances;
     private float AllEnemiesInstancesLastRefresh = 0f;
 
+    //private List<GameObject> AllGOInstances = new List<GameObject>();
+    private GameObject[] AllGOInstances = {};
+    private float AllGOInstancesLastRefresh = 0f;
+
+    private List<GameObject> AllTreeInstances = new List<GameObject>();
+    //private float AllTreeInstancesLastRefresh = 0f;
+
+    private List<GameObject> AllDestructibleInstances = new List<GameObject>();
+    //private float AllDestructibleInstancesLastRefresh = 0f;
 
     private List<GameObject> AllPickableInstances = new List<GameObject>();
-    private float AllPickableInstancesLastRefresh = 0f;
+    //private float AllPickableInstancesLastRefresh = 0f;
+    
+
+
 
     private GameObject[] SmallTrees;
 
@@ -243,17 +258,20 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         if (EventSystem.current.currentSelectedGameObject != null && EventSystem.current.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>())
         {
+            //Debug.Log("Ignoring input: a text field is in focus");
             return;
         }
 
         if (!ZNetScene.instance || !Player.m_localPlayer)
         {
             // Player is not in a world, allow input
+            //Debug.Log("Ignoring input: player is not in a world");
             return;
         }
 
         if (ZInput.GetKeyDown(KeyCode.Y))
         {
+            //Debug.Log("Mod Menu Toggled, new visibility: " + instance.IsModMenuShowing);
             //instance.TogglePanel();
             instance.panelManager.TogglePanel("Settings");
             instance.panelManager.TogglePanel("Thrall Customization");
@@ -261,14 +279,23 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
+        if (ZInput.GetKeyDown(KeyCode.E) && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5)
+        {
+            Debug.Log("Trying to access NPC inventory");
+            instance.OnInventoryKeyPressed(__instance);
+            return;
+        }
+
         if (Menu.IsVisible() || Console.IsVisible() || Chat.instance.HasFocus() || instance.IsModMenuShowing)
         {
             //Debug.Log("Menu visible");
+            //Debug.Log("Ignoring input: Menu, console, chat or mod menu is showing");
             return;
         }
 
         if (ZInput.GetKeyDown(KeyCode.G))
         {
+            Debug.Log("Keybind: Spawn Companion");
             instance.SpawnCompanion();
             instance.StartFollowing(__instance);
             return;
@@ -276,6 +303,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         if (ZInput.GetKeyDown(KeyCode.X))
         {
+            Debug.Log("Keybind: Dismiss Companion");
             //Console.instance.TryRunCommand("despawn_all");
             if (!instance.PlayerNPC)
             {
@@ -294,10 +322,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             if (instance.eNPCMode == NPCCommand.CommandType.Idle || instance.eNPCMode == NPCCommand.CommandType.PatrolArea)
             {
+                Debug.Log("Keybind: Follow Player");
                 instance.Follow_Start(__instance.gameObject);
             }
             else if (instance.eNPCMode == NPCCommand.CommandType.FollowPlayer)
             {
+                Debug.Log("Keybind: Patrol Area");
                 instance.Patrol_Start();
             }
             return;
@@ -321,13 +351,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }*/
 
-        if (ZInput.GetKeyDown(KeyCode.E) && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5)
-        {
-            Debug.Log("Trying to access NPC inventory");
-            instance.OnInventoryKeyPressed(__instance);
-            return;
-        }
-
         if (ZInput.GetKey(KeyCode.T) && !instance.IsRecording)
         {
             instance.StartRecording();
@@ -344,25 +367,27 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             else if (!instance.shortRecordingWarningShown)
             {
                 //Debug.Log("Recording was too short. Has to be atleast 1 second long");
-                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Recording must be atleast 1 second long.");
+                //MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Recording must be atleast 1 second long.");
                 instance.shortRecordingWarningShown = true;
             }
             return;
         }
 
-        /*if (ZInput.GetKeyDown(KeyCode.L))
+        if (ZInput.GetKeyDown(KeyCode.L))
         {
-            //instance.GetNearbyResources(__instance.gameObject);
-            instance.BrainSynthesizeAudio("Hello, my name is Don and I'm the best you will find!", "asteria");
+            GameObject s = FindClosestItemDrop(Player.m_localPlayer.gameObject);
+            //Debug.Log("FindClosestItemDrop: " + s.name);
 
             return;
-        }*/
+        }
 
         //instance.PlayRecordedAudio("");
         //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
         //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
     }
 
+
+    float LastFindClosestItemDropTime = 0f;
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MonsterAI), "UpdateAI")]
     private static bool MonsterAI_CustomFixedUpdate_Prefix(MonsterAI __instance)
@@ -373,16 +398,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
         GameObject newfollow = null;
 
-        newfollow = FindClosestItemDrop(__instance.gameObject);
 
-        if (newfollow == __instance.m_follow)
-            return true;
-
-        if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(humanoidNPC.transform.position) < 7f)
+        if (Time.time > instance.LastFindClosestItemDropTime + 3)
         {
-            Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
-            __instance.SetFollowTarget(newfollow);
-            return true;
+            Debug.Log("trying to find item drop");
+
+            newfollow = FindClosestItemDrop(__instance.gameObject);
+
+            if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(__instance.transform.position) < 7f)
+            {
+                Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
+                __instance.SetFollowTarget(newfollow);
+                return true;
+            }
         }
 
         if (instance.eNPCMode == NPCCommand.CommandType.PatrolArea && instance.patrol_position != Vector3.zero)
@@ -845,11 +873,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             num *= regenMultiplier;
             __instance.Heal(num);
 
-            GameObject[] allNpcs = instance.FindPlayerNPCs();
-            foreach (GameObject npc in allNpcs)
+            if (instance.PlayerNPC)
             {
-                MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
+                MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
+                HumanoidNPC humanoidComponent = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
                 if (humanoidComponent != null)
                 {
@@ -1315,11 +1342,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         instance.PlayerNPC = npcInstance;
 
-        if (npcInstance.HasAnyComponent("Tameable"))
+        /*if (npcInstance.HasAnyComponent("Tameable"))
         {
             Debug.Log("removing npc tameable comp");
             Destroy(npcInstance.GetComponent<Tameable>());
-        }
+        }*/
 
         // make the monster tame
         MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
@@ -1378,6 +1405,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     protected virtual void OnNPCDeath()
     {
         MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Your NPC died!");
+
+        HumanoidNPC humanoidNPC = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+
+        PrintInventoryItems(humanoidNPC.m_inventory);
 
         SaveNPCData(instance.PlayerNPC);
     }
@@ -1836,13 +1867,23 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    static bool IsInventoryShowing = false;
     private void OnInventoryKeyPressed(Player player)
     {
         if (instance.PlayerNPC)
         {
-            HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
-            InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
-            PrintInventoryItems(humanoidNPC_component.m_inventory);
+            if (IsInventoryShowing)
+            {
+                InventoryGui.instance.Hide();
+                IsInventoryShowing = false;
+            }
+            else
+            {
+                HumanoidNPC humanoidNPC_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                InventoryGui.instance.Show(humanoidNPC_component.inventoryContainer);
+                PrintInventoryItems(humanoidNPC_component.m_inventory);
+                IsInventoryShowing = true;
+            }
         }
         else
         {
@@ -2393,9 +2434,44 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return instance.AllPlayerNPCInstances;
     }
 
+    static int AllGOInstancesRefreshRate = 30;
+    private static bool CanAccessAllGameInstances()
+    {
+        if (Time.time > instance.AllGOInstancesLastRefresh + AllGOInstancesRefreshRate || instance.AllGOInstancesLastRefresh == 0)
+        {
+            RefreshAllGameObjectInstances();
+        }
+
+        if (instance.AllGOInstances.Length > 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void RefreshAllGameObjectInstances()
+    {
+        if (!instance.PlayerNPC)
+        {
+            return;
+        }
+
+        instance.AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
+                .Where(go => go != null && go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 300 && go.HasAnyComponent("ItemDrop", "Pickable", "Character", "Destructible", "TreeBase", "MineRock"))
+                .ToArray();
+                //.ToList();
+        instance.AllGOInstancesLastRefresh = Time.time;
+
+        Debug.Log($"RefreshAllGameObjectInstances len {instance.AllGOInstances.Count()}");
+
+        RefreshPickables();
+    }
+
     private static void RefreshPickables()
     {
-        GameObject[] pickables = GameObject.FindObjectsOfType<GameObject>(false)
+        instance.AllPickableInstances = instance.AllGOInstances.Where(go => go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")).ToList();
+        /*GameObject[] pickables = GameObject.FindObjectsOfType<GameObject>(false)
                 //.Where(go => go != null && !ZoneSystem.instance.IsBlocked(go.transform.position) && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
                 .Where(go => go != null  && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
                 .ToArray();
@@ -2403,20 +2479,33 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         foreach (GameObject pickable in pickables)
         {
             instance.AllPickableInstances.Add(pickable);
-        }
-        instance.AllPickableInstancesLastRefresh = Time.time;
+        }*/
+        //instance.AllPickableInstancesLastRefresh = Time.time;
         //Debug.Log("pickables len " + instance.AllPickableInstances.Count());
     }
 
     private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
     {
-        if (!(instance.AllPickableInstances.Count > 0 && Time.time - instance.AllPickableInstancesLastRefresh < 30f && instance.AllPickableInstancesLastRefresh != 0f))
+        /*if (!(instance.AllPickableInstances.Count > 0 && Time.time - instance.AllPickableInstancesLastRefresh < 30f && instance.AllPickableInstancesLastRefresh != 0f))
         {
             //Debug.Log("Updated AllPickableInstances");
             RefreshPickables();
+        }*/
+
+        if (CanAccessAllGameInstances())
+        {
+            GameObject[] nearbyPickables = instance.AllPickableInstances
+            .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
+            .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
+            .ToArray();
+
+            if (nearbyPickables.Length > 0 && nearbyPickables[0] != null)
+            {
+                return nearbyPickables[0];
+            }
         }
-            
-        IOrderedEnumerable<GameObject> results = instance.AllPickableInstances.ToArray()
+
+        /*IOrderedEnumerable<GameObject> results = instance.AllPickableInstances.ToArray()
             .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
             .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position));
         //Debug.Log("result2 " + results.Count());
@@ -2467,33 +2556,127 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Debug.Log("No more pickable items within " + radius + " units  from patrol position");
         }
               
+        return null;*/
+
+        Debug.Log("FindClosestResource returning null");
         return null;
     }
 
     private static GameObject FindClosestResource(GameObject character, string ResourceName)
     {
-        return GameObject.FindObjectsOfType<GameObject>(true)
+        //return GameObject.FindObjectsOfType<GameObject>(true)
+
+        if (CanAccessAllGameInstances())
+        {
+            return instance.AllGOInstances
                 //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .Where(go => CleanKey(go.name) == ResourceName && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
+        }
+
+        Debug.Log("FindClosestResource returning null");
+        return null;
     }
 
     private static GameObject FindClosestItemDrop(GameObject character)
     {
-        return GameObject.FindObjectsOfType<GameObject>(true)
+        //return GameObject.FindObjectsOfType<GameObject>(true)
+
+        if (CanAccessAllGameInstances())
+        {
+            instance.LastFindClosestItemDropTime = Time.time;
+
+            Debug.Log("instance.AllGOInstances len " + instance.AllGOInstances.Count());
+
+            /*IOrderedEnumerable<GameObject> results = instance.AllGOInstances
+            .Where(go => go.HasAnyComponent("ItemDrop"))
+            .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position));*/
+
+
+            GameObject[] allItemDrops = instance.AllGOInstances.Where(go => go != null && go.HasAnyComponent("ItemDrop"))
+                .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
+                .ToArray();
+            Debug.Log("allItemDrops len " + allItemDrops.Count());
+            if (allItemDrops.Length > 0)
+            {
+                Debug.Log($"nearby ItemDrop {allItemDrops[0].name}");
+                return allItemDrops[0];
+            }
+
+            
+
+            //GameObject result = GetFirstFromOrderedEnumerable(results);
+
+            //Debug.Log("result " + result.name);
+
+
+            //Debug.Log("result2 " + results.Count());
+            /*if (results != null && results.Count() > 0)
+            {
+                try
+                {
+                    int i = 0;
+                    bool found = false;
+                    GameObject result = null;
+
+                    while (!found)
+                    {
+                        if (i >= results.Count()) return null;
+
+                        result = results.ElementAt(i);
+                        if (result != null)
+                        {
+                            Debug.Log("result == " +  result.name);
+                            return null;
+                        }
+                        else
+                        {
+                            Debug.Log("result == null");
+                            return null;
+                        }
+                    }
+
+                    return result;
+
+                }
+                catch (NullReferenceException ex)
+                {
+                    Debug.Log($"An error occurred: {ex.Message}");
+                }
+            }
+            else
+            {
+                Debug.Log("No more item drops");
+            }*/
+
+            return null;
+
+            /*GameObject[] nearbyItemDrops = instance.AllGOInstances
                 //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .Where(go => go.HasAnyComponent("ItemDrop"))
-                .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
-                .FirstOrDefault();
+                .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
+                .ToArray();
+            //.FirstOrDefault();
+
+            Debug.Log("nearbyItemDrops len " + nearbyItemDrops.Count());
+            return null;*/
+        }
+
+        Debug.Log("FindClosestItemDrop returning null");
+        return null;
     }
 
     private GameObject FindClosestTreeFor(GameObject go, string TreeType = "small")
     {
-        if (TreeType == "small")
-            return FindSmallTrees()//.Where(t => t.gameObject.name.StartsWith("Beech_small"))// || t.gameObject.name.StartsWith("Pine"))
+        if (CanAccessAllGameInstances())
+        {
+            return instance.AllGOInstances
                 .OrderBy(t => Vector3.Distance(go.transform.position, t.transform.position))
                 .FirstOrDefault();
+        }
+
+        Debug.Log("FindClosestTreeFor returning null");
         return null;
     }
 
@@ -2679,7 +2862,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void StartRecording()
     {
-        instance.recordedAudioClip = Microphone.Start(Microphone.devices[instance.MicrophoneIndex], false, recordingLength, sampleRate);
+        string micName = null;
+        if (instance.MicrophoneIndex < 0 || instance.MicrophoneIndex >= Microphone.devices.Count())
+            micName = Microphone.devices[instance.MicrophoneIndex];
+        instance.recordedAudioClip = Microphone.Start(micName, false, recordingLength, sampleRate);
         instance.IsRecording = true;
         instance.recordingStartedTime = Time.time;
         AddChatTalk(Player.m_localPlayer, Player.m_localPlayer.GetPlayerName(), "...");
@@ -3093,6 +3279,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         data["personality"] = instance.npcPersonality;
         data["voice"] = instance.npcVoice;
         data["gender"] = instance.npcGender;
+        data["MicrophoneIndex"] = instance.MicrophoneIndex;
         
 
         // inventory
@@ -3150,6 +3337,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             
 
             instance.npcGender = int.Parse(data["gender"].ToString());
+
+            instance.MicrophoneIndex = int.Parse(data["MicrophoneIndex"].ToString());
 
             // Load skin color
             JsonArray skinColorArray = data["skinColor"] as JsonArray;
@@ -3235,6 +3424,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         instance.nameInputField.SetTextWithoutNotify(instance.npcName);
         instance.personalityInputField.SetTextWithoutNotify(instance.npcPersonality);
         instance.voiceDropdownComp.SetValueWithoutNotify(instance.npcVoice);
+        instance.micDropdownComp.SetValueWithoutNotify(instance.MicrophoneIndex);
         if (instance.npcGender == 0)
         {
             instance.toggleMasculine.isOn = true;
@@ -4033,7 +4223,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-
+    Dropdown micDropdownComp;
     private void CreateMicInput()
     {
         GameObject textObject = GUIManager.Instance.CreateText(
@@ -4062,7 +4252,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             width: 280f,
             height: 30f);
 
-        Dropdown micDropdownComp = micDropdown.GetComponent<Dropdown>();
+        micDropdownComp = micDropdown.GetComponent<Dropdown>();
         List<string> truncatedOptions = Microphone.devices.ToList().Select(option => TruncateText(option, 27)).ToList();
         micDropdownComp.AddOptions(truncatedOptions);
 
@@ -4089,7 +4279,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void OnMicInputDropdownChanged(int index)
     {
-        Debug.Log("new MicrophoneName " + Microphone.devices[MicrophoneIndex]);
+        instance.MicrophoneIndex = index;
+        Debug.Log("new MicrophoneName " + Microphone.devices[index]);
     }
 
     private void CreateEgoBanner()
@@ -4478,7 +4669,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void OnPreviewVoiceButtonClick(Button button)
     {
         instance.BrainSynthesizeAudio("Hello, I am your friend sent by the team at Ego", npcVoices[instance.npcVoice].ToLower());
-        Debug.Log("Hello, I am your friend sent by the team at Ego. voice: " + npcVoices[instance.npcVoice].ToLower());
+        //Debug.Log("Hello, I am your friend sent by the team at Ego. voice: " + npcVoices[instance.npcVoice].ToLower());
         instance.previewVoiceButton.SetActive(false);
     }
 
