@@ -571,7 +571,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             if (!__instance.InAttack())
             {
-                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance + .5f)
+                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance + (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop", "Pickable") ? 2f : .5f))
                 {
                     if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
                     {
@@ -3510,6 +3510,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         else
         {
             Debug.LogWarning("No saved NPC data found.");
+            Debug.LogWarning("Defaulting to Trump");
+
+            instance.npcName = "Trump";
+            instance.npcPersonality = "You are Donald Trump. Act like it.";
         }
     }
 
