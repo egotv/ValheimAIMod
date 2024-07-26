@@ -17,9 +17,6 @@ using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
-using System.Runtime.InteropServices.WindowsRuntime;
-using UnityEngine.Assertions.Must;
-using System.Security.Policy;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -51,6 +48,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private ConfigEntry<int> MicrophoneIndex;
     private ConfigEntry<float> CompanionVolume;*/
+    private ConfigEntry<string> BrainAPIAddress;
     private ConfigEntry<bool> DisableAutoSave;
 
     private Dictionary<string, Piece.Requirement[]> craftingRequirements = new Dictionary<string, Piece.Requirement[]>();
@@ -224,6 +222,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         MicrophoneIndex = Config.Bind<int>("Integer", "MicrophoneIndex", 0, "Input device index in Windows Sound Settings.");
         CompanionVolume = Config.Bind<float>("Float", "CompanionVolume", 1f, "NPC dialogue volume (0-1)");*/
+        BrainAPIAddress = Config.Bind<string>("String", "BrainAPIAddress", brainBaseURL, "URL address of the brain API");
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
 
@@ -399,9 +398,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         GameObject newfollow = null;
 
 
-        if (Time.time > instance.LastFindClosestItemDropTime + 3)
+        if (Time.time > instance.LastFindClosestItemDropTime + 1.5)
         {
-            Debug.Log("trying to find item drop");
+            //Debug.Log("trying to find item drop");
 
             newfollow = FindClosestItemDrop(__instance.gameObject);
 
@@ -577,6 +576,105 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
                     {
                         __instance.DoInteractAnimation(monsterAIcomponent.m_follow.transform.position);
+
+                        ItemDrop component = monsterAIcomponent.m_follow.GetComponent<ItemDrop>();
+                        FloatingTerrainDummy floatingTerrainDummy = null;
+
+                        /*if (component == null && (bool)(floatingTerrainDummy = collider.attachedRigidbody.gameObject.GetComponent<FloatingTerrainDummy>()) && (bool)floatingTerrainDummy)
+                        {
+                            component = floatingTerrainDummy.m_parent.gameObject.GetComponent<ItemDrop>();
+                        }*/
+                        if (component == null || __instance.HaveUniqueKey(component.m_itemData.m_shared.m_name) || !component.GetComponent<ZNetView>().IsValid())
+                        {
+                            Debug.Log("comp null or ");
+                            return;
+                        }
+                        if (!component.CanPickup())
+                        {
+                            Debug.Log("RequestOwn");
+                            component.RequestOwn();
+                        }
+                        else
+                        {
+                            if (component.InTar())
+                            {
+                                Debug.Log("InTar");
+                                return;
+                            }
+                            component.Load();
+                            if (!__instance.m_inventory.CanAddItem(component.m_itemData) || component.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight())
+                            {
+                                Debug.Log("!CanAddItem");
+                                Debug.Log($"!m_inventory.CanAddItem(component.m_itemData) {!__instance.m_inventory.CanAddItem(component.m_itemData)}");
+                                Debug.Log($"component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight() {component.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight()}");
+                                return;
+                            }
+
+                            Debug.Log("Picking up " + component.name);
+                            __instance.Pickup(component.gameObject);
+
+                            if (component == null)
+                            {
+                                return;
+                            }
+                            if ((component.m_itemData.m_shared.m_icons == null || component.m_itemData.m_shared.m_icons.Length == 0 || component.m_itemData.m_variant >= component.m_itemData.m_shared.m_icons.Length))
+                            {
+                                return;
+                            }
+                            if (!component.CanPickup(true))
+                            {
+                                return;
+                            }
+                            if (__instance.m_inventory.ContainsItem(component.m_itemData))
+                            {
+                                return;
+                            }
+                            if (component.m_itemData.m_shared.m_questItem && __instance.HaveUniqueKey(component.m_itemData.m_shared.m_name))
+                            {
+                                Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name}");
+                                return;
+                            }
+                            int stack = component.m_itemData.m_stack;
+                            bool flag = __instance.m_inventory.AddItem(component.m_itemData);
+                            if (__instance.m_nview.GetZDO() == null)
+                            {
+                                UnityEngine.Object.Destroy(component.gameObject);
+                                return;
+                            }
+                            if (!flag)
+                            {
+                                Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name} because no room");
+                                //Message(MessageHud.MessageType.Center, "$msg_noroom");
+                                return;
+                            }
+                            if (component.m_itemData.m_shared.m_questItem)
+                            {
+                                __instance.AddUniqueKey(component.m_itemData.m_shared.m_name);
+                            }
+                            ZNetScene.instance.Destroy(component.gameObject);
+                            if (flag && component.m_itemData.IsWeapon() && __instance.m_rightItem == null && __instance.m_hiddenRightItem == null && (__instance.m_leftItem == null || !__instance.m_leftItem.IsTwoHanded()) && (__instance.m_hiddenLeftItem == null || !__instance.m_hiddenLeftItem.IsTwoHanded()))
+                            {
+                                __instance.EquipItem(component.m_itemData);
+                            }
+                            __instance.m_pickupEffects.Create(__instance.transform.position, Quaternion.identity);
+
+
+                            //m_inventory.AddItem(component.m_itemData); // if pickup is not adding to inventory
+                            /*continue;
+
+
+
+
+                            //Debug.Log("floatingTerrainDummy");
+                            Vector3 vector2 = Vector3.Normalize(vector - component.transform.position);
+                            float num2 = 15f;
+                            Vector3 vector3 = vector2 * num2 * dt;
+                            component.transform.position += vector3;
+                            if ((bool)floatingTerrainDummy)
+                            {
+                                floatingTerrainDummy.transform.position += vector3;
+                            }*/
+                        }
 
                         Destroy(monsterAIcomponent.m_follow);
                         instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
@@ -881,6 +979,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 if (humanoidComponent != null)
                 {
                     humanoidComponent.Heal(num);
+                }
+
+                if (instance.NPCTalker)
+                {
+                    instance.NPCTalker.Say(Talker.Type.Normal, "Health +" + num);
                 }
             }
         }
@@ -1306,7 +1409,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
      * NPC COMMANDS
      * 
      */
-
+    Talker NPCTalker = null;
     private void SpawnCompanion()
     {
         GameObject[] npcs = FindPlayerNPCs();
@@ -1342,11 +1445,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         instance.PlayerNPC = npcInstance;
 
-        /*if (npcInstance.HasAnyComponent("Tameable"))
+        if (npcInstance.HasAnyComponent("Tameable"))
         {
             Debug.Log("removing npc tameable comp");
             Destroy(npcInstance.GetComponent<Tameable>());
-        }*/
+        }
+
+        //NPCTalker = npcInstance.AddComponent<Talker>();
+        NPCTalker = npcInstance.GetComponent<Talker>();
 
         // make the monster tame
         MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
@@ -2042,7 +2148,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         using (WebClient client = new WebClient())
         {
             // Construct the URL with query parameters
-            string url = $"{brainBaseURL}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}";
+            string url = $"{BrainAPIAddress.Value}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}";
 
             client.DownloadStringCompleted += OnBrainSynthesizeAudioResponse;
             client.DownloadStringAsync(new Uri(url));
@@ -2082,7 +2188,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         WebClient webClient = new WebClient();
         webClient.Headers.Add("Content-Type", "application/json");
 
-        webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
+        webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/instruct_agent"), jsonData);
         webClient.UploadStringCompleted += OnBrainSendPeriodicUpdateResponse;
     }
 
@@ -2171,7 +2277,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         webClient.Headers.Add("Content-Type", "application/json");
 
         // Send the POST request
-        webClient.UploadStringAsync(new System.Uri($"{brainBaseURL}/instruct_agent"), jsonData);
+        webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/instruct_agent"), jsonData);
         webClient.UploadStringCompleted += OnBrainSendInstructionResponse;
     }
 
@@ -2264,7 +2370,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         WebClient webClient = new WebClient();
 
         // Download the audio file asynchronously
-        webClient.DownloadDataAsync(new System.Uri($"{brainBaseURL}/get_audio_file?audio_file_id={audioFileId}"));
+        webClient.DownloadDataAsync(new System.Uri($"{BrainAPIAddress.Value}/get_audio_file?audio_file_id={audioFileId}"));
         webClient.DownloadDataCompleted += OnAudioFileDownloaded;
     }
 
@@ -2401,7 +2507,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return instance.AllEnemiesInstances;
         }
         instance.AllEnemiesInstances = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.HasAnyComponent("MonsterAI", "BaseAI", "AnimalAI"))
+                .Where(go => go != null && go.HasAnyComponent("MonsterAI", "BaseAI", "AnimalAI"))
                 .ToArray();
         AllEnemiesInstancesLastRefresh = Time.time;
         return instance.AllEnemiesInstances;
@@ -2412,7 +2518,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         //return GameObject.FindObjectsOfType<GameObject>(true)
             return instance.FindEnemies()
                 //.Where(go => go.name.Contains(EnemyName) && go.HasAnyComponent("Character", "Humanoid" , "BaseAI", "MonsterAI"))
-                .Where(go => go.name.StartsWith(CleanKey(EnemyName)))
+                .Where(go => go != null && go.name.StartsWith(CleanKey(EnemyName)))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
     }
@@ -2424,7 +2530,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return instance.AllPlayerNPCInstances;
         }
         instance.AllPlayerNPCInstances = GameObject.FindObjectsOfType<GameObject>(true)
-                .Where(go => go.name.Contains(NPCPrefabName))
+                .Where(go => go != null && go.name.Contains(NPCPrefabName))
                 .ToArray();
         AllPlayerNPCInstancesLastRefresh = Time.time;
         if (instance.AllPlayerNPCInstances.Length > 0)
@@ -2570,7 +2676,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             return instance.AllGOInstances
                 //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
-                .Where(go => CleanKey(go.name) == ResourceName && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                .Where(go => go != null && CleanKey(go.name) == ResourceName && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
         }
@@ -2587,7 +2693,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             instance.LastFindClosestItemDropTime = Time.time;
 
-            Debug.Log("instance.AllGOInstances len " + instance.AllGOInstances.Count());
+            //Debug.Log("instance.AllGOInstances len " + instance.AllGOInstances.Count());
 
             /*IOrderedEnumerable<GameObject> results = instance.AllGOInstances
             .Where(go => go.HasAnyComponent("ItemDrop"))
@@ -2597,10 +2703,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             GameObject[] allItemDrops = instance.AllGOInstances.Where(go => go != null && go.HasAnyComponent("ItemDrop"))
                 .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .ToArray();
-            Debug.Log("allItemDrops len " + allItemDrops.Count());
+            //Debug.Log("allItemDrops len " + allItemDrops.Count());
             if (allItemDrops.Length > 0)
             {
-                Debug.Log($"nearby ItemDrop {allItemDrops[0].name}");
+                //Debug.Log($"nearby ItemDrop {allItemDrops[0].name}");
                 return allItemDrops[0];
             }
 

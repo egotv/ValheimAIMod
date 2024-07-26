@@ -225,8 +225,8 @@ namespace ValheimAIModLoader
         {
             base.Awake();
             m_autoPickupMask = LayerMask.GetMask("item");
-            m_inventory.m_width = 10;
-            m_inventory.m_height = 6;
+            /*m_inventory.m_width = 10;
+            m_inventory.m_height = 6;*/
         }
 
         public void SetCurrentCommand(NPCCommand.CommandType NewCommand)
