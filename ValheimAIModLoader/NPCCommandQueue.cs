@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace ValheimAIModLoader
 {
-    public class NPCCommandQueue
+    /*public class NPCCommandQueue
     {
         // All commands for NPC
         public List<NPCCommand> commandList = new List<NPCCommand>();
@@ -21,7 +21,7 @@ namespace ValheimAIModLoader
             { "follow", new string[] { "move"} },
         };
 
-        /*public NPCCommand GetHighestPriorityCommand()
+        *//*public NPCCommand GetHighestPriorityCommand()
         {
             NPCCommand highest = new NPCCommand();
             foreach (NPCCommand npcCommand in commandList)
@@ -38,7 +38,7 @@ namespace ValheimAIModLoader
                 }
             }
             return highest;
-        }*/
+        }*//*
 
         public NPCCommand GetBestAction()
         {
@@ -60,7 +60,7 @@ namespace ValheimAIModLoader
             RemoveCommandsWithPriority(5);
             commandList.Add(command);
             commandList.Sort((a1, a2) => a2.priority.CompareTo(a1.priority));
-            /*if (NewCommandDeletes.ContainsKey(commandname))
+            *//*if (NewCommandDeletes.ContainsKey(commandname))
             {
                 string[] toberemoved_commands = NewCommandDeletes[commandname];
                 foreach (string tbr in toberemoved_commands)
@@ -69,7 +69,7 @@ namespace ValheimAIModLoader
                 }
             }
 
-            commandDict.Add(commandname, command);*/
+            commandDict.Add(commandname, command);*//*
         }
 
         public void RemoveCommandsWithType(NPCCommand.CommandType CommandType)
@@ -122,5 +122,5 @@ namespace ValheimAIModLoader
                 commandList.RemoveAt(r);
             }
         }
-    }
+    }*/
 }

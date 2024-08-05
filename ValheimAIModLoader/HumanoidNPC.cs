@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using UnityEngine;
 
 namespace ValheimAIModLoader
@@ -73,7 +74,7 @@ namespace ValheimAIModLoader
         public float LastPositionDelta;
 
         //public ValheimAIModLoader.NPCMode eNPCMode;
-        public NPCCommand.CommandType CurrentCommand;
+        //public NPCCommand.CommandType CurrentCommand;
 
         public Vector3 patrol_position;
 
@@ -229,7 +230,30 @@ namespace ValheimAIModLoader
             m_inventory.m_height = 6;*/
         }
 
-        public void SetCurrentCommand(NPCCommand.CommandType NewCommand)
+        public bool HasEnoughResource(string resourceName, int requiredAmount)
+        {
+            // Get the player's inventory
+            Inventory playerInventory = GetInventory();
+
+            if (playerInventory == null)
+            {
+                Debug.LogError("Player inventory not found!");
+                return false;
+            }
+
+            // Find all items in the inventory that match the resource name
+            List<ItemDrop.ItemData> items = playerInventory.GetAllItems()
+                .Where(item => item.m_shared.m_name == resourceName)
+                .ToList();
+
+            // Sum up the total amount of the resource
+            int totalAmount = items.Sum(item => item.m_stack);
+
+            // Check if the total amount is greater than or equal to the required amount
+            return totalAmount >= requiredAmount;
+        }
+
+        /*public void SetCurrentCommand(NPCCommand.CommandType NewCommand)
         {
             CurrentCommand = NewCommand;
             if (NewCommand == NPCCommand.CommandType.PatrolArea)
@@ -240,7 +264,7 @@ namespace ValheimAIModLoader
             {
                 patrol_position = Vector3.zero;
             }
-        }
+        }*/
 
         public override bool IsCrouching()
         {

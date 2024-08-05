@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace ValheimAIModLoader
 {
-    public abstract class NPCCommand
+    /*public abstract class NPCCommand
     {
         public enum CommandType
         {
@@ -21,11 +21,6 @@ namespace ValheimAIModLoader
             CombatSneakAttack,
             CombatDefend,
 
-            /*InventoryDropAll,
-            InventoryDropItem,
-            InventoryEquipItem,
-            InventoryPickupItem,*/
-
             HarvestResource,
 
             PatrolArea,
@@ -34,6 +29,7 @@ namespace ValheimAIModLoader
         }
 
         public GameObject NPC;
+        public HumanoidNPC humanoidNPC;
 
         public CommandType Type { get; set; }
         public int priority = 0;
@@ -60,16 +56,16 @@ namespace ValheimAIModLoader
                 expiresAt = 0;
             }
             NPC = INPC;
-            /*if (IParameters != null)
+            *//*if (IParameters != null)
             {
                 Parameters = IParameters;
-            }*/
+            }*//*
         }
 
         public abstract bool IsTaskComplete();
         public abstract void Execute();
 
-        /*public void SetParameter(string key, object value)
+        *//*public void SetParameter(string key, object value)
         {
             Parameters[key] = value;
         }
@@ -85,7 +81,7 @@ namespace ValheimAIModLoader
                 // Handle the case when the parameter key doesn't exist
                 throw new KeyNotFoundException($"Parameter '{key}' not found in the command.");
             }
-        }*/
+        }*//*
     }
 
     public class PatrolAction : NPCCommand
@@ -96,7 +92,7 @@ namespace ValheimAIModLoader
 
         public override bool IsTaskComplete()
         {
-            return (patrol_position.DistanceTo(NPC.transform.position) < patrol_radius);
+            return false;
         }
 
         public override void Execute()
@@ -114,6 +110,10 @@ namespace ValheimAIModLoader
         {
             // Check if harvesting condition is met, e.g., resource is within range
             //return Vector3.Distance(npc.transform.position, Resource.transform.position) <= 5f;
+            if (humanoidNPC)
+            {
+                if (humanoidNPC.m_inventory.)
+            }
             return false;
         }
 
@@ -126,6 +126,7 @@ namespace ValheimAIModLoader
     public class AttackAction : NPCCommand
     {
         public GameObject Target { get; set; }
+        public string TargetName { get; set; }
 
         public override bool IsTaskComplete()
         {
@@ -139,4 +140,17 @@ namespace ValheimAIModLoader
             
         }
     }
+
+    public class FollowAction : NPCCommand
+    {
+        public override bool IsTaskComplete()
+        {
+            return false;
+        }
+
+        public override void Execute()
+        {
+
+        }
+    }*/
 }

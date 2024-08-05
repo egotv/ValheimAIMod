@@ -5,14 +5,14 @@ using UnityEngine;
 
 namespace ValheimAIModLoader
 {
-    public enum NPCMode
+    /*public enum NPCMode
     {
         Follow,
         Attack,
         Harvest,
         Patrol,
         Idle
-    }
+    }*/
 
     public class NPCScript : MonoBehaviour
     {
