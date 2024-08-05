@@ -146,7 +146,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         AddItemToScrollBox(TaskListScrollBox, "{ACTION} {category} ({param})", defaultSprite);
         AddItemToScrollBox(TaskListScrollBox, "{ACTION} {category} ({param})", defaultSprite);*/
 
-        HarvestAction harvestAction = new HarvestAction();
+        /*HarvestAction harvestAction = new HarvestAction();
         harvestAction.ResourceName = "Wood";
         harvestAction.RequiredAmount = 20;
         commandManager.AddCommand(harvestAction);
@@ -154,7 +154,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         harvestAction = new HarvestAction();
         harvestAction.ResourceName = "Rock";
         harvestAction.RequiredAmount = 20;
-        commandManager.AddCommand(harvestAction);
+        commandManager.AddCommand(harvestAction);*/
 
         instance.FindPlayerNPCs();
         if (instance.PlayerNPC)
@@ -2489,7 +2489,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                     string[] parameters = {};
                     string p = "";
-                    int q = 0;
+                    int q = 10;
 
                     if (commandObject.ContainsKey("parameters"))
                     {
@@ -2498,8 +2498,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         {
                             p = jsonparams[0].ToString();
 
-                            if (jsonparams.Count > 1)
-                                q = int.Parse(jsonparams[1].ToString());
+                            /*if (jsonparams.Count > 1)
+                                q = int.Parse(jsonparams[1].ToString());*/
                         }
                     }
 
@@ -4466,7 +4466,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             textComponent.text = text;
             textComponent.font = GUIManager.Instance.AveriaSerifBold;
             textComponent.fontSize = 17;
-            textComponent.color = Color.white;
+            textComponent.color = index == 0 ? Color.white : Color.gray;
             textComponent.alignment = TextAnchor.MiddleLeft;
 
             textComponent.horizontalOverflow = HorizontalWrapMode.Wrap;
