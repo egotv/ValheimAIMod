@@ -457,7 +457,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
-        if (ZInput.GetKeyDown(KeyCode.K) && instance.PlayerNPC)
+        if (ZInput.GetKeyDown(KeyCode.J) && instance.PlayerNPC)
         {
             HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
@@ -1024,7 +1024,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             __result += "\n<color=yellow><b>[E]</b></color> Inventory";
             __result += "\n<color=yellow><b>[T]</b></color> Push to Talk";
             __result += "\n<color=yellow><b>[Y]</b></color> Menu";
-            __result += $"\n<color=yellow><b>[K]</b></color> Combat Mode: <color=yellow>{instance.NPCCurrentMode}</color>";
+            __result += $"\n<color=yellow><b>[J]</b></color> Combat Mode: <color=yellow>{instance.NPCCurrentMode}</color>";
 
             return false; // Skip original method
         }
@@ -3537,7 +3537,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         var gameState = new JsonObject
         {
-            ["Name"] = humanoidNPC.m_name,
             ["Health"] = humanoidNPC.GetHealth(),
             ["Stamina"] = humanoidNPC.m_stamina,
             ["Inventory"] = npcInventoryItems,
@@ -3570,6 +3569,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         var jsonObject = new JsonObject
         {
             ["player_id"] = humanoidNPC.GetZDOID().ToString(),
+            ["agent_name"] = humanoidNPC.m_name,
             ["game_state"] = gameState,
             ["player_instruction_audio_file_base64"] = base64audio,
             ["timestamp"] = Time.time,
