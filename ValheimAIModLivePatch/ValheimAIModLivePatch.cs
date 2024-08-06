@@ -1826,20 +1826,23 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             // ADD DEFAULT SPAWN ITEMS TO NPC
 
-            ItemDrop.ItemData itemdata;
+            if (humanoidNpc_Component.m_inventory.m_inventory.Count == 0)
+            {
+                ItemDrop.ItemData itemdata;
 
-            itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
-            itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
-            humanoidNpc_Component.EquipItem(itemdata);
-            //humanoidNpc_Component.GiveDefaultItem(itemPrefab);
+                itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
+                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
+                humanoidNpc_Component.EquipItem(itemdata);
+                //humanoidNpc_Component.GiveDefaultItem(itemPrefab);
 
-            itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeChest");
-            itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
-            humanoidNpc_Component.EquipItem(itemdata);
+                itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeChest");
+                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
+                humanoidNpc_Component.EquipItem(itemdata);
 
-            itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeLegs");
-            itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
-            humanoidNpc_Component.EquipItem(itemdata);
+                itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeLegs");
+                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
+                humanoidNpc_Component.EquipItem(itemdata);
+            }
 
             // COPY PROPERTIES FROM PLAYER
             humanoidNpc_Component.m_walkSpeed = localPlayer.m_walkSpeed;
@@ -3814,6 +3817,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 //["name"] = item.m_shared.m_name,
                 ["name"] = item.m_dropPrefab.name,
                 ["stack"] = item.m_stack,
+                ["equipped"] = item.m_equipped ? 1 : 0,
+
             };
             inventoryItems.Add(itemData);
         }
@@ -3908,6 +3913,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 string itemName = itemData["name"].ToString();
                 int stack = int.Parse(itemData["stack"].ToString());
+                int equipped = 0;
+                if (itemData.ContainsKey("equipped"))
+                    equipped = int.Parse(itemData["equipped"].ToString());
 
 
                 //string prefabRealName = TransformToPrefabName(LocalizationManager.Instance.TryTranslate(itemName));
@@ -3917,9 +3925,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 
 
                 GameObject itemPrefab = ZNetScene.instance.GetPrefab(prefabRealName);
-                if (itemPrefab != null && prefabRealName != "AxeBronze" && prefabRealName != "ArmorBronzeChest" && prefabRealName != "ArmorBronzeLegs")
+                //if (itemPrefab != null && prefabRealName != "AxeBronze" && prefabRealName != "ArmorBronzeChest" && prefabRealName != "ArmorBronzeLegs")
+                if (itemPrefab != null)
                 {
                     ItemDrop.ItemData itemdata = npc.PickupPrefab(itemPrefab, stack);
+                    if (equipped != 0)
+                    {
+                        npc.EquipItem(itemdata);
+                    }
                 }
                 else if (itemPrefab == null)
                 {
