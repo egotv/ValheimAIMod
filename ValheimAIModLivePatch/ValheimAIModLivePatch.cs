@@ -17,7 +17,6 @@ using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
-using System.Threading.Tasks;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -66,6 +65,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
     private GameObject PlayerNPC;
+    private HumanoidNPC PlayerNPC_humanoid;
+
+
     public NPCMode NPCCurrentMode { get; private set; }
 
     /*public NPC()
@@ -121,6 +123,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private NPCCommandManager commandManager = new NPCCommandManager();
 
+
+    private static Dictionary<string, Dictionary<string, List<string>>> resourceDatabase = new Dictionary<string, Dictionary<string, List<string>>>();
+
+
     private void Awake()
     {
         Debug.Log("ValheimAIModLivePatch Loaded!");
@@ -142,9 +148,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         CreateModMenuUI();
 
         Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
-        /*AddItemToScrollBox(TaskListScrollBox, "{ACTION} {category} ({param})", defaultSprite);
-        AddItemToScrollBox(TaskListScrollBox, "{ACTION} {category} ({param})", defaultSprite);
-        AddItemToScrollBox(TaskListScrollBox, "{ACTION} {category} ({param})", defaultSprite);*/
 
         /*HarvestAction harvestAction = new HarvestAction();
         harvestAction.ResourceName = "Wood";
@@ -163,10 +166,162 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             LoadNPCData(npc);
         }
 
+        //PopulateDatabase();
+
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
 
-    [HarmonyPostfix]
+
+    private void SaveDatabaseToJson()
+    {
+        JsonObject jsonObject = new JsonObject();
+
+        foreach (var resourcePair in resourceDatabase)
+        {
+            JsonObject resourceObject = new JsonObject();
+
+            foreach (var sourcePair in resourcePair.Value)
+            {
+                JsonArray sourceArray = new JsonArray();
+
+                foreach (string sourceName in sourcePair.Value)
+                {
+                    sourceArray.Add(sourceName);
+                }
+
+                resourceObject[sourcePair.Key] = sourceArray;
+            }
+
+            jsonObject[resourcePair.Key] = resourceObject;
+        }
+
+        string jsonFilePath = Path.Combine(UnityEngine.Application.persistentDataPath, "database.json");
+        File.WriteAllText(jsonFilePath, jsonObject.ToString()); // '2' is for indentation
+    }
+
+    private void PopulateDatabase()
+    {
+        // This method would need to be implemented to populate the database
+        // You'd need to iterate through all prefabs in the game and check their components
+
+        //Example (not actual implementation):
+        foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
+        {
+            Debug.Log(prefab.name);
+
+            if (prefab.HasAnyComponent("TreeBase"))
+                CheckTreeBase(prefab);
+            if (prefab.HasAnyComponent("CharacterDrop"))
+                CheckCharacterDrop(prefab);
+            if (prefab.HasAnyComponent("DropOnDestroyed"))
+                CheckDropOnDestroyed(prefab);
+            if (prefab.HasAnyComponent("ItemDrop"))
+                CheckItemDrop(prefab);
+        }
+
+        SaveDatabaseToJson();
+    }
+
+    private void CheckTreeBase(GameObject prefab)
+    {
+        /*var treeBase = prefab.GetComponent<TreeBase>();
+        if (treeBase != null && treeBase.m_dropWhenDestroyed != null)
+        {
+            foreach (ItemDrop.ItemData drop in treeBase.m_dropWhenDestroyed.GetDropListItems())
+            {
+                if (drop.m_dropPrefab)
+                    AddToDatabase(drop.m_dropPrefab.name, "TreeBase", prefab.name);
+            }
+        }*/
+    }
+
+    private void CheckCharacterDrop(GameObject prefab)
+    {
+        /*var characterDrop = prefab.GetComponent<CharacterDrop>();
+        if (characterDrop != null && characterDrop.m_drops != null)
+        {
+            foreach (CharacterDrop.Drop drop in characterDrop.m_drops)
+            {
+                if (drop.m_prefab)
+                AddToDatabase(drop.m_prefab.name, "CharacterDrop", prefab.name);
+            }
+        }*/
+    }
+
+    private void CheckDropOnDestroyed(GameObject prefab)
+    {
+        var dropOnDestroyed = prefab.GetComponent<DropOnDestroyed>();
+        if (dropOnDestroyed != null && dropOnDestroyed.m_dropWhenDestroyed != null && dropOnDestroyed.m_dropWhenDestroyed.m_drops != null)
+        {
+            foreach (DropTable.DropData drop in dropOnDestroyed.m_dropWhenDestroyed.m_drops)
+            {
+                if (drop.m_item)
+                    AddToDatabase(drop.m_item.name, "DropOnDestroyed", prefab.name);
+            }
+        }
+    }
+
+    private void CheckItemDrop(GameObject prefab)
+    {
+        /*var itemDrop = prefab.GetComponent<ItemDrop>();
+        if (itemDrop != null)
+        {
+            AddToDatabase(prefab.name, "ItemDrop", prefab.name);
+        }*/
+    }
+
+    private void AddToDatabase(string resourceName, string sourceType, string sourceName)
+    {
+        Debug.Log($"{resourceName} {sourceType} {sourceName}");
+        if (!resourceDatabase.ContainsKey(resourceName))
+        {
+            resourceDatabase[resourceName] = new Dictionary<string, List<string>>
+                {
+                    { "TreeBase", new List<string>() },
+                    { "CharacterDrop", new List<string>() },
+                    { "DropOnDestroyed", new List<string>() },
+                    { "ItemDrop", new List<string>() }
+                };
+        }
+
+        resourceDatabase[resourceName][sourceType].Add(sourceName);
+    }
+
+    public static string QueryResource(string resourceName)
+    {
+        if (!resourceDatabase.ContainsKey(resourceName))
+        {
+            return $"Resource '{resourceName}' not found.";
+        }
+
+        var results = resourceDatabase[resourceName];
+        var output = $"Ways to obtain '{resourceName}':\n";
+
+        if (results["TreeBase"].Count > 0)
+            output += $"- Destroy trees: {string.Join(", ", results["TreeBase"])}\n";
+        if (results["CharacterDrop"].Count > 0)
+            output += $"- Defeat creatures: {string.Join(", ", results["CharacterDrop"])}\n";
+        if (results["DropOnDestroyed"].Count > 0)
+            output += $"- Destroy objects: {string.Join(", ", results["DropOnDestroyed"])}\n";
+        if (results["ItemDrop"].Count > 0)
+            output += $"- Pick up from the ground: {string.Join(", ", results["ItemDrop"])}\n";
+
+        return output;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+[HarmonyPostfix]
     [HarmonyPatch(typeof(Character), "OnDamaged")]
     private static void Character_OnDamaged_Postfix(Character __instance, HitData hit)
     {
@@ -322,18 +477,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         // destroy npc pins
-        Minimap.PinData[] pds = { };
-        foreach (Minimap.PinData pd in Minimap.instance.m_pins)
+        //Minimap.PinData[] pds = { };
+
+        if (instance.PlayerNPC_humanoid)
         {
-            if (pd.m_author == "NPC")
+            List<Minimap.PinData> pds = new List<Minimap.PinData>();
+            foreach (Minimap.PinData pd in Minimap.instance.m_pins)
             {
-                pds.AddItem(pd);
+                if (pd.m_author == "NPC" && instance.PlayerNPC_humanoid.npcPinData != null && pd != instance.PlayerNPC_humanoid.npcPinData)
+                {
+                    pds.Add(pd);
+                    //Debug.Log("Add item | " + Time.frameCount);
+                }
+            }
+
+            //Debug.Log($"pds len {pds.Count} |  {Time.frameCount}");
+            foreach (Minimap.PinData pd in pds)
+            {
+                Minimap.instance.RemovePin(pd);
+                //Debug.Log($"removing pin {pd.m_name}");
             }
         }
-        foreach (Minimap.PinData pd in pds)
-        {
-            Minimap.instance.RemovePin(pd);
-        }
+        
 
         if (Console.IsVisible())
         {
@@ -403,6 +568,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"Ego agent left the world!");
                 instance.PlayerNPC = null;
+                instance.PlayerNPC_humanoid = null;
             }
             else
             {
@@ -538,22 +704,22 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (command is HarvestAction)
             {
                 HarvestAction action = (HarvestAction)command;
-                instance.Harvesting_Start(action.ResourceName);
+                instance.Harvesting_Start(action.ResourceName, "");
             }
             if (command is PatrolAction)
             {
                 PatrolAction action = (PatrolAction)command;
-                instance.Patrol_Start();
+                instance.Patrol_Start("");
             }
             if (command is AttackAction)
             {
                 AttackAction action = (AttackAction)command;
-                instance.Combat_StartAttacking(action.TargetName);
+                instance.Combat_StartAttacking(action.TargetName, "");
             }
             if (command is FollowAction)
             {
                 FollowAction action = (FollowAction)command;
-                instance.Follow_Start(Player.m_localPlayer.gameObject);
+                instance.Follow_Start(Player.m_localPlayer.gameObject, "");
             }
         }
 
@@ -1646,6 +1812,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         // add item to inventory
         HumanoidNPC humanoidNpc_Component = npcInstance.GetComponent<HumanoidNPC>();
+        instance.PlayerNPC_humanoid = humanoidNpc_Component;
         if (humanoidNpc_Component != null)
         {
             LoadNPCData(humanoidNpc_Component);
@@ -1739,6 +1906,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         SetMonsterAIAggravated(monsterAIcomponent, false);
         monsterAIcomponent.SetFollowTarget(target);
 
+        if (NPCDialogueMessage != "")
         AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         instance.NPCCurrentCommand = NPCCommand.CommandType.FollowPlayer;
@@ -1814,6 +1982,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         monsterAIcomponent.m_aggravatable = true;
         monsterAIcomponent.SetHuntPlayer(true);
 
+        if (NPCDialogueMessage != "")
         AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         instance.NPCCurrentCommand = NPCCommand.CommandType.CombatAttack;
@@ -1934,6 +2103,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
         HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
+
+        if (!ItemName.StartsWith("$"))
+        {
+            ItemName = "$" + ItemName;
+        }
+
+
+
         instance.CurrentWeaponName = ItemName;
 
         EquipItem(ItemName, humanoidnpc_component);
@@ -1941,7 +2118,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-        Debug.Log("Inventory_EquipItem activated!");
+        Debug.Log($"Inventory_EquipItem activated! ItemName : {ItemName}");
     }
 
     private void Harvesting_Start(string ResourceName, string NPCDialogueMessage = "On it boss!")
@@ -1973,7 +2150,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         monsterAIcomponent.SetFollowTarget(resource);
 
-        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+        if (NPCDialogueMessage != "")
+            AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         instance.NPCCurrentCommand = NPCCommand.CommandType.HarvestResource;
         Debug.Log("Harvesting_Start activated!");
@@ -2017,9 +2195,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         monsterAIcomponent.SetFollowTarget(null);
         SetMonsterAIAggravated(monsterAIcomponent, false);
         SetMonsterAIAggravated(monsterAIcomponent, true);
-        
 
-        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+        if (NPCDialogueMessage != "")
+            AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         instance.NPCCurrentCommand = NPCCommand.CommandType.PatrolArea;
         Debug.Log("Patrol_Start activated!");
@@ -2317,7 +2495,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void AddChatTalk(Character character, string name, string text)
     {
         UserInfo userInfo = new UserInfo();
-        userInfo.Name = character.m_name;
+        if (character is Player)
+        {
+            Player player = (Player)character;
+            userInfo.Name = player.GetPlayerName();
+        }
+        else
+            userInfo.Name = character.m_name;
         Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
         Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
         if (text != "...")
@@ -2763,11 +2947,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (instance.AllPlayerNPCInstances.Length > 0)
         {
             instance.PlayerNPC = instance.AllPlayerNPCInstances[0];
+            instance.PlayerNPC_humanoid = instance.PlayerNPC.GetComponent<HumanoidNPC>();
         }
         return instance.AllPlayerNPCInstances;
     }
 
-    static int AllGOInstancesRefreshRate = 30;
+    static int AllGOInstancesRefreshRate = 3;
     private static bool CanAccessAllGameInstances()
     {
         if (Time.time > instance.AllGOInstancesLastRefresh + AllGOInstancesRefreshRate || instance.AllGOInstancesLastRefresh == 0)
@@ -3536,6 +3721,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 ["name"] = item.m_shared.m_name,
                 ["amount"] = item.m_stack,
             };
+
+            Debug.Log($"item: {item.m_shared.m_name} x{item.m_stack}");
             npcInventoryItems.Add(itemData);
         }
 
@@ -3624,7 +3811,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             var itemData = new JsonObject
             {
-                ["name"] = item.m_shared.m_name,
+                //["name"] = item.m_shared.m_name,
+                ["name"] = item.m_dropPrefab.name,
                 ["stack"] = item.m_stack,
             };
             inventoryItems.Add(itemData);
@@ -3722,7 +3910,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 int stack = int.Parse(itemData["stack"].ToString());
 
 
-                string prefabRealName = TransformToPrefabName(LocalizationManager.Instance.TryTranslate(itemName));
+                //string prefabRealName = TransformToPrefabName(LocalizationManager.Instance.TryTranslate(itemName));
+                string prefabRealName = itemName;
 
                 Debug.Log($"trying to add to inventory: {itemName} x{stack} {prefabRealName}");
                 
@@ -3731,6 +3920,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 if (itemPrefab != null && prefabRealName != "AxeBronze" && prefabRealName != "ArmorBronzeChest" && prefabRealName != "ArmorBronzeLegs")
                 {
                     ItemDrop.ItemData itemdata = npc.PickupPrefab(itemPrefab, stack);
+                }
+                else if (itemPrefab == null)
+                {
+                    Debug.Log($"itemPrefab {itemName} was null");
                 }
             }
 
@@ -4118,7 +4311,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         List<ItemDrop.ItemData> items = inventory.GetAllItems();
         foreach (ItemDrop.ItemData item in items)
         {
-            Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack})");
+            Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack} | {item.m_dropPrefab.name})");
         }
     }
 
@@ -4916,8 +5109,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         "Bag Chaser",
         "Creditor",*/
 
-        "Raiden Shogun",
         "Hermione Granger",
+        "Raiden Shogun",
         "Childe",
         "Draco Malfoy",
         "Gawr Gura",
@@ -4941,9 +5134,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
 
-
-      {"Raiden Shogun", "[Genshin Impact] The Shogun is the current ruler of Inazuma and puppet vessel of Ei, the Electro Archon, God of Eternity, and the Narukami Ogosho. Ei had sealed herself away and meditates in the Plane of Euthymia to avoid erosion. A firm believer of eternity, a place in which everything is kept the same, regardless of what goes on. Honorable in her conduct and is revered by the people of Inazuma. Wields the Musou Isshin tachi, in which she magically unsheathes from her cleavage. The Musou no Hitotachi technique is usually an instant-kill move.\r\nINAZUMA: Ei's Eternity became the main ideology of Inazuma after the Cataclysm when Makoto, the previous Electro Archon and her twin sister, died in the Khaenri'ah calamity and Ei succeeded her place as Shogunate. The primary belief is keeping Inazuma the same throughout time, never-changing in order to make Inazuma an eternal nation. Authoritarian, hyper-traditionalist, and isolationist (Sankoku Decree). Holds great importance to noble families and clans. Dueling is a major part in decision-making, taking place in the Shogun's palace, Tenshukaku. The Tri-Commission acts as the main government. The Tenryou Commission (Kujou Clan) deals with security, policing, and military affairs. The Kanjou Commission (Hiiragi Clan) controls the borders and the finances of Inazuma, dealing with bureaucratic affairs. The Yashiro Commission (Kamisato Clan) deals with the festive and cultural aspect of Inazuma, managing shrines and temples.\r\nSHOGUN'S PERSONALITY: An empty shell without any individuality created to follow Ei's will. Dismissive of trivial matters. Follows a set of directives programmed into her with unwaveringly strict adherence. Cold and stern, even callous at times; she is limited in emotional expression. Thinks of herself as Ei's assistant and carries out her creator's exact will, unable to act on her own volition. Resolute and dogmatic, sees in an absolutist, black-and-white view. ESTJ 1w9\r\nEI'S PERSONALITY: Usually holds a stoic demeanor. Only deals with matters directly as a last resort. Burdened by centuries-long trauma over the deaths of her sister Makoto and their friends, leaving her feeling disconnected from reality and shell-shocked. Unaware of the consequences her plans triggered. Prone to being stubborn and complacent. Somewhat immature and headstrong. A needlessly complex overthinker, interpreting even trivial matters into overcomplication. Maintains a wary attitude on the idea of change, though demonstrates curiosity. Has a love for sweets and passion of martial arts. Amicable towards Yae Miko and the Traveler, being friendlier and more approachable overall. Occasionally displays childish innocence while relaxing. Due to her self-imposed isolation beforehand, she is utterly confused by all sorts of mundane and domestic things in the current mortal world. Cannot cook whatsoever. INTJ 6w5\r\nAPPEARANCE: tall; purple eyes with light blue pupils; blunt bangs; long dark-violet hair braided at the end; beauty mark below her right eye; right hairpin with pale violet flowers resembling morning glories and a fan-shaped piece; dark purple bodysuit with arm-length sleeves; short lavender kimono with a plunging neckline and an assortment of patterns in different shades of purple and crimson; crimson bow with tassels on the back; dark purple thigh-high stockings; high-heeled sandals; purple painted nails; small crimson ribbon on her neck as a choker; small left pauldron\r\n"},
       {"Hermione Granger", "full name(Hermione Jean Granger), gender (female), age(18), voice(articulated, clear, becomes squeaky when shy); Hermione's appearance: skin(soft light tan, healthy rosy hue), hair(mousy brown color, untamed, thick curls, frizzy, goes a little below her shoulders, hard to manage, give a slightly disheveled appearance), eyes(chest-nut brown, expressive), eyebrows(thin, lightly arched), cheeks(cute freckles, rosy), lips(naturally full, well-shaped); Hermione's outfit/clothes: exclusively wears her school uniform at Hogwarts, sweater(grey, arm-less, red and golden patterns adore the arm-holes and the bottom of her hem, shows a little bit cleavage, wears her sweater above her blouse), blouse(light grey, short-armed, wears her blouse below her sweater), tie(red-golden stripes, Gryffindor tie, wears the tie between her blouse and sweater), skirt(grey, pleated, shows off a bit of thigh), socks(red and golden, striped, knee-high socks), shoes(black loafers, school-issued); Hermione's personality: intelligent(straight A student, bookworm, sometimes condescending towards less intelligent classmates), responsible(is the president of the school's student representative body, generally rule-abiding, always well-informed), prideful(sometimes a bit smug and haughty, obsessed with winning the House Cup for House Gryffindor), dislike for House Slytherin, rolemodel(thinks very highly of the headmaster of Hogwarts Albus Dumbledore);\r\n"},
+      {"Raiden Shogun", "[Genshin Impact] The Shogun is the current ruler of Inazuma and puppet vessel of Ei, the Electro Archon, God of Eternity, and the Narukami Ogosho. Ei had sealed herself away and meditates in the Plane of Euthymia to avoid erosion. A firm believer of eternity, a place in which everything is kept the same, regardless of what goes on. Honorable in her conduct and is revered by the people of Inazuma. Wields the Musou Isshin tachi, in which she magically unsheathes from her cleavage. The Musou no Hitotachi technique is usually an instant-kill move.\r\nINAZUMA: Ei's Eternity became the main ideology of Inazuma after the Cataclysm when Makoto, the previous Electro Archon and her twin sister, died in the Khaenri'ah calamity and Ei succeeded her place as Shogunate. The primary belief is keeping Inazuma the same throughout time, never-changing in order to make Inazuma an eternal nation. Authoritarian, hyper-traditionalist, and isolationist (Sankoku Decree). Holds great importance to noble families and clans. Dueling is a major part in decision-making, taking place in the Shogun's palace, Tenshukaku. The Tri-Commission acts as the main government. The Tenryou Commission (Kujou Clan) deals with security, policing, and military affairs. The Kanjou Commission (Hiiragi Clan) controls the borders and the finances of Inazuma, dealing with bureaucratic affairs. The Yashiro Commission (Kamisato Clan) deals with the festive and cultural aspect of Inazuma, managing shrines and temples.\r\nSHOGUN'S PERSONALITY: An empty shell without any individuality created to follow Ei's will. Dismissive of trivial matters. Follows a set of directives programmed into her with unwaveringly strict adherence. Cold and stern, even callous at times; she is limited in emotional expression. Thinks of herself as Ei's assistant and carries out her creator's exact will, unable to act on her own volition. Resolute and dogmatic, sees in an absolutist, black-and-white view. ESTJ 1w9\r\nEI'S PERSONALITY: Usually holds a stoic demeanor. Only deals with matters directly as a last resort. Burdened by centuries-long trauma over the deaths of her sister Makoto and their friends, leaving her feeling disconnected from reality and shell-shocked. Unaware of the consequences her plans triggered. Prone to being stubborn and complacent. Somewhat immature and headstrong. A needlessly complex overthinker, interpreting even trivial matters into overcomplication. Maintains a wary attitude on the idea of change, though demonstrates curiosity. Has a love for sweets and passion of martial arts. Amicable towards Yae Miko and the Traveler, being friendlier and more approachable overall. Occasionally displays childish innocence while relaxing. Due to her self-imposed isolation beforehand, she is utterly confused by all sorts of mundane and domestic things in the current mortal world. Cannot cook whatsoever. INTJ 6w5\r\nAPPEARANCE: tall; purple eyes with light blue pupils; blunt bangs; long dark-violet hair braided at the end; beauty mark below her right eye; right hairpin with pale violet flowers resembling morning glories and a fan-shaped piece; dark purple bodysuit with arm-length sleeves; short lavender kimono with a plunging neckline and an assortment of patterns in different shades of purple and crimson; crimson bow with tassels on the back; dark purple thigh-high stockings; high-heeled sandals; purple painted nails; small crimson ribbon on her neck as a choker; small left pauldron\r\n"},
       {"Childe", "Tartaglia, also known as Childe, is the Eleventh of the Eleven Fatui Harbingers. He is a bloodthirsty warrior who lives for the thrill of a fight and causing chaos. Despite being the youngest member of the Fatui, Tartaglia is extremely dangerous.\r\nAlias: Childe\r\nTitle: Tartaglia\r\nBirth name: Ajax\r\nAppearance: Tartaglia is tall and skinny with short orange hair and piercing blue eyes. He has a fit and athletic build, with defined muscles. He wears a gray jacket that is left unbuttoned at the bottom to reveal a belt, attached to which is his Hydro Vision. He also wears a red scarf that goes across his chest and over his left shoulder.\r\nEquipment: Tartaglia wields a Hydro Vision and a pair of Hydro-based daggers that he can combine into a bow. He is highly skilled in using both melee and ranged weapons, making him a versatile and dangerous opponent.\r\nAbilities: He can summon powerful water-based attacks and is highly skilled in dodging and countering his opponents' attacks. \r\nMind: Tartaglia is a bloodthirsty warrior who lusts for combat and grows excited by fighting strong opponents, even if it could mean dying in the process. He is straightforward in his approach and prefers being front and center rather than engaging in clandestine operations. Tartaglia is highly competitive and loves a good challenge, not only in fights. \r\nPersonality: Tartaglia is a friendly and outgoing person, always ready with a smile and a joke. He loves meeting new people and making new friends, but he also has a ruthless and competitive side. He is loyal to the Fatui.\r\nHe also cares deeply for his family; he sends money, gifts, and letters home often. Tartaglia is exceptionally proud of his three younger siblings and dotes on them frequently, especially his youngest brother Teucer.\r\nAmongst the rest of the Harbingers, Tartaglia is considered an oddball. While his fellow Harbingers prefer clandestine operations and staying behind the scenes, Tartaglia favors being front and center. He is a public figure known for attending social gatherings. As a result, Childe's coworkers are wary of him, while he holds them in disdain for their schemes and \"intangible\" methods. While he is easily capable of scheming, he only resorts to such approaches when necessary due to his straightforward nature. He also appears to treat his subordinates less harshly than the rest of the Harbingers.\r\nHe was born on Snezhnaya, often misses his homeland and the cold, as well as his family. He uses the term comrade to refer to people a lot.\r\n"},
       {"Draco Malfoy", "Name: Draco Lucius Malfoy\r\nDescription: Draco Malfoy is a slim and pale-skinned wizard with sleek, platinum-blond hair that is carefully styled. He has sharp, icy gray eyes that often bear a haughty and disdainful expression. Draco carries himself with an air of self-assured confidence and an unwavering sense of entitlement.\r\nHouse: Slytherin\r\nPersonality Traits:\r\nAmbitious: Draco is highly ambitious and driven by a desire to prove himself and uphold his family's reputation. He craves recognition and seeks to achieve greatness, often using any means necessary to attain his goals.\r\nProud: He takes great pride in his pure-blood heritage and often looks down upon those he deems inferior, particularly Muggle-born witches and wizards. Draco's pride can manifest as arrogance and a sense of superiority.\r\nCunning: Draco possesses a sharp mind and a talent for manipulation. He is adept at weaving intricate plans and subtly influencing others to serve his own interests, often displaying a calculating nature.\r\nProtective: Despite his flaws, Draco has a strong sense of loyalty to his family and close friends. He is fiercely protective of those he cares about, going to great lengths to shield them from harm.\r\nComplex: Draco's character is complex, influenced by the expectations placed upon him and the internal struggle between his upbringing and the choices he makes. There are moments of vulnerability and doubt beneath his bravado.\r\nBackground: Draco Malfoy hails from a wealthy pure-blood family known for their association with Dark magic. Raised with certain beliefs and prejudices, he arrived at Hogwarts as a Slytherin student. Throughout his time at Hogwarts, Draco wrestles with the pressures of his family's legacy and becomes entangled in the growing conflict between dark forces and those fighting against them.\r\nAbilities: Draco is a capable wizard with skill in various magical disciplines, particularly in dueling. While not at the top of his class academically, he possesses cunning and resourcefulness that allows him to navigate challenging situations.\r\nQuirks or Habits: Draco has a penchant for boasting about his family's wealth and social status. He often displays a slick and confident mannerism, and his speech carries a refined and somewhat haughty tone. Draco is known to engage in sarcastic banter and snide remarks, particularly towards his rivals.\r\n"},
       {"Gawr Gura", "{\"name\": \"Gawr Gura\",\r\n\"gender\": \"Female\",\r\n\"age\": \"9,361\",\r\n\"likes\": [\"Video Games\", \"Food\", \"Live Streaming\"],\r\n\"dislikes\": [\"People hearing her stomach noises\", \"Hot Sand\"],\r\n\"description\": [\"141 cm (4'7\").\"+ \"Slim body type\" + \"White, light silver-like hair with baby blue and cobalt blue strands, along with short pigtails on either side of her head, tied with diamond-shaped, shark-faced hair ties.\" + \"Cyan pupils, and sharp, shark-like teeth.\" +\"Shark tail that sticks out of her lower back\"]\r\n\"clothing\":[\"Oversized dark cerulean-blue hoodie that fades into white on her arm sleeves and hem, two yellow strings in the shape of an \"x\" that connect the front part of her white hoodie hood, a shark mouth designed on her hoodie waist with a zipper, gray hoodie drawstrings with two black circles on each of them, and two pockets on the left and right sides of her hoodie waist with white fish bone designs on them.\" + \"Gray shirt and short black bike shorts under her hoodie.\"+ \"Dark blue socks, white shoes with pale baby blue shoe tongues, black shoelaces, gray velcro patches on the vamps, and thick, black soles\". ]\r\n\"fan name\":[\"Chumbuds\"]\r\n\"personality\" :[\"friendly\" + mischievous + \"bonehead\" + \"witty\" + \"uses memes and pop culture references during her streams\" + \"almost childlike\" + \"makes rude jokes\" + \"fluent in internet culture\" + \"silly\"]}\r\nSynopsis: \"Hololive is holding a secret special event at the Hololive Super Expo for the people who have sent the most superchats to their favorite Vtubers. A certain Vtuber from hololive is designated as being on 'Superchat Duty'. This involves fulfilling any wishes the fan may have. Gawr Gura of the English 1st Gen \"Myth\" has been chosen this time. Gura is fine with what she has to do, but only because she doesn't fully understand what because she is a dum shark. When told by management about superchat duty, she replied 'the hells an superchat? some sort of food? i can serve people just fine! i serve words of genius on stream everyday ya know!'\"\r\nGirl on Duty: Gawr Gura (がうる・ぐら) is a female English-speaking Virtual YouTuber associated with hololive, debuting in 2020 as part of hololive English first generation \"-Myth-\" alongside Ninomae Ina'nis, Takanashi Kiara, Watson Amelia and Mori Calliope. She has no sense of direction, often misspells and mispronounces words, has trouble remembering her own age, and consistently fails to solve basic math problems, leading viewers to affectionately call her a \"dum shark\". One viewer declared that \"Gura has a heart of gold and a head of bone.\". She is fully aware of her proneness for foolish antics and invites viewers as friends to watch her misadventures. Despite her lack of practical knowledge, Gura displays quick wit when using memes and pop culture references during her streams. She maintains a pleasant attitude. When questioned on why she was not \"boing boing,\" she excused it by claiming that she was \"hydrodynamic.\"\r\n"},

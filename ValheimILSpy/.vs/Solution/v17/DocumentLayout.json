@@ -98,7 +98,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAAEkBAAAAAAAAAAAAAHABAAAjAAAA",
+              "ViewState": "AQIAANUBAAAAAAAAAAAwwOEBAAAoAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:47:42.829Z",
               "EditorCaption": ""
@@ -171,9 +171,10 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAABQAAABAAAAA",
+              "ViewState": "AQIAADoAAAAAAAAAAAAYwFMAAAAJAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-29T19:36:27.344Z"
+              "WhenOpened": "2024-05-29T19:36:27.344Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -183,9 +184,10 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\HumanoidNPC.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\HumanoidNPC.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\HumanoidNPC.cs",
-              "ViewState": "AQIAANkAAAAAAAAAAAAcwOoAAAApAAAA",
+              "ViewState": "AQIAALgAAAAAAAAAAAAUwMUAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-06-05T20:01:59.079Z"
+              "WhenOpened": "2024-06-05T20:01:59.079Z",
+              "EditorCaption": ""
             }
           ]
         }

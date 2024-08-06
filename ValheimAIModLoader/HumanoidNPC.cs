@@ -201,7 +201,7 @@ namespace ValheimAIModLoader
             if (npcPinData != null)
                 Minimap.instance.RemovePin(npcPinData);
 
-            npcPinData = Minimap.instance.AddPin(this.transform.position, Minimap.PinType.Player, m_name, true, false, 0, "NPC");
+            npcPinData = Minimap.instance.AddPin(this.transform.position, Minimap.PinType.Player, m_name, false, false, 9990, "NPC");
         }
 
         public void UpdateLastPosition(float fixedDeltaTime)
@@ -226,6 +226,7 @@ namespace ValheimAIModLoader
         {
             base.Awake();
             m_autoPickupMask = LayerMask.GetMask("item");
+
             /*m_inventory.m_width = 10;
             m_inventory.m_height = 6;*/
         }
