@@ -335,26 +335,46 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             Minimap.instance.RemovePin(pd);
         }
 
+        if (Console.IsVisible())
+        {
+            return;
+        }
+
+        if (instance.IsModMenuShowing && ZInput.GetKeyDown(KeyCode.Y))
+        {
+            instance.ToggleModMenu();
+
+            return;
+        }
+
+        if (Menu.IsVisible()  || Chat.instance.HasFocus() || !__instance.TakeInput())
+        {
+            //Debug.Log("Menu visible");
+            //Debug.Log("Ignoring input: Menu, console, chat or mod menu is showing");
+            return;
+        }
+
 
         if (ZInput.GetKeyDown(KeyCode.Y))
         {
-            if (!instance.PlayerNPC)
+            /*if (!instance.PlayerNPC)
             {
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Cannot open mod menu without an NPC in the world!");
                 return;
             }
             
-
-            //Debug.Log("Mod Menu Toggled, new visibility: " + instance.IsModMenuShowing);
-            //instance.TogglePanel();
             instance.panelManager.TogglePanel("Settings");
             instance.panelManager.TogglePanel("Thrall Customization");
 
             if (instance.PlayerNPC)
-                SaveNPCData(instance.PlayerNPC);
+                SaveNPCData(instance.PlayerNPC);*/
+
+            instance.ToggleModMenu();
 
             return;
         }
+
+        
 
         if (ZInput.GetKeyDown(KeyCode.E) && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5)
         {
@@ -363,12 +383,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return;
         }
 
-        if (Menu.IsVisible() || Console.IsVisible() || Chat.instance.HasFocus() || instance.IsModMenuShowing || !__instance.TakeInput())
-        {
-            //Debug.Log("Menu visible");
-            //Debug.Log("Ignoring input: Menu, console, chat or mod menu is showing");
-            return;
-        }
+        
 
         if (ZInput.GetKeyDown(KeyCode.G))
         {
@@ -4070,6 +4085,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static bool Game_UpdateSaving_Prefix()
     {
         return !instance.DisableAutoSave.Value;
+    }
+
+    void ToggleModMenu()
+    {
+        if (!instance.PlayerNPC)
+        {
+            MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Cannot open mod menu without an NPC in the world!");
+            return;
+        }
+
+        instance.panelManager.TogglePanel("Settings");
+        instance.panelManager.TogglePanel("Thrall Customization");
+
+        if (instance.PlayerNPC)
+            SaveNPCData(instance.PlayerNPC);
     }
 
 
