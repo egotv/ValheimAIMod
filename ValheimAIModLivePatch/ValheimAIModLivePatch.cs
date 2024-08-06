@@ -2955,7 +2955,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return instance.AllPlayerNPCInstances;
     }
 
-    static int AllGOInstancesRefreshRate = 3;
+    static int AllGOInstancesRefreshRate = 2;
     private static bool CanAccessAllGameInstances()
     {
         if (Time.time > instance.AllGOInstancesLastRefresh + AllGOInstancesRefreshRate || instance.AllGOInstancesLastRefresh == 0)
@@ -2979,7 +2979,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         instance.AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
-                .Where(go => go != null && go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 300 && go.HasAnyComponent("ItemDrop", "Pickable", "Character", "Destructible", "TreeBase", "MineRock"))
+                .Where(go => go != null && go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 300 && go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "MineRock"))
                 .ToArray();
                 //.ToList();
         instance.AllGOInstancesLastRefresh = Time.time;
@@ -3239,15 +3239,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private string GetNearbyResources(GameObject source)
     {
-        Pickable[] pickables = GameObject.FindObjectsOfType<Pickable>(true);
+        /*Pickable[] pickables = GameObject.FindObjectsOfType<Pickable>(true);
         Destructible[] destructibles = GameObject.FindObjectsOfType<Destructible>(true);
         TreeBase[] trees = GameObject.FindObjectsOfType<TreeBase>(true);
 
         Debug.Log("pickables len " + pickables.Length);
         Debug.Log("destructibles len " + destructibles.Length);
-        Debug.Log("trees len " + trees.Length);
+        Debug.Log("trees len " + trees.Length);*/
 
-        void ProcessResource(Component resource, string key)
+        void ProcessResource(GameObject resource, string key)
         {
             key = CleanKey(key);
 
@@ -3278,14 +3278,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 nearbyResourcesXRotation[key] = xRotationDifference;*/
         }
 
-        foreach (Pickable pickable in pickables)
+        /*foreach (Pickable pickable in pickables)
             ProcessResource(pickable, pickable.name);
 
         foreach (Destructible destructible in destructibles)
             ProcessResource(destructible, destructible.name);
 
         foreach (TreeBase tree in trees)
-            ProcessResource(tree, tree.name);
+            ProcessResource(tree, tree.name);*/
+
+        foreach (GameObject co in instance.AllGOInstances)
+            ProcessResource(co, co.name);
 
         var jarray = new JsonArray();
 
