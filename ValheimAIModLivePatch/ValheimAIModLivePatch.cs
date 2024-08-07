@@ -204,10 +204,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // This method would need to be implemented to populate the database
         // You'd need to iterate through all prefabs in the game and check their components
 
+        
+
         //Example (not actual implementation):
         foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
+
+        //GameObject[] gos = GameObject.FindObjectsOfType<GameObject>(true);
+        //foreach (GameObject prefab in gos)
         {
-            Debug.Log(prefab.name);
 
             if (prefab.HasAnyComponent("TreeBase"))
                 CheckTreeBase(prefab);
@@ -215,42 +219,57 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 CheckCharacterDrop(prefab);
             if (prefab.HasAnyComponent("DropOnDestroyed"))
                 CheckDropOnDestroyed(prefab);
+            if (prefab.HasAnyComponent("Destructible"))
+                CheckDestructibles(prefab);
+            if (prefab.HasAnyComponent("Pickable"))
+                CheckPickables(prefab);
             if (prefab.HasAnyComponent("ItemDrop"))
                 CheckItemDrop(prefab);
+            if (prefab.HasAnyComponent("MineRock"))
+                CheckMineRock(prefab);
+            if (prefab.HasAnyComponent("MineRock5"))
+                CheckMineRock5(prefab);
         }
+
+        Debug.Log(QueryResource("Silver"));
+        Debug.Log(QueryResource("SilverOre"));
+        Debug.Log(QueryResource("silvervein_frac"));
+        Debug.Log(QueryResource("silvervein"));
+        /*Debug.Log(QueryResource("$item_silver"));
+        Debug.Log(QueryResource("$item_silverore"));*/
 
         SaveDatabaseToJson();
     }
 
     private void CheckTreeBase(GameObject prefab)
     {
-        /*var treeBase = prefab.GetComponent<TreeBase>();
-        if (treeBase != null && treeBase.m_dropWhenDestroyed != null)
+        TreeBase treeBase = prefab.GetComponent<TreeBase>();
+        if (treeBase != null && treeBase.m_dropWhenDestroyed != null && treeBase.m_dropWhenDestroyed.m_drops != null)
         {
-            foreach (ItemDrop.ItemData drop in treeBase.m_dropWhenDestroyed.GetDropListItems())
+            foreach (DropTable.DropData drop in treeBase.m_dropWhenDestroyed.m_drops)
             {
-                if (drop.m_dropPrefab)
-                    AddToDatabase(drop.m_dropPrefab.name, "TreeBase", prefab.name);
+                //if (drop.m_item)
+                    AddToDatabase(drop.m_item.name, "TreeBase", prefab.name);
             }
-        }*/
+        }
     }
 
     private void CheckCharacterDrop(GameObject prefab)
     {
-        /*var characterDrop = prefab.GetComponent<CharacterDrop>();
+        CharacterDrop characterDrop = prefab.GetComponent<CharacterDrop>();
         if (characterDrop != null && characterDrop.m_drops != null)
         {
             foreach (CharacterDrop.Drop drop in characterDrop.m_drops)
             {
-                if (drop.m_prefab)
-                AddToDatabase(drop.m_prefab.name, "CharacterDrop", prefab.name);
+                //if (drop.m_prefab)
+                    AddToDatabase(drop.m_prefab.name, "CharacterDrop", prefab.name);
             }
-        }*/
+        }
     }
 
     private void CheckDropOnDestroyed(GameObject prefab)
     {
-        var dropOnDestroyed = prefab.GetComponent<DropOnDestroyed>();
+        DropOnDestroyed dropOnDestroyed = prefab.GetComponent<DropOnDestroyed>();
         if (dropOnDestroyed != null && dropOnDestroyed.m_dropWhenDestroyed != null && dropOnDestroyed.m_dropWhenDestroyed.m_drops != null)
         {
             foreach (DropTable.DropData drop in dropOnDestroyed.m_dropWhenDestroyed.m_drops)
@@ -263,11 +282,59 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void CheckItemDrop(GameObject prefab)
     {
-        /*var itemDrop = prefab.GetComponent<ItemDrop>();
-        if (itemDrop != null)
+        ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+        //if (itemDrop != null && itemDrop.m_itemData != null && itemDrop.m_itemData.m_dropPrefab != null)
+        if (itemDrop != null && itemDrop.m_itemData != null && itemDrop.m_itemData.m_dropPrefab != null)
+        {   
+            //AddToDatabase(itemDrop.m_itemData.m_shared.m_name, "ItemDrop", prefab.name);
+            AddToDatabase(itemDrop.m_itemData.m_dropPrefab.name, "ItemDrop", prefab.name);
+        }
+    }
+
+    private void CheckDestructibles(GameObject prefab)
+    {
+        Destructible destructible = prefab.GetComponent<Destructible>();
+        if (destructible != null && destructible.m_spawnWhenDestroyed != null)
         {
-            AddToDatabase(prefab.name, "ItemDrop", prefab.name);
-        }*/
+            /*if (prefab.name == "silvervein")
+                Debug.Log(prefab.name + " destructible");*/
+            AddToDatabase(destructible.m_spawnWhenDestroyed.name, "Destructible", prefab.name);
+        }
+    }
+
+    private void CheckPickables(GameObject prefab)
+    {
+        Pickable pickable = prefab.GetComponent<Pickable>();
+        if (pickable != null && pickable.m_itemPrefab != null)
+        {
+            AddToDatabase(pickable.m_itemPrefab.name, "Pickable", prefab.name);
+        }
+    }
+
+    private void CheckMineRock(GameObject prefab)
+    {
+        MineRock minerock = prefab.GetComponent<MineRock>();
+        if (minerock != null && minerock.m_dropItems != null && minerock.m_dropItems.m_drops != null)
+        {
+            foreach (DropTable.DropData drop in minerock.m_dropItems.m_drops)
+            {
+                //if (drop.m_item != null)
+                    AddToDatabase(drop.m_item.name, "MineRock", prefab.name);
+            }
+        }
+    }
+
+    private void CheckMineRock5(GameObject prefab)
+    {
+        MineRock5 minerock = prefab.GetComponent<MineRock5>();
+        if (minerock != null && minerock.m_dropItems != null && minerock.m_dropItems.m_drops != null)
+        {
+            foreach (DropTable.DropData drop in minerock.m_dropItems.m_drops)
+            {
+                //if (drop.m_item != null)
+                    AddToDatabase(drop.m_item.name, "MineRock5", prefab.name);
+            }
+        }
     }
 
     private void AddToDatabase(string resourceName, string sourceType, string sourceName)
@@ -277,10 +344,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             resourceDatabase[resourceName] = new Dictionary<string, List<string>>
                 {
-                    { "TreeBase", new List<string>() },
+                    
                     { "CharacterDrop", new List<string>() },
+                    { "ItemDrop", new List<string>() },
                     { "DropOnDestroyed", new List<string>() },
-                    { "ItemDrop", new List<string>() }
+
+                    { "Destructible", new List<string>() },
+                    { "Pickable", new List<string>() },
+
+                    { "TreeBase", new List<string>() },
+                    { "MineRock", new List<string>() },
+                    { "MineRock5", new List<string>() },
                 };
         }
 
@@ -297,14 +371,27 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         var results = resourceDatabase[resourceName];
         var output = $"Ways to obtain '{resourceName}':\n";
 
-        if (results["TreeBase"].Count > 0)
-            output += $"- Destroy trees: {string.Join(", ", results["TreeBase"])}\n";
+        
         if (results["CharacterDrop"].Count > 0)
             output += $"- Defeat creatures: {string.Join(", ", results["CharacterDrop"])}\n";
-        if (results["DropOnDestroyed"].Count > 0)
-            output += $"- Destroy objects: {string.Join(", ", results["DropOnDestroyed"])}\n";
         if (results["ItemDrop"].Count > 0)
             output += $"- Pick up from the ground: {string.Join(", ", results["ItemDrop"])}\n";
+        if (results["DropOnDestroyed"].Count > 0)
+            output += $"- Destroy objects: {string.Join(", ", results["DropOnDestroyed"])}\n";
+
+        if (results["Destructible"].Count > 0)
+            output += $"- Destroy Destructible: {string.Join(", ", results["Destructible"])}\n";
+        if (results["Pickable"].Count > 0)
+            output += $"- Destroy Pickable: {string.Join(", ", results["Pickable"])}\n";
+
+
+        if (results["TreeBase"].Count > 0)
+            output += $"- Destroy trees: {string.Join(", ", results["TreeBase"])}\n";
+        if (results["MineRock"].Count > 0)
+            output += $"- Destroy MineRock: {string.Join(", ", results["MineRock"])}\n";
+        if (results["MineRock5"].Count > 0)
+            output += $"- Destroy MineRock5: {string.Join(", ", results["MineRock5"])}\n";
+
 
         return output;
     }
@@ -3288,7 +3375,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ProcessResource(tree, tree.name);*/
 
         foreach (GameObject co in instance.AllGOInstances)
-            ProcessResource(co, co.name);
+            if (co != null)
+                ProcessResource(co, co.name);
 
         var jarray = new JsonArray();
 
@@ -3713,6 +3801,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     public static string GetJSONForBrain(GameObject character, bool includeRecordedAudio = true)
     {
+        RefreshAllGameObjectInstances();
+
         Dictionary<string, object> characterData = new Dictionary<string, object>();
 
         HumanoidNPC humanoidNPC = character.GetComponent<HumanoidNPC>();
