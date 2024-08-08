@@ -229,12 +229,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 CheckMineRock5(prefab);
         }
 
-        Debug.Log(QueryResource("Silver"));
-        Debug.Log(QueryResource("SilverOre"));
-        Debug.Log(QueryResource("silvervein_frac"));
-        Debug.Log(QueryResource("silvervein"));
-        /*Debug.Log(QueryResource("$item_silver"));
-        Debug.Log(QueryResource("$item_silverore"));*/
 
         SaveDatabaseToJson();
     }
@@ -380,7 +374,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (results["Destructible"].Count > 0)
             output += $"- Destroy Destructible: {string.Join(", ", results["Destructible"])}\n";
         if (results["Pickable"].Count > 0)
-            output += $"- Destroy Pickable: {string.Join(", ", results["Pickable"])}\n";
+            output += $"- Pickup Pickable: {string.Join(", ", results["Pickable"])}\n";
 
 
         if (results["TreeBase"].Count > 0)
@@ -777,6 +771,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             //instance.DeleteAllTasks();
             //GameObject s = FindClosestItemDrop(Player.m_localPlayer.gameObject);
+
+            /* Debug.Log(QueryResource("Wood"));
+             Debug.Log(QueryResource("Stone"));
+             Debug.Log(QueryResource("Raspberry"));
+             Debug.Log(QueryResource("Flint"));*/
 
             return;
         }
@@ -4000,37 +3999,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     public static string GetPlayerSteamID()
     {
-        GameObject playerElement = GameObject.Find("_GameMain/LoadingGUI/PixelFix/IngameGui/ConnectionPanel/root/Image/Players/Players/ListRoot/PlayerElement(Clone)");
+        List<ZNet.PlayerInfo> playerList = ZNet.instance.GetPlayerList();
 
-        if (playerElement != null)
+        for (int j = 0; j < playerList.Count; j++)
         {
-            // Find the child object named "name"
-            Transform nameChild = playerElement.transform.Find("hostname");
+            ZNet.PlayerInfo playerInfo = playerList[j];
+            //Debug.LogError($"{playerInfo.m_name} {playerInfo.m_host}");
 
-            if (nameChild != null)
-            {
-                // Get the TextMeshProUGUI component from the "name" child
-                TextMeshProUGUI textComponent = nameChild.GetComponent<TextMeshProUGUI>();
-
-                if (textComponent != null)
-                {
-                    // Return the text content (Steam ID)
-                    Debug.LogError(textComponent.text.Substring(6));
-                    return textComponent.text;
-                }
-                else
-                {
-                    Debug.LogError("TextMeshProUGUI component not found on the 'name' child.");
-                }
-            }
-            else
-            {
-                Debug.LogError("Child named 'name' not found on PlayerElement.");
-            }
-        }
-        else
-        {
-            Debug.LogError("PlayerElement not found in the specified path.");
+            return playerInfo.m_host;
         }
 
         return "NullID";
