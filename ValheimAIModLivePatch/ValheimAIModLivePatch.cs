@@ -1546,6 +1546,25 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             __instance.SetMaxHealth(hp, flashBar: true);
             __instance.SetMaxStamina(stamina, flashBar: true);
             __instance.SetMaxEitr(eitr, flashBar: true);
+
+            //Debug.Log($"Max Health: {hp}\nMax Stamina: {stamina}");
+
+
+
+
+            if (instance.PlayerNPC_humanoid != null && (Math.Abs(instance.PlayerNPC_humanoid.GetMaxHealth() - hp) > 1.5f || Math.Abs(instance.PlayerNPC_humanoid.m_maxStamina - stamina) > 1.5f))
+            {
+                instance.PlayerNPC_humanoid.SetMaxHealth(hp);
+                instance.PlayerNPC_humanoid.m_maxStamina = stamina;
+
+                if (instance.NPCTalker)
+                {
+                    instance.NPCTalker.Say(Talker.Type.Normal, $"Max Health: {hp}\nMax Stamina: {stamina}");
+                }
+            }
+
+            
+
             if (eitr > 0f)
             {
                 __instance.ShowTutorial("eitr");
@@ -1575,7 +1594,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (instance.PlayerNPC)
             {
-                MonsterAI monsterAIcomponent = instance.PlayerNPC.GetComponent<MonsterAI>();
                 HumanoidNPC humanoidComponent = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
                 if (humanoidComponent != null)
@@ -1752,6 +1770,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         if ((bool)__instance.m_dragGo)
         {
+            //Debug.LogError("__instance.m_dragGo");
             __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
             bool flag = localPlayer.IsItemEquiped(__instance.m_dragItem);
             bool flag2 = item != null && localPlayer.IsItemEquiped(item);
@@ -1806,19 +1825,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         else
         {
+            //Debug.LogError("else");
             if (item == null)
             {
+                Debug.LogError("item == null");
                 return false;
             }
+            //Debug.LogError("switch (mod)");
             switch (mod)
             {
                 case InventoryGrid.Modifier.Move:
+                    //Debug.LogError("InventoryGrid.Modifier.Move");
                     if (item.m_shared.m_questItem)
                     {
                         return false;
                     }
                     if (__instance.m_currentContainer != null)
                     {
+                        //Debug.Log("__instance.m_currentContainer != null ");
                         localPlayer.RemoveEquipAction(item);
                         localPlayer.UnequipItem(item);
                         if (grid.GetInventory() == __instance.m_currentContainer.GetInventory())
@@ -2113,7 +2137,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             humanoidNpc_Component.SetMaxHealth(300);
             humanoidNpc_Component.SetHealth(300);
 
-            humanoidNpc_Component.m_inventory.m_height = 10;
+            //humanoidNpc_Component.m_inventory.m_height = 10;
 
             // ADD CONTAINER TO NPC TO ENABLE PLAYER-NPC INVENTORY INTERACTION
             humanoidNpc_Component.inventoryContainer = npcInstance.AddComponent<Container>();
