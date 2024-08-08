@@ -94,6 +94,10 @@
     <Reference Include="Unity.InputSystem">
       <HintPath>..\References\Unity.InputSystem.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.TextMeshPro, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>..\ValheimModOne\Libs\UnityEngine.dll</HintPath>
     </Reference>
