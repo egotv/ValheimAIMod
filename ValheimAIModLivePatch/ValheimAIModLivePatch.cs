@@ -18,7 +18,6 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
 using TMPro;
-using System.Text;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -846,9 +845,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(__instance.transform.position) < 7f)
             {
-                Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
-                __instance.SetFollowTarget(newfollow);
-                return true;
+                ItemDrop itemDrop = newfollow.GetComponent<ItemDrop>();
+                if (humanoidNPC.m_inventory.CanAddItem(itemDrop.m_itemData) && itemDrop.m_itemData.GetWeight() + humanoidNPC.m_inventory.GetTotalWeight() < humanoidNPC.GetMaxCarryWeight())
+                {
+                    Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
+                    __instance.SetFollowTarget(newfollow);
+                    return true;
+                }
             }
         }
 
@@ -1053,7 +1056,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 {
                     if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
                     {
-                        instance.PickupItemDrop(__instance, monsterAIcomponent);
+                        ItemDrop itemDrop = monsterAIcomponent.m_follow.GetComponent<ItemDrop>();
+                        if (!__instance.m_inventory.CanAddItem(itemDrop.m_itemData) || itemDrop.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight())
+                        {
+                            Debug.Log($"not enough space for {itemDrop.name}");
+                            monsterAIcomponent.SetFollowTarget(null);
+                        }
+                        else
+                        {
+                            instance.PickupItemDrop(__instance, monsterAIcomponent);
+                        }
                     }
                     else if (monsterAIcomponent.m_follow.HasAnyComponent("Pickable"))
                     {
@@ -1061,6 +1073,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                         Pickable pick = monsterAIcomponent.m_follow.GetComponent<Pickable>();
                         pick.Interact(Player.m_localPlayer, false, false);
+
+                        if (instance.lastPickedPickable)
+                        {
+                            monsterAIcomponent.SetFollowTarget(instance.lastPickedPickable);
+                            instance.PickupItemDrop(__instance, monsterAIcomponent);
+                            Debug.Log("picking up right after interacting");
+
+                            instance.lastPickedPickable = null;
+                        }
+
                         Destroy(monsterAIcomponent.m_follow);
                         instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
 
@@ -1087,6 +1109,96 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             
         }
+    }
+
+
+
+    /*[HarmonyPrefix]
+    [HarmonyPatch(typeof(Pickable), "Interact")]
+    public static bool Pickable_Interact_Prefix(Pickable __instance, Humanoid character, bool repeat, bool alt, bool __result)
+    {
+        if (!__instance.m_nview.IsValid() || __instance.m_enabled == 0)
+        {
+            __result = false;
+            return false;
+        }
+
+        if (__instance.m_tarPreventsPicking)
+        {
+            if (__instance.m_floating == null)
+            {
+                __instance.m_floating = __instance.GetComponent<Floating>();
+            }
+
+            if ((bool)__instance.m_floating && __instance.m_floating.IsInTar())
+            {
+                character.Message(MessageHud.MessageType.Center, "$hud_itemstucktar");
+                __result = __instance.m_useInteractAnimation;
+                return false;
+            }
+        }
+
+        __instance.m_nview.InvokeRPC("RPC_Pick");
+        __result = __instance.m_useInteractAnimation;
+
+        return false;
+    }*/
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Pickable), "RPC_Pick")]
+    public static bool Pickable_RPC_Pick_Prefix(Pickable __instance, long sender)
+    {
+        if (!__instance.m_nview.IsOwner() || __instance.m_picked)
+        {
+            return false;
+        }
+
+        Vector3 basePos = (__instance.m_pickEffectAtSpawnPoint ? (__instance.transform.position + Vector3.up * __instance.m_spawnOffset) : __instance.transform.position);
+        __instance.m_pickEffector.Create(basePos, Quaternion.identity);
+        int num = (__instance.m_dontScale ? __instance.m_amount : Mathf.Max(__instance.m_minAmountScaled, Game.instance.ScaleDrops(__instance.m_itemPrefab, __instance.m_amount)));
+        int num2 = 0;
+        for (int i = 0; i < num; i++)
+        {
+            instance.MyPickableDrop(__instance.m_itemPrefab, num2++, 1);
+        }
+
+        if (!__instance.m_extraDrops.IsEmpty())
+        {
+            foreach (ItemDrop.ItemData dropListItem in __instance.m_extraDrops.GetDropListItems())
+            {
+                instance.MyPickableDrop(dropListItem.m_dropPrefab, num2++, dropListItem.m_stack);
+            }
+        }
+
+        if (__instance.m_aggravateRange > 0f)
+        {
+            BaseAI.AggravateAllInArea(__instance.transform.position, __instance.m_aggravateRange, BaseAI.AggravatedReason.Theif);
+        }
+
+        __instance.m_nview.InvokeRPC(ZNetView.Everybody, "RPC_SetPicked", true);
+
+        return false;
+    }
+
+
+    GameObject lastPickedPickable = null;
+    public void MyPickableDrop(GameObject prefab, int offset, int stack)
+    {
+        Vector2 vector = UnityEngine.Random.insideUnitCircle * 0.2f;
+        Vector3 position = base.transform.position + Vector3.up * 2 + new Vector3(vector.x, 0.5f * (float)offset, vector.y);
+        Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
+        GameObject obj = UnityEngine.Object.Instantiate(prefab, position, rotation);
+        instance.lastPickedPickable = obj;
+        ItemDrop component = obj.GetComponent<ItemDrop>();
+        if ((object)component != null)
+        {
+            component.SetStack(stack);
+            ItemDrop.OnCreateNew(component);
+        }
+
+        obj.GetComponent<Rigidbody>().velocity = Vector3.up * 4f;
+
+        Debug.Log("MyPickableDrop");
     }
 
     private void PickupItemDrop(HumanoidNPC __instance, MonsterAI monsterAIcomponent)
@@ -3010,7 +3122,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             else if (action == "PickupItem")
             {
-
             }
         }
         else if (category == "Harvesting")
