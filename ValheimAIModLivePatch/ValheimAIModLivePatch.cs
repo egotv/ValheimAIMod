@@ -20,6 +20,7 @@ using UnityEngine.EventSystems;
 using TMPro;
 using Jotunn.Configs;
 using System.Collections;
+using System.Runtime.Remoting.Messaging;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -819,7 +820,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 Debug.Log("Keybind: Spawn Companion");
                 instance.SpawnCompanion();
-                instance.StartFollowing(__instance);
                 HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} has entered the world!");
             }
@@ -922,6 +922,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (ZInput.GetKeyDown(KeyCode.L))
         {
 
+            if (instance.PlayerNPC_humanoid)
+                Debug.Log(instance.PlayerNPC_humanoid.HasEnoughResource("Wood", 5));
+            else
+                Debug.Log("no instance.PlayerNPC_humanoid");
             /*RefreshAllGameObjectInstances();
             instance.GetNearbyResourcesJSON(__instance.gameObject);
             //QueryResource("Wood");
@@ -961,7 +965,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         NPCCommand command = instance.commandManager.GetNextCommand();
 
         //if (command != null)
-        if (instance.currentcommand == null || instance.currentcommand != command)
+        if (instance.currentcommand == null || instance.currentcommand != command && command != null)
         {
             instance.currentcommand = command;
             if (command is HarvestAction)
@@ -1620,6 +1624,25 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
      * 
      */
 
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Character), "Damage")]
+    private static bool Damage(Character __instance, HitData hit)
+    {
+        if (__instance is HumanoidNPC)
+        {
+            float bodyArmor = __instance.GetBodyArmor();
+            hit.ApplyArmor(bodyArmor);
+            __instance.DamageArmorDurability(hit);
+        }
+
+        if (__instance.m_nview.IsValid())
+        {
+            hit.m_weakSpot = __instance.FindWeakSpotIndex(hit.m_hitCollider);
+            __instance.m_nview.InvokeRPC("RPC_Damage", hit);
+        }
+        return false;
+    }
+
     // HEAL NPC WHEN HEALING PLAYER
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Player), "UpdateFood")]
@@ -1659,10 +1682,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 instance.PlayerNPC_humanoid.SetMaxHealth(hp);
                 instance.PlayerNPC_humanoid.m_maxStamina = stamina;
 
-                if (instance.NPCTalker)
+                instance.AddChatTalk(instance.PlayerNPC_humanoid, instance.PlayerNPC_humanoid.m_name, $"Max Health: {hp}\nMax Stamina: {stamina}\n\n\n", false);
+
+                /*if (instance.NPCTalker)
                 {
-                    instance.NPCTalker.Say(Talker.Type.Normal, $"Max Health: {hp}\nMax Stamina: {stamina}");
-                }
+                    instance.NPCTalker.Say(Talker.Type.Whisper, $"Max Health: {hp}\nMax Stamina: {stamina}");
+                }*/
             }
 
             
@@ -1703,10 +1728,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     humanoidComponent.Heal(num);
                 }
 
-                if (instance.NPCTalker)
+                instance.AddChatTalk(instance.PlayerNPC_humanoid, instance.PlayerNPC_humanoid.m_name, $"Health: {num}\n\n\n", false);
+
+                /*if (instance.NPCTalker)
                 {
-                    instance.NPCTalker.Say(Talker.Type.Normal, "Health +" + num);
-                }
+                    instance.NPCTalker.Say(Talker.Type.Whisper, "Health +" + num);
+                }*/
             }
         }
 
@@ -1822,6 +1849,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     [HarmonyPatch(typeof(InventoryGui), "OnSelectedItem")]
     private static bool OnSelectedItem(InventoryGui __instance, InventoryGrid grid, ItemDrop.ItemData item, Vector2i pos, InventoryGrid.Modifier mod)
     {
+        //Debug.Log($"pos {pos.ToString()}");
+
+        
+
         Player localPlayer = Player.m_localPlayer;
         if (localPlayer.IsTeleporting())
         {
@@ -1829,6 +1860,56 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         if ((bool)__instance.m_dragGo)
         {
+            //hotfix
+            if (instance.PlayerNPC_humanoid && __instance.m_currentContainer == instance.PlayerNPC_humanoid.inventoryContainer)
+            {
+                //Debug.Log($"interacting w npc inventory");
+
+                if (__instance.m_dragInventory != null)
+                {
+                    if (__instance.m_dragInventory == instance.PlayerNPC_humanoid.m_inventory && __instance.m_containerGrid != grid)
+                    {
+                        Debug.Log($"came from NPC inventory");
+                        Debug.Log($"dropped into player inventory");
+
+                        localPlayer.GetInventory().MoveItemToThis(grid.GetInventory(), __instance.m_dragItem);
+
+                        //if (__instance.m_dragItem != null && __instance.m_dragItem.IsEquipable() && instance.PlayerNPC_humanoid.IsItemEquiped(__instance.m_dragItem))
+                        if (__instance.m_dragItem != null && __instance.m_dragItem.IsEquipable())
+                        {
+                            instance.PlayerNPC_humanoid.UnequipItem(__instance.m_dragItem);
+                            if (item != null && item.IsEquipable())
+                                instance.PlayerNPC_humanoid.UnequipItem(item);
+                            Debug.Log($"NPC unequipping item {__instance.m_dragItem.m_shared.m_name}");
+                        }
+                    }
+                    else if (__instance.m_dragInventory == localPlayer.m_inventory && __instance.m_containerGrid == grid)
+                    {
+                        Debug.Log($"came from player inventory");
+                        Debug.Log($"dropped into npc inventory");
+
+                        __instance.m_currentContainer.GetInventory().MoveItemToThis(localPlayer.GetInventory(), __instance.m_dragItem);
+
+                        //if (__instance.m_dragItem != null && __instance.m_dragItem.IsEquipable() && !instance.PlayerNPC_humanoid.IsItemEquiped(__instance.m_dragItem))
+                        if (__instance.m_dragItem != null && __instance.m_dragItem.IsEquipable())
+                        {
+                            instance.PlayerNPC_humanoid.EquipItem(__instance.m_dragItem);
+                            if (item != null && item.IsEquipable())
+                                instance.PlayerNPC_humanoid.EquipItem(item);
+                            Debug.Log($"NPC equipping item {__instance.m_dragItem.m_shared.m_name}");
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.Log($"InventoryGUI OnSelectedItem failed, __instance.m_dragInventory was null");
+                }
+            }
+            else
+            {
+                Debug.Log($"not interacting w npc inventory");
+            }
+
             __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
             bool flag = localPlayer.IsItemEquiped(__instance.m_dragItem);
             bool flag2 = item != null && localPlayer.IsItemEquiped(item);
@@ -1875,6 +1956,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     localPlayer.EquipItem(item, triggerEquipEffects: false);
                 }
             }
+
+
             if (num)
             {
                 __instance.SetupDragItem(null, null, 1);
@@ -1883,7 +1966,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         else
         {
-            //Debug.LogError("else");
+            //Debug.LogError("not drag go");
             if (item == null)
             {
                 Debug.LogError("item == null");
@@ -2104,7 +2187,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Player localPlayer = Player.m_localPlayer;
         GameObject npcPrefab = ZNetScene.instance.GetPrefab("HumanoidNPC");
 
-        commandManager.RemoveAllCommands();
+        instance.commandManager.RemoveAllCommands();
         instance.enemyList.Clear();
         
 
@@ -2835,7 +2918,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
 
-    private void AddChatTalk(Character character, string name, string text)
+    private void AddChatTalk(Character character, string name, string text, bool addToChat = true)
     {
         UserInfo userInfo = new UserInfo();
         if (character is Player)
@@ -2846,8 +2929,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         else
             userInfo.Name = character.m_name;
         Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
-        Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text);
-        if (text != "...")
+        Chat.WorldTextInstance oldtext = Chat.instance.FindExistingWorldText(0);
+        if (oldtext != null && oldtext.m_textMeshField)
+            Destroy(oldtext.m_textMeshField);
+        Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text + "\n\n\n");
+        if (text != "..." && addToChat)
         {
             Chat.instance.AddString(character.m_name, text, Talker.Type.Normal);
             Chat.instance.m_hideTimer = 0f;
@@ -3074,7 +3160,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                             harvestAction.humanoidNPC = npc;
                             harvestAction.ResourceName = ResourceName;
                             harvestAction.RequiredAmount = ResourceQuantity;
-                            commandManager.AddCommand(harvestAction);
+                            instance.commandManager.AddCommand(harvestAction);
                         }
                         else
                         {
@@ -3087,7 +3173,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         patrolAction.humanoidNPC = npc;
                         patrolAction.patrol_position = Player.m_localPlayer.transform.position;
                         patrolAction.patrol_radius = 15;
-                        commandManager.AddCommand(patrolAction);
+                        instance.commandManager.AddCommand(patrolAction);
                     }
                     else if (category == "Combat")
                     {
@@ -3104,7 +3190,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                             attackAction.humanoidNPC = npc;
                             attackAction.TargetName = ResourceNode;
                             attackAction.Target = FindClosestEnemy(instance.PlayerNPC, ResourceNode);
-                            commandManager.AddCommand(attackAction);
+                            instance.commandManager.AddCommand(attackAction);
                         }
                         else
                         {
@@ -3117,7 +3203,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     {
                         FollowAction followAction = new FollowAction();
                         followAction.humanoidNPC = npc;
-                        commandManager.AddCommand(followAction);
+                        instance.commandManager.AddCommand(followAction);
                     }
 
 
@@ -5046,7 +5132,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             buttonComponent.onClick.AddListener(() => {
                 GameObject.Destroy(itemObject);
                 Debug.Log($"removing command {index}");
-                commandManager.RemoveCommand(index);
+                instance.commandManager.RemoveCommand(index);
                 instance.RefreshTaskList();
             });
 
@@ -5073,7 +5159,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
         int i = 0;
 
-        foreach (NPCCommand task in commandManager.GetAllCommands())
+        foreach (NPCCommand task in instance.commandManager.GetAllCommands())
         {
             if (task is HarvestAction)
             {
@@ -6170,12 +6256,22 @@ public class NPCCommandManager
     // Get the next command (which will be the first in the list)
     public NPCCommand GetNextCommand()
     {
+        NPCCommand next = null;
+        List<NPCCommand> rmindexes = new List<NPCCommand>();
         foreach (NPCCommand command in commands)
         {
+            if (next != null)
+                break;
             if (!command.IsTaskComplete())
-                return command;
+                next = command;
+            else
+                rmindexes.Add(command);
         }
-        return commands.Count > 0 ? commands[0] : null;
+        foreach (NPCCommand command in rmindexes)
+        {
+            commands.Remove(command);
+        }
+        return next;
     }
 
     // Get all commands
@@ -6302,8 +6398,17 @@ public class HarvestAction : NPCCommand
         {
             if (humanoidNPC.HasEnoughResource(ResourceName, RequiredAmount))
             {
+                Debug.Log("HarvestAction task complete");
                 return true;
             }
+            else
+            {
+                //Debug.Log("HarvestAction doesnt have enough resources");
+            }
+        }
+        else
+        {
+            Debug.Log("HarvestAction no humanoidNPC");
         }
         return false;
     }

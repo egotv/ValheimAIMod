@@ -299,7 +299,8 @@ namespace ValheimAIModLoader
 
         public override bool IsEncumbered()
         {
-            return m_inventory.GetTotalWeight() > GetMaxCarryWeight();
+            return false;
+            //return m_inventory.GetTotalWeight() > GetMaxCarryWeight();
         }
 
         public float GetMaxCarryWeight()
@@ -349,6 +350,79 @@ namespace ValheimAIModLoader
             visEq.SetUtilityItem((m_utilityItem != null) ? m_utilityItem.m_dropPrefab.name : "");
             visEq.SetBeardItem(m_beardItem);
             visEq.SetHairItem(m_hairItem);
+        }
+
+        public override void ApplyArmorDamageMods(ref HitData.DamageModifiers mods)
+        {
+            if (m_chestItem != null)
+            {
+                mods.Apply(m_chestItem.m_shared.m_damageModifiers);
+            }
+            if (m_legItem != null)
+            {
+                mods.Apply(m_legItem.m_shared.m_damageModifiers);
+            }
+            if (m_helmetItem != null)
+            {
+                mods.Apply(m_helmetItem.m_shared.m_damageModifiers);
+            }
+            if (m_shoulderItem != null)
+            {
+                mods.Apply(m_shoulderItem.m_shared.m_damageModifiers);
+            }
+        }
+
+        public override float GetBodyArmor()
+        {
+            float num = 0f;
+            if (m_chestItem != null)
+            {
+                num += m_chestItem.GetArmor();
+            }
+            if (m_legItem != null)
+            {
+                num += m_legItem.GetArmor();
+            }
+            if (m_helmetItem != null)
+            {
+                num += m_helmetItem.GetArmor();
+            }
+            if (m_shoulderItem != null)
+            {
+                num += m_shoulderItem.GetArmor();
+            }
+            return num;
+        }
+
+        public override void DamageArmorDurability(HitData hit)
+        {
+            List<ItemDrop.ItemData> list = new List<ItemDrop.ItemData>();
+            if (m_chestItem != null)
+            {
+                list.Add(m_chestItem);
+            }
+            if (m_legItem != null)
+            {
+                list.Add(m_legItem);
+            }
+            if (m_helmetItem != null)
+            {
+                list.Add(m_helmetItem);
+            }
+            if (m_shoulderItem != null)
+            {
+                list.Add(m_shoulderItem);
+            }
+            if (list.Count != 0)
+            {
+                float num = hit.GetTotalPhysicalDamage() + hit.GetTotalElementalDamage();
+                if (!(num <= 0f))
+                {
+                    int index = UnityEngine.Random.Range(0, list.Count);
+                    ItemDrop.ItemData itemData = list[index];
+                    itemData.m_durability = Mathf.Max(0f, itemData.m_durability - num);
+                }
+            }
         }
 
         /*
