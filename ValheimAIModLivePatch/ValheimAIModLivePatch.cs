@@ -17,10 +17,6 @@ using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
-using TMPro;
-using Jotunn.Configs;
-using System.Collections;
-using System.Runtime.Remoting.Messaging;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -922,10 +918,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (ZInput.GetKeyDown(KeyCode.L))
         {
 
-            if (instance.PlayerNPC_humanoid)
+            /*if (instance.PlayerNPC_humanoid)
                 Debug.Log(instance.PlayerNPC_humanoid.HasEnoughResource("Wood", 5));
             else
-                Debug.Log("no instance.PlayerNPC_humanoid");
+                Debug.Log("no instance.PlayerNPC_humanoid");*/
+
+            int quantity = CountItemsInInventory(instance.PlayerNPC_humanoid.m_inventory, "Stone");
+            Debug.Log($"You have {quantity} (s) in your inventory.");
+
+            //Debug.Log(instance.PlayerNPC_humanoid.m_inventory.;
             /*RefreshAllGameObjectInstances();
             instance.GetNearbyResourcesJSON(__instance.gameObject);
             //QueryResource("Wood");
@@ -945,6 +946,23 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         //instance.PlayRecordedAudio("");
         //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
         //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
+    }
+
+    static int CountItemsInInventory(Inventory inventory, string itemName)
+    {
+        if (inventory == null)
+        {
+            return 0;
+        }
+
+        /*foreach (ItemDrop.ItemData item in inventory.GetAllItems())
+        {
+            Debug.Log($"item {item.m_dropPrefab.name} x{item.m_stack}");
+        }*/
+
+        return inventory.GetAllItems()
+            .Where(item => item.m_dropPrefab.name.ToLower() == itemName.ToLower())
+            .Sum(item => item.m_stack);
     }
 
     NPCCommand currentcommand = null;
@@ -3159,7 +3177,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                             HarvestAction harvestAction = new HarvestAction();
                             harvestAction.humanoidNPC = npc;
                             harvestAction.ResourceName = ResourceName;
-                            harvestAction.RequiredAmount = ResourceQuantity;
+                            harvestAction.RequiredAmount = ResourceQuantity + CountItemsInInventory(npc.m_inventory, ResourceName);
                             instance.commandManager.AddCommand(harvestAction);
                         }
                         else
@@ -5164,7 +5182,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (task is HarvestAction)
             {
                 HarvestAction action = (HarvestAction)task;
-                AddItemToScrollBox(TaskListScrollBox, $"Gathering {action.ResourceName} ({action.RequiredAmount})", defaultSprite, i);
+                int RequiredAmount = action.RequiredAmount;
+                if (instance.PlayerNPC_humanoid)
+                    RequiredAmount -= CountItemsInInventory(instance.PlayerNPC_humanoid.m_inventory, action.ResourceName);
+                AddItemToScrollBox(TaskListScrollBox, $"Gathering {action.ResourceName} ({RequiredAmount})", defaultSprite, i);
             }
             if (task is PatrolAction)
             {
