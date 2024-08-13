@@ -242,12 +242,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
 
-        SaveDatabaseToJson();
+        //SaveDatabaseToJson();
 
-        foreach (string s in resourceHealthMap.Keys)
+        /*foreach (string s in resourceHealthMap.Keys)
         {
             Debug.LogError($"{s} {resourceHealthMap[s]} {resourceQuantityMap[s]}");
-        }
+        }*/
     }
 
     private void CheckTreeBase(GameObject prefab)
@@ -921,15 +921,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         if (ZInput.GetKeyDown(KeyCode.L))
         {
-            //instance.DeleteAllTasks();
-            //GameObject s = FindClosestItemDrop(Player.m_localPlayer.gameObject);
 
-            /* Debug.Log(QueryResource("Wood"));
-             Debug.Log(QueryResource("Stone"));
-             Debug.Log(QueryResource("Raspberry"));
-             Debug.Log(QueryResource("Flint"));*/
-
-            RefreshAllGameObjectInstances();
+            /*RefreshAllGameObjectInstances();
             instance.GetNearbyResourcesJSON(__instance.gameObject);
             //QueryResource("Wood");
             
@@ -939,7 +932,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             foreach (string element in commonElements)
             {
                 Debug.Log(element);
-            }
+            }*/
 
             return;
         }
@@ -1264,14 +1257,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         if (closestItemDrop)
                         {
                             monsterAIcomponent.SetFollowTarget(closestItemDrop);
-                            monsterAIcomponent.m_targetCreature = null;
-                            monsterAIcomponent.m_targetStatic = null;
                         }
                         else
                         {
                             monsterAIcomponent.SetFollowTarget(null);
-                            monsterAIcomponent.m_targetCreature = null;
-                            monsterAIcomponent.m_targetStatic = null;
                         }
 
                         
@@ -3565,15 +3554,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 nearbyResourcesXRotation[key] = xRotationDifference;*/
         }
 
-        /*foreach (Pickable pickable in pickables)
-            ProcessResource(pickable, pickable.name);
-
-        foreach (Destructible destructible in destructibles)
-            ProcessResource(destructible, destructible.name);
-
-        foreach (TreeBase tree in trees)
-            ProcessResource(tree, tree.name);*/
-
         foreach (GameObject co in instance.AllGOInstances)
             if (co != null)
                 ProcessResource(co, co.name);
@@ -3582,8 +3562,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         foreach (var kvp in instance.nearbyResources)
         {
-            //Debug.Log($"{kvp.Key}: {kvp.Value} | nearest's distance: {nearbyResourcesDistance[kvp.Key]:F2} | X rotation difference: {nearbyResourcesXRotation[kvp.Key]:F2}°");
-
             JsonObject thisJobject = new JsonObject();
             thisJobject["name"] = kvp.Key;
             thisJobject["quantity"] = kvp.Value;
