@@ -552,7 +552,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     public static void Character_OnDamaged_Prefix(Humanoid __instance, HitData hit)
     {
         //Debug.Log("Character_OnDamaged_Postfix");
-        if (instance.NPCCurrentMode == NPCMode.Defensive && instance.PlayerNPC)
+        if (instance.NPCCurrentMode != NPCMode.Passive && instance.PlayerNPC)
         {
             //Debug.Log("instance.NPCCurrentMode == NPCMode.Defensive");
             if (__instance == Player.m_localPlayer || __instance is HumanoidNPC)
@@ -1169,7 +1169,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             SetMonsterAIAggravated(__instance, false);
         }
-        if (instance.NPCCurrentMode == NPCMode.Defensive)
+        else if (instance.NPCCurrentMode == NPCMode.Defensive)
         {
             instance.RefreshEnemyList();
 
@@ -1188,7 +1188,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 SetMonsterAIAggravated(__instance, false);
             }
         }
-        if (instance.NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
+        else if (instance.NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
         {
             SetMonsterAIAggravated(__instance, true);
             __instance.SetAggravated(true, BaseAI.AggravatedReason.Theif);
@@ -2286,7 +2286,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             humanoidNpc_Component.SetMaxHealth(300);
             humanoidNpc_Component.SetHealth(300);
 
-            humanoidNpc_Component.m_inventory.m_height = 10;
+            //humanoidNpc_Component.m_inventory.m_height = 10;
 
             // ADD CONTAINER TO NPC TO ENABLE PLAYER-NPC INVENTORY INTERACTION
             humanoidNpc_Component.inventoryContainer = npcInstance.AddComponent<Container>();
