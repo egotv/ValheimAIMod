@@ -2929,9 +2929,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         else
             userInfo.Name = character.m_name;
         Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
-        Chat.WorldTextInstance oldtext = Chat.instance.FindExistingWorldText(0);
+        /*Chat.WorldTextInstance oldtext = Chat.instance.FindExistingWorldText(0);
         if (oldtext != null && oldtext.m_textMeshField)
-            Destroy(oldtext.m_textMeshField);
+            Destroy(oldtext.m_textMeshField);*/
         Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text + "\n\n\n");
         if (text != "..." && addToChat)
         {
