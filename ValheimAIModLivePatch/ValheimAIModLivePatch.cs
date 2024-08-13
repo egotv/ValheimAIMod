@@ -1048,8 +1048,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (followtarget != null && (followtarget.HasAnyComponent("Character") || followtarget.HasAnyComponent("Humanoid")))
             {
-                Debug.Log("follow target is not null and either character or humanoid");
-                Debug.Log(followtarget.name + " " + followtarget.transform.position.DistanceTo(instance.patrol_position));
+                /*Debug.Log("follow target is not null and either character or humanoid");
+                Debug.Log(followtarget.name + " " + followtarget.transform.position.DistanceTo(instance.patrol_position));*/
                 return true;
             }
 
@@ -1247,17 +1247,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 {
                     if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
                     {
-                        ItemDrop itemDrop = monsterAIcomponent.m_follow.GetComponent<ItemDrop>();
-                        if (!__instance.m_inventory.CanAddItem(itemDrop.m_itemData) || itemDrop.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight())
-                        {
-                            Debug.Log($"not enough space for {itemDrop.name}");
-                            monsterAIcomponent.SetFollowTarget(null);
-                        }
-                        else
-                        {
-                            Debug.Log($"picking up itemdrop {itemDrop.name}");
-                            instance.PickupItemDrop(__instance, monsterAIcomponent);
-                        }
+                        instance.PickupItemDrop(__instance, monsterAIcomponent);
                     }
                     else if (monsterAIcomponent.m_follow.HasAnyComponent("Pickable"))
                     {
@@ -1265,36 +1255,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                         Pickable pick = monsterAIcomponent.m_follow.GetComponent<Pickable>();
                         pick.Interact(Player.m_localPlayer, false, false);
-
-                        if (instance.lastPickedPickable)
-                        {
-                            monsterAIcomponent.SetFollowTarget(instance.lastPickedPickable);
-                            instance.PickupItemDrop(__instance, monsterAIcomponent);
-                            Debug.Log($"picking up {instance.lastPickedPickable.name} right after interacting");
-
-                            //instance.lastPickedPickable = null;
-                        }
-
-                        /*Destroy(monsterAIcomponent.m_follow);
+                        Destroy(monsterAIcomponent.m_follow);
                         instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
 
-                        GameObject closestItemDrop = FindClosestItemDrop(__instance.gameObject);
-                        if (closestItemDrop && closestItemDrop.transform.position.DistanceTo(__instance.transform.position) < 5)
-                        {
-                            monsterAIcomponent.SetFollowTarget(closestItemDrop);
-                        }
-                        else
-                        {
-                            monsterAIcomponent.SetFollowTarget(null);
-                            monsterAIcomponent.m_targetCreature = null;
-                            monsterAIcomponent.m_targetStatic = null;
-                        }*/
-
-                        /*monsterAIcomponent.SetFollowTarget(null);
+                        monsterAIcomponent.SetFollowTarget(null);
                         monsterAIcomponent.m_targetCreature = null;
-                        monsterAIcomponent.m_targetStatic = null;*/
+                        monsterAIcomponent.m_targetStatic = null;
 
-                        
+
                     }
                     //else if (monsterAIcomponent.m_follow.HasAnyComponent("Character") || monsterAIcomponent.m_follow.HasAnyComponent("Humanoid"))
                     else
@@ -1348,7 +1316,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return false;
     }*/
 
-    [HarmonyPrefix]
+    /*[HarmonyPrefix]
     [HarmonyPatch(typeof(Pickable), "RPC_Pick")]
     public static bool Pickable_RPC_Pick_Prefix(Pickable __instance, long sender)
     {
@@ -1383,7 +1351,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         __instance.m_nview.InvokeRPC(ZNetView.Everybody, "RPC_SetPicked", true);
 
         return false;
-    }
+    }*/
 
 
     GameObject lastPickedPickable = null;
@@ -1815,49 +1783,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 }
             }
         }
-    }
-
-
-
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(Pickable), "Interact")]
-    private static bool Pickable_Interact_Prefix(Pickable __instance, Humanoid character, bool repeat, bool alt, bool __result)
-    {
-        //Debug.Log("In Interact");
-        if (__instance.m_nview == null)
-        {
-            __instance.m_nview = __instance.GetComponent<ZNetView>();
-        }
-        if (!__instance.m_nview.IsValid())// || __instance.m_enabled == 0)
-        {
-            //Debug.Log("!m_nview.IsValid()");
-            __result = false;
-            return false;
-        }
-
-        if (__instance.m_tarPreventsPicking)
-        {
-            //Debug.Log("m_tarPreventsPicking");
-            if (__instance.m_floating == null)
-            {
-                __instance.m_floating = __instance.GetComponent<Floating>();
-                //Debug.Log("m_floating == null");
-            }
-
-            if ((bool)__instance.m_floating && __instance.m_floating.IsInTar())
-            {
-                //Debug.Log("message");
-                character.Message(MessageHud.MessageType.Center, "$hud_itemstucktar");
-                __result = __instance.m_useInteractAnimation;
-                return false;
-            }
-        }
-
-        //Debug.Log("calling RPC_Pick");
-        //character.m_nview.InvokeRPC("RPC_Pick");
-        __instance.RPC_Pick(0L);
-        __result = __instance.m_useInteractAnimation;
-        return false;
     }
 
     
