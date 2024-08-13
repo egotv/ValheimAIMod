@@ -1255,12 +1255,26 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                         Pickable pick = monsterAIcomponent.m_follow.GetComponent<Pickable>();
                         pick.Interact(Player.m_localPlayer, false, false);
+
                         Destroy(monsterAIcomponent.m_follow);
                         instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
 
-                        monsterAIcomponent.SetFollowTarget(null);
-                        monsterAIcomponent.m_targetCreature = null;
-                        monsterAIcomponent.m_targetStatic = null;
+                        RefreshAllGameObjectInstances();
+                        GameObject closestItemDrop = FindClosestItemDrop(__instance.gameObject);
+                        if (closestItemDrop)
+                        {
+                            monsterAIcomponent.SetFollowTarget(closestItemDrop);
+                            monsterAIcomponent.m_targetCreature = null;
+                            monsterAIcomponent.m_targetStatic = null;
+                        }
+                        else
+                        {
+                            monsterAIcomponent.SetFollowTarget(null);
+                            monsterAIcomponent.m_targetCreature = null;
+                            monsterAIcomponent.m_targetStatic = null;
+                        }
+
+                        
 
 
                     }
@@ -1354,29 +1368,34 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }*/
 
 
-    GameObject lastPickedPickable = null;
-    public void MyPickableDrop(GameObject prefab, int offset, int stack)
+    List<GameObject> PickedPickables = new List<GameObject>();
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Pickable), "Drop")]
+    public static bool Pickable_Drop_Prefix(Pickable __instance, GameObject prefab, int offset, int stack)
     {
         Vector2 vector = UnityEngine.Random.insideUnitCircle * 0.2f;
-        Vector3 position = base.transform.position + Vector3.up * 2 + new Vector3(vector.x, 0.5f * (float)offset, vector.y);
+        Vector3 position = __instance.transform.position + Vector3.up * __instance.m_spawnOffset + new Vector3(vector.x, 0.5f * (float)offset, vector.y);
         Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
         GameObject obj = UnityEngine.Object.Instantiate(prefab, position, rotation);
-        instance.lastPickedPickable = obj;
+        if (obj)
+        {
+            instance.PickedPickables.Add(obj);
+        }
         ItemDrop component = obj.GetComponent<ItemDrop>();
         if ((object)component != null)
         {
             component.SetStack(stack);
             ItemDrop.OnCreateNew(component);
         }
-
         obj.GetComponent<Rigidbody>().velocity = Vector3.up * 4f;
 
-        Debug.Log("MyPickableDrop");
+        return false;
     }
 
     private void PickupItemDrop(HumanoidNPC __instance, MonsterAI monsterAIcomponent)
     {
-        Debug.Log("PickupItemDrop");
+        //Debug.Log("PickupItemDrop");
         __instance.DoInteractAnimation(monsterAIcomponent.m_follow.transform.position);
 
         ItemDrop component = monsterAIcomponent.m_follow.GetComponent<ItemDrop>();
@@ -1393,7 +1412,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         if (!component.CanPickup())
         {
-            Debug.Log("RequestOwn");
+            //Debug.Log("RequestOwn");
             component.RequestOwn();
         }
         else
@@ -1413,7 +1432,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             else
             {
-                Debug.Log("PickupItemDrop CanAddItem");
+                //Debug.Log("PickupItemDrop CanAddItem");
             }
 
             Debug.Log("PickupItemDrop Picking up " + component.name);
@@ -1821,7 +1840,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
         if ((bool)__instance.m_dragGo)
         {
-            //Debug.LogError("__instance.m_dragGo");
             __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
             bool flag = localPlayer.IsItemEquiped(__instance.m_dragItem);
             bool flag2 = item != null && localPlayer.IsItemEquiped(item);
@@ -1886,7 +1904,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             switch (mod)
             {
                 case InventoryGrid.Modifier.Move:
-                    //Debug.LogError("InventoryGrid.Modifier.Move");
                     if (item.m_shared.m_questItem)
                     {
                         return false;
