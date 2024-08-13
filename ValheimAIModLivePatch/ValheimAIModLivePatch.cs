@@ -1416,7 +1416,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 return;
             }
             component.Load();
-            if (!__instance.m_inventory.CanAddItem(component.m_itemData) || component.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight())
+            /*if (!__instance.m_inventory.CanAddItem(component.m_itemData) || component.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight())
             {
                 Debug.Log("!CanAddItem");
                 Debug.Log($"!m_inventory.CanAddItem(component.m_itemData) {!__instance.m_inventory.CanAddItem(component.m_itemData)}");
@@ -1426,7 +1426,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             else
             {
                 //Debug.Log("PickupItemDrop CanAddItem");
-            }
+            }*/
 
             Debug.Log("PickupItemDrop Picking up " + component.name);
             __instance.Pickup(component.gameObject);
@@ -2286,7 +2286,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             humanoidNpc_Component.SetMaxHealth(300);
             humanoidNpc_Component.SetHealth(300);
 
-            //humanoidNpc_Component.m_inventory.m_height = 10;
+            humanoidNpc_Component.m_inventory.m_height = 10;
 
             // ADD CONTAINER TO NPC TO ENABLE PLAYER-NPC INVENTORY INTERACTION
             humanoidNpc_Component.inventoryContainer = npcInstance.AddComponent<Container>();
