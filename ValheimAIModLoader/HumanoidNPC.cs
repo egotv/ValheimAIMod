@@ -244,7 +244,7 @@ namespace ValheimAIModLoader
 
             // Find all items in the inventory that match the resource name
             List<ItemDrop.ItemData> items = playerInventory.GetAllItems()
-                .Where(item => item.m_shared.m_name == resourceName)
+                .Where(item => item.m_dropPrefab.name.ToLower() == resourceName.ToLower())
                 .ToList();
 
             // Sum up the total amount of the resource

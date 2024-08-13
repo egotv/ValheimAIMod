@@ -18,6 +18,8 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
 using TMPro;
+using Jotunn.Configs;
+using System.Collections;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -126,6 +128,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
     private static Dictionary<string, Dictionary<string, List<string>>> resourceDatabase = new Dictionary<string, Dictionary<string, List<string>>>();
+    private static Dictionary<string, float> resourceHealthMap = new Dictionary<string, float>();
+    private static Dictionary<string, float> resourceQuantityMap = new Dictionary<string, float>();
 
 
     private void Awake()
@@ -164,7 +168,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         commandManager.AddCommand(harvestAction);*/
 
 
-        //PopulateDatabase();
+        PopulateDatabase();
+        //PopulateAllItems();
 
         harmony.PatchAll(typeof(ValheimAIModLivePatch));
     }
@@ -206,13 +211,20 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         //Example (not actual implementation):
         foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
-
-        //GameObject[] gos = GameObject.FindObjectsOfType<GameObject>(true);
-        //foreach (GameObject prefab in gos)
+        //foreach (GameObject prefab in GameObject.FindObjectsOfType<GameObject>())
+            
         {
+            /*if (resourceDatabase.ContainsKey(CleanKey(prefab.name)))
+            {
+                continue;
+            }*/
+
+
 
             if (prefab.HasAnyComponent("TreeBase"))
                 CheckTreeBase(prefab);
+            if (prefab.HasAnyComponent("TreeLog"))
+                CheckTreeLog(prefab);
             if (prefab.HasAnyComponent("CharacterDrop"))
                 CheckCharacterDrop(prefab);
             if (prefab.HasAnyComponent("DropOnDestroyed"))
@@ -231,6 +243,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
         SaveDatabaseToJson();
+
+        foreach (string s in resourceHealthMap.Keys)
+        {
+            Debug.LogError($"{s} {resourceHealthMap[s]} {resourceQuantityMap[s]}");
+        }
     }
 
     private void CheckTreeBase(GameObject prefab)
@@ -240,8 +257,44 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             foreach (DropTable.DropData drop in treeBase.m_dropWhenDestroyed.m_drops)
             {
-                //if (drop.m_item)
-                    AddToDatabase(drop.m_item.name, "TreeBase", prefab.name);
+                
+                float health = 0;
+                if (resourceHealthMap.TryGetValue(prefab.name, out health))
+                {
+                    resourceHealthMap[prefab.name] = Math.Max(treeBase.m_health, health);
+                }
+                else
+                {
+                    resourceHealthMap[prefab.name] = treeBase.m_health;
+                }
+
+                resourceQuantityMap[prefab.name] = treeBase.m_dropWhenDestroyed.m_dropMax;
+
+                AddToDatabase(drop.m_item.name, "TreeBase", prefab.name);
+            }
+        }
+    }
+
+    private void CheckTreeLog(GameObject prefab)
+    {
+        TreeLog treeBase = prefab.GetComponent<TreeLog>();
+        if (treeBase != null && treeBase.m_dropWhenDestroyed != null && treeBase.m_dropWhenDestroyed.m_drops != null)
+        {
+            foreach (DropTable.DropData drop in treeBase.m_dropWhenDestroyed.m_drops)
+            {
+                float health = 0;
+                if (resourceHealthMap.TryGetValue(prefab.name, out health))
+                {
+                    resourceHealthMap[prefab.name] = Math.Max(treeBase.m_health, health);
+                }
+                else
+                {
+                    resourceHealthMap[prefab.name] = treeBase.m_health;
+                }
+
+                resourceQuantityMap[prefab.name] = treeBase.m_dropWhenDestroyed.m_dropMax;
+
+                AddToDatabase(drop.m_item.name, "TreeLog", prefab.name);
             }
         }
     }
@@ -253,8 +306,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             foreach (CharacterDrop.Drop drop in characterDrop.m_drops)
             {
-                //if (drop.m_prefab)
-                    AddToDatabase(drop.m_prefab.name, "CharacterDrop", prefab.name);
+                resourceQuantityMap[prefab.name] = characterDrop.m_drops.Count;
+                AddToDatabase(drop.m_prefab.name, "CharacterDrop", prefab.name);
             }
         }
     }
@@ -266,6 +319,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             foreach (DropTable.DropData drop in dropOnDestroyed.m_dropWhenDestroyed.m_drops)
             {
+                resourceQuantityMap[prefab.name] = dropOnDestroyed.m_dropWhenDestroyed.m_dropMax;
                 if (drop.m_item)
                     AddToDatabase(drop.m_item.name, "DropOnDestroyed", prefab.name);
             }
@@ -277,7 +331,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
         //if (itemDrop != null && itemDrop.m_itemData != null && itemDrop.m_itemData.m_dropPrefab != null)
         if (itemDrop != null && itemDrop.m_itemData != null && itemDrop.m_itemData.m_dropPrefab != null)
-        {   
+        {
+            resourceQuantityMap[prefab.name] = itemDrop.m_itemData.m_stack;
             //AddToDatabase(itemDrop.m_itemData.m_shared.m_name, "ItemDrop", prefab.name);
             AddToDatabase(itemDrop.m_itemData.m_dropPrefab.name, "ItemDrop", prefab.name);
         }
@@ -286,11 +341,25 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void CheckDestructibles(GameObject prefab)
     {
         Destructible destructible = prefab.GetComponent<Destructible>();
-        if (destructible != null && destructible.m_spawnWhenDestroyed != null)
+        
+        if (destructible != null )
         {
-            /*if (prefab.name == "silvervein")
-                Debug.Log(prefab.name + " destructible");*/
-            AddToDatabase(destructible.m_spawnWhenDestroyed.name, "Destructible", prefab.name);
+            float health = 0;
+            if (resourceHealthMap.TryGetValue(prefab.name, out health))
+            {
+                resourceHealthMap[prefab.name] = Math.Max(destructible.m_health, health);
+            }
+            else
+            {
+                resourceHealthMap[prefab.name] = destructible.m_health;
+            }
+
+            resourceQuantityMap[prefab.name] = 1;
+
+            if (destructible.m_spawnWhenDestroyed != null)
+            {
+                AddToDatabase(destructible.m_spawnWhenDestroyed.name, "Destructible", prefab.name);
+            }
         }
     }
 
@@ -299,6 +368,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Pickable pickable = prefab.GetComponent<Pickable>();
         if (pickable != null && pickable.m_itemPrefab != null)
         {
+            resourceQuantityMap[prefab.name] = pickable.m_amount;
             AddToDatabase(pickable.m_itemPrefab.name, "Pickable", prefab.name);
         }
     }
@@ -308,6 +378,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MineRock minerock = prefab.GetComponent<MineRock>();
         if (minerock != null && minerock.m_dropItems != null && minerock.m_dropItems.m_drops != null)
         {
+            float health = 0;
+            if (resourceHealthMap.TryGetValue(prefab.name, out health))
+            {
+                resourceHealthMap[prefab.name] = Math.Max(minerock.m_health, health);
+            }
+            else
+            {
+                resourceHealthMap[prefab.name] = minerock.m_health;
+            }
+
+            resourceQuantityMap[prefab.name] = minerock.m_dropItems.m_dropMax;
+
             foreach (DropTable.DropData drop in minerock.m_dropItems.m_drops)
             {
                 //if (drop.m_item != null)
@@ -321,6 +403,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         MineRock5 minerock = prefab.GetComponent<MineRock5>();
         if (minerock != null && minerock.m_dropItems != null && minerock.m_dropItems.m_drops != null)
         {
+            float health = 0;
+            if (resourceHealthMap.TryGetValue(prefab.name, out health))
+            {
+                resourceHealthMap[prefab.name] = Math.Max(minerock.m_health, health);
+            }
+            else
+            {
+                resourceHealthMap[prefab.name] = minerock.m_health;
+            }
+
+            resourceQuantityMap[prefab.name] = minerock.m_dropItems.m_dropMax;
+
+
             foreach (DropTable.DropData drop in minerock.m_dropItems.m_drops)
             {
                 //if (drop.m_item != null)
@@ -329,31 +424,79 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
+    private static List<string> priorityOrder = new List<string>
+    {
+        "ItemDrop",
+        "Pickable",
+        
+        "TreeLog",
+        "TreeBase",
+        "MineRock",
+        "MineRock5",
+
+        "CharacterDrop",
+        "DropOnDestroyed",
+        "Destructible"
+    };
+
     private void AddToDatabase(string resourceName, string sourceType, string sourceName)
     {
-        Debug.Log($"{resourceName} {sourceType} {sourceName}");
+        //Debug.Log($"{resourceName} {sourceType} {sourceName}");
+        
+
         if (!resourceDatabase.ContainsKey(resourceName))
         {
             resourceDatabase[resourceName] = new Dictionary<string, List<string>>
                 {
-                    
-                    { "CharacterDrop", new List<string>() },
                     { "ItemDrop", new List<string>() },
-                    { "DropOnDestroyed", new List<string>() },
-
-                    { "Destructible", new List<string>() },
                     { "Pickable", new List<string>() },
 
+                    { "TreeLog", new List<string>() },
                     { "TreeBase", new List<string>() },
                     { "MineRock", new List<string>() },
                     { "MineRock5", new List<string>() },
+
+                    { "CharacterDrop", new List<string>() },
+                    
+                    { "DropOnDestroyed", new List<string>() },
+
+                    { "Destructible", new List<string>() },
+
+
+                    
                 };
         }
 
         resourceDatabase[resourceName][sourceType].Add(sourceName);
     }
 
-    public static string QueryResource(string resourceName)
+    public static string[] QueryResource(string resourceName)
+    {
+        if (!resourceDatabase.ContainsKey(resourceName))
+        {
+            return new string[0]; // Return an empty array if resource is not found
+        }
+
+        var results = resourceDatabase[resourceName];
+        var resourceList = new List<string>();
+
+        // Add all resources to the set without labels
+        foreach (var sourceType in priorityOrder)
+        {
+            if (results.ContainsKey(sourceType))
+            {
+                resourceList.AddRange(results[sourceType]);
+            }
+        }
+
+        // Print the array before returning
+        /*Debug.Log($"Resources for '{resourceName}':");
+        Debug.Log(string.Join(", ", resourceList));*/
+
+        return resourceList.Distinct().ToArray();
+    }
+
+    /*public static string[] QueryResource(string resourceName)
     {
         if (!resourceDatabase.ContainsKey(resourceName))
         {
@@ -379,14 +522,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         if (results["TreeBase"].Count > 0)
             output += $"- Destroy trees: {string.Join(", ", results["TreeBase"])}\n";
+        if (results["TreeLog"].Count > 0)
+            output += $"- Destroy tree logs: {string.Join(", ", results["TreeLog"])}\n";
         if (results["MineRock"].Count > 0)
             output += $"- Destroy MineRock: {string.Join(", ", results["MineRock"])}\n";
         if (results["MineRock5"].Count > 0)
             output += $"- Destroy MineRock5: {string.Join(", ", results["MineRock5"])}\n";
 
 
-        return output;
-    }
+        //return output;
+        Debug.Log(output);
+    }*/
 
 
 
@@ -552,6 +698,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (instance.NPCCurrentMode == NPCMode.Passive)
         {
             instance.commandManager.RemoveCommandsOfType<AttackAction>();
+            instance.enemyList.Clear();
         }
     }
 
@@ -723,14 +870,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource)
             {
-
-                instance.Harvesting_Stop();
+                instance.commandManager.RemoveCommandsOfType<HarvestAction>();
+                //instance.Harvesting_Stop();
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} stopped harvesting!");
             }
             else
             {
-                instance.Harvesting_Start("Beech_small");
-                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} harvesting !");
+                HarvestAction action = new HarvestAction();
+                action.humanoidNPC = npc;
+                action.ResourceName = "Wood";
+                action.RequiredAmount = 20;
+                instance.commandManager.AddCommand(action);
+
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} harvesting wood!");
             }
                 
             return;
@@ -777,6 +929,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
              Debug.Log(QueryResource("Raspberry"));
              Debug.Log(QueryResource("Flint"));*/
 
+            RefreshAllGameObjectInstances();
+            instance.GetNearbyResourcesJSON(__instance.gameObject);
+            //QueryResource("Wood");
+            
+
+            List<string> commonElements = FindCommonElements(QueryResource("Wood"), instance.nearbyResources.Keys.ToArray());
+            Debug.Log("Common elements:");
+            foreach (string element in commonElements)
+            {
+                Debug.Log(element);
+            }
+
             return;
         }
 
@@ -802,7 +966,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
         NPCCommand command = instance.commandManager.GetNextCommand();
-        if (command != null && command != instance.currentcommand)
+
+        //if (command != null)
+        if (instance.currentcommand == null || instance.currentcommand != command)
         {
             instance.currentcommand = command;
             if (command is HarvestAction)
@@ -828,15 +994,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         if (command == null && instance.commandManager.GetCommandsCount() == 0)
+        //else
         {
             FollowAction followAction = new FollowAction();
             instance.commandManager.AddCommand(followAction);
-            /*instance.Follow_Start(Player.m_localPlayer.gameObject);
-            instance.currentcommand = command;*/
         }
 
 
-        if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && !(instance.NPCCurrentMode == NPCMode.Defensive && instance.enemyList.Count > 0))
+        if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && !(instance.NPCCurrentMode == NPCMode.Defensive && instance.enemyList.Count > 0) && instance.NPCCurrentCommand != NPCCommand.CommandType.CombatAttack)
         {
             //Debug.Log("trying to find item drop");
 
@@ -919,7 +1084,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return true;
         }
 
-        else if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource)
+        else if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource && (instance.enemyList.Count == 0))
         {
 
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
@@ -930,10 +1095,48 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid"))
             {
-                newfollow = FindClosestResource(__instance.gameObject, instance.CurrentHarvestResourceName);
+                List<string> commonElements = FindCommonElements(QueryResource(instance.CurrentHarvestResourceName), instance.nearbyResources.Keys.ToArray());
+                Dictionary<GameObject, float> ResourcesDistances = new Dictionary<GameObject, float>();
+                GameObject resource;
+                foreach (string s in commonElements)
+                {
+                    resource = FindClosestResource(instance.PlayerNPC, s);
+                    if (resource == null)
+                    {
+                        // inform API that resource was not found and wasn't processed
+                        Debug.Log($"couldn't find resource: {s}");
+                        continue;
+                    }
+                    else
+                    {
+                        ResourcesDistances[resource] = instance.PlayerNPC.transform.position.DistanceTo(resource.transform.position);
+                    }
+                }
+
+                GameObject[] resources = ResourcesDistances.Keys
+                    /*.OrderBy(pair => pair.Value)
+                    .Select(pair => pair.Key)*/
+                    .Where(go => go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 40)
+                    .ToArray();
+
+                /*foreach (GameObject s in resources)
+                {
+                    Debug.Log($"harvesting options: {s.name}");
+                }*/
+
+                if (resources.Length > 0)
+                {
+                    __instance.SetFollowTarget(resources[0]);
+                    Debug.Log($"going to harvest {resources[0].name}");
+                }
+                
+
+
+
+                /*newfollow = FindClosestResource(__instance.gameObject, instance.CurrentHarvestResourceName);
 
                 if (newfollow != null)
-                    __instance.SetFollowTarget(newfollow);
+                    __instance.SetFollowTarget(newfollow);*/
             }
         }
 
@@ -969,7 +1172,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             SetMonsterAIAggravated(__instance, false);
         }
-        //if (instance.NPCCurrentMode == NPCMode.Defensive && (!__instance.m_aggravatable || __instance.m_viewRange != 0))
         if (instance.NPCCurrentMode == NPCMode.Defensive)
         {
             instance.RefreshEnemyList();
@@ -989,7 +1191,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 SetMonsterAIAggravated(__instance, false);
             }
         }
-        //if (instance.NPCCurrentMode == NPCMode.Aggressive && (!__instance.m_aggravated || __instance.m_viewRange != 80))
         if (instance.NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
         {
             SetMonsterAIAggravated(__instance, true);
@@ -999,15 +1200,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
         return true;
-
-        /*if (instance.NPCCurrentCommand == NPCMode.PatrolArea && instance.patrol_position != Vector3.zero && instance.patrol_position.DistanceTo(__instance.transform.position) > instance.PatrolArea_radius)
-        {
-            __instance.MoveTo(Time.deltaTime, instance.patrol_position, 0f, false);
-        }
-        else if (instance.patrol_position.DistanceTo(__instance.transform.position) < 2f)
-        {
-            instance.patrol_position = Vector3.zero;
-        }*/
     }
 
     // SOMETIMES AI DOESNT START ATTACKING EVEN THOUGH IT IS IN CLOSE RANGE, SO CHECK AND ATTACK ON UPDATE
@@ -1063,6 +1255,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         }
                         else
                         {
+                            Debug.Log($"picking up itemdrop {itemDrop.name}");
                             instance.PickupItemDrop(__instance, monsterAIcomponent);
                         }
                     }
@@ -1077,17 +1270,29 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         {
                             monsterAIcomponent.SetFollowTarget(instance.lastPickedPickable);
                             instance.PickupItemDrop(__instance, monsterAIcomponent);
-                            Debug.Log("picking up right after interacting");
+                            Debug.Log($"picking up {instance.lastPickedPickable.name} right after interacting");
 
-                            instance.lastPickedPickable = null;
+                            //instance.lastPickedPickable = null;
                         }
 
-                        Destroy(monsterAIcomponent.m_follow);
+                        /*Destroy(monsterAIcomponent.m_follow);
                         instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
 
-                        monsterAIcomponent.SetFollowTarget(null);
+                        GameObject closestItemDrop = FindClosestItemDrop(__instance.gameObject);
+                        if (closestItemDrop && closestItemDrop.transform.position.DistanceTo(__instance.transform.position) < 5)
+                        {
+                            monsterAIcomponent.SetFollowTarget(closestItemDrop);
+                        }
+                        else
+                        {
+                            monsterAIcomponent.SetFollowTarget(null);
+                            monsterAIcomponent.m_targetCreature = null;
+                            monsterAIcomponent.m_targetStatic = null;
+                        }*/
+
+                        /*monsterAIcomponent.SetFollowTarget(null);
                         monsterAIcomponent.m_targetCreature = null;
-                        monsterAIcomponent.m_targetStatic = null;
+                        monsterAIcomponent.m_targetStatic = null;*/
 
                         
                     }
@@ -1147,6 +1352,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     [HarmonyPatch(typeof(Pickable), "RPC_Pick")]
     public static bool Pickable_RPC_Pick_Prefix(Pickable __instance, long sender)
     {
+        Debug.Log("My RPC_PICK");
         if (!__instance.m_nview.IsOwner() || __instance.m_picked)
         {
             return false;
@@ -1202,6 +1408,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void PickupItemDrop(HumanoidNPC __instance, MonsterAI monsterAIcomponent)
     {
+        Debug.Log("PickupItemDrop");
         __instance.DoInteractAnimation(monsterAIcomponent.m_follow.transform.position);
 
         ItemDrop component = monsterAIcomponent.m_follow.GetComponent<ItemDrop>();
@@ -1236,8 +1443,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 Debug.Log($"component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight() {component.m_itemData.GetWeight() + __instance.m_inventory.GetTotalWeight() > __instance.GetMaxCarryWeight()}");
                 return;
             }
+            else
+            {
+                Debug.Log("PickupItemDrop CanAddItem");
+            }
 
-            Debug.Log("Picking up " + component.name);
+            Debug.Log("PickupItemDrop Picking up " + component.name);
             __instance.Pickup(component.gameObject);
 
             if (component == null)
@@ -1265,6 +1476,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             bool flag = __instance.m_inventory.AddItem(component.m_itemData);
             if (__instance.m_nview.GetZDO() == null)
             {
+                Debug.Log($"__instance.m_nview.GetZDO() == null");
                 UnityEngine.Object.Destroy(component.gameObject);
                 return;
             }
@@ -1274,6 +1486,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 //Message(MessageHud.MessageType.Center, "$msg_noroom");
                 return;
             }
+            else
+            {
+                Debug.Log($"NPC can pickup item {component.GetHoverName()} {component.name}");
+            }
+
             if (component.m_itemData.m_shared.m_questItem)
             {
                 __instance.AddUniqueKey(component.m_itemData.m_shared.m_name);
@@ -1285,8 +1502,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             __instance.m_pickupEffects.Create(__instance.transform.position, Quaternion.identity);
 
-
-            //m_inventory.AddItem(component.m_itemData); // if pickup is not adding to inventory
 
             /*continue;
             
@@ -1301,7 +1516,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }*/
         }
 
-        Destroy(monsterAIcomponent.m_follow);
+        /*Destroy(monsterAIcomponent.m_follow);
         instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
 
         GameObject closestItemDrop = FindClosestItemDrop(__instance.gameObject);
@@ -1314,96 +1529,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             monsterAIcomponent.SetFollowTarget(null);
             monsterAIcomponent.m_targetCreature = null;
             monsterAIcomponent.m_targetStatic = null;
-        }
+        }*/
     }
-
-    /*[HarmonyPostfix]
-    [HarmonyPatch(typeof(Humanoid), "CustomFixedUpdate")]
-    private static void Humanoid_CustomFixedUpdate_Postfix(Humanoid __instance, float fixedDeltaTime)
-    {
-        if (__instance && __instance.name.Contains(NPCPrefabName))
-        {
-            MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
-            HumanoidNPC humanoidcomponent = __instance.GetComponent<HumanoidNPC>();
-
-            if (monsterAIcomponent && monsterAIcomponent.m_follow && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject)
-            {
-                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance + .5f && !humanoidcomponent.InAttack())
-                {
-                    if (monsterAIcomponent.m_follow.HasAnyComponent("Pickable"))
-                    {
-                        Pickable pick = monsterAIcomponent.m_follow.GetComponent<Pickable>();
-                        pick.Interact(Player.m_localPlayer, false, false);
-                    }
-                    else
-                    {
-                        monsterAIcomponent.LookAt(monsterAIcomponent.m_follow.transform.position);
-                        humanoidcomponent.StartAttack(humanoidcomponent, false);
-                    }
-                }
-            }
-        }
-    }*/
-
-
-    // OVERRIDE CheckRun: NPC can run when Player has over 5 stamina
-    /*[HarmonyPostfix]
-    [HarmonyPatch(typeof(Character), "CheckRun")]
-    public static void Character_CheckRun_Postfix(Character __instance, Vector3 moveDir, float dt, ref bool __result)
-    {
-        if (__instance.name.Contains("HumanoidNPC"))
-        {
-            ValheimAIModLoader.HumanoidNPC humanoidnpc_component = __instance.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-            if (humanoidnpc_component.CurrentCommand == NPCCommand.CommandType.FollowPlayer)
-            {
-                __result = Player.m_localPlayer.HaveStamina(5f);
-            }
-        }
-    }*/
-
-    // OVERRIDE CheckRun: if this character can run? with stamina logic
-    /*[HarmonyPrefix]
-    [HarmonyPatch(typeof(Character), "CheckRun")]
-    public static bool Character_CheckRun_Prefix(Character __instance, Vector3 moveDir, float dt)
-    {
-        if (!__instance.name.Contains("HumanoidNPC")) return true;
-
-
-
-        HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
-
-        if (humanoidNPC_component)
-        {
-            if (Time.time - humanoidNPC_component.m_staminaLastBreakTime < humanoidNPC_component.StaminaExhaustedMinimumBreakTime)
-            {
-                return false;
-            }
-            else if (humanoidNPC_component.m_stamina < humanoidNPC_component.MinimumStaminaToRun)
-            {
-                humanoidNPC_component.m_staminaLastBreakTime = Time.time;
-                return false;
-            }
-        }
-        return true;
-    }*/
-
-    /* AI starts running again instantly when stamina > min_stamina.
-     * This isn't the case with Player's since you have to press shift again to run after your stamina has been drained.
-     * So after NPC's stamina has been drained completely, the min_stamina to run again should be higher to avoid stamina being stuck around min_stamina */
-    /*[HarmonyPrefix]
-    [HarmonyPatch(typeof(BaseAI), "MoveTo")]
-    public static void BaseAI_MoveTo_Prefix(BaseAI __instance, ref float dt, ref Vector3 point, ref float dist, ref bool run)
-    {
-        ValheimAIModLoader.NPCScript npcscript_component = IsScriptNPC(__instance.m_character);
-        if (npcscript_component)
-        {
-            if (npcscript_component.m_stamina < min_stamina + 5)
-            {
-                run = false;
-                Debug.Log("MoveTo told ai bot to stop running");
-            }
-        }
-    }*/
 
 
     // OVERRIDE AI "RUN OR WALK?" LOGIC WHEN FOLLOWING A CHARACTER
@@ -2111,18 +2238,27 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 ItemDrop.ItemData itemdata;
 
-                itemPrefab = ZNetScene.instance.GetPrefab("AxeBronze");
-                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
-                humanoidNpc_Component.EquipItem(itemdata);
-                //humanoidNpc_Component.GiveDefaultItem(itemPrefab);
 
-                itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeChest");
+                itemPrefab = ZNetScene.instance.GetPrefab("ArmorRagsChest");
                 itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
                 humanoidNpc_Component.EquipItem(itemdata);
 
-                itemPrefab = ZNetScene.instance.GetPrefab("ArmorBronzeLegs");
+                itemPrefab = ZNetScene.instance.GetPrefab("ArmorRagsLegs");
                 itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
                 humanoidNpc_Component.EquipItem(itemdata);
+
+
+                /*itemPrefab = ZNetScene.instance.GetPrefab("AxeIron");
+                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
+                humanoidNpc_Component.EquipItem(itemdata);
+
+                itemPrefab = ZNetScene.instance.GetPrefab("ArmorIronChest");
+                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
+                humanoidNpc_Component.EquipItem(itemdata);
+
+                itemPrefab = ZNetScene.instance.GetPrefab("ArmorIronLegs");
+                itemdata = humanoidNpc_Component.PickupPrefab(itemPrefab, 1);
+                humanoidNpc_Component.EquipItem(itemdata);*/
             }
 
             // COPY PROPERTIES FROM PLAYER
@@ -2150,7 +2286,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     protected virtual void OnNPCDeath()
     {
-        MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Your NPC died!");
+        MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Your NPC died! Press [G] to respawn");
 
         HumanoidNPC humanoidNPC = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
@@ -2425,19 +2561,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Debug.Log("trying to harvest resource: " + instance.CurrentHarvestResourceName);
 
         //ResourceName = "Beech";
-        GameObject resource = FindClosestResource(instance.PlayerNPC, instance.CurrentHarvestResourceName);
-        if (resource == null)
-        {
-            // inform API that resource was not found and wasn't processed
-            Debug.Log($"couldn't find resource: {resource}");
-            return;
-        }
-        else
-        {
-            Debug.Log("resource valid");
-        }
-
-        monsterAIcomponent.SetFollowTarget(resource);
 
         if (NPCDialogueMessage != "")
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -2952,6 +3075,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             string agent_text_response = responseObject["agent_text_response"].ToString().TrimStart('\n');
             string player_instruction_transcription = responseObject["player_instruction_transcription"].ToString();
 
+            Debug.Log("Response from brain");
+            Debug.Log("You said: " + player_instruction_transcription);
+            Debug.Log("NPC said: " + agent_text_response);
+            Debug.Log("Full response from brain: " + responseJson);
+
             // Get the agent_commands array
             JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
 
@@ -2961,10 +3089,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 for (int i=0; i<agentCommands.Count; i++)
                 {
                     JsonObject commandObject = agentCommands[i] as JsonObject;
+                    HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
                     if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
                     {
-                        HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
+                        
                         AddChatTalk(Player.m_localPlayer, "Player", player_instruction_transcription);
                         AddChatTalk(npc, "NPC", agent_text_response);
 
@@ -2976,55 +3105,87 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     string category = commandObject["category"].ToString();
 
                     string[] parameters = {};
-                    string p = "";
-                    int q = 10;
+                    string ResourceNode = null;
+                    string ResourceName = null;
+                    int ResourceQuantity = 0;
+
+                    string parametersString = "";
 
                     if (commandObject.ContainsKey("parameters"))
                     {
                         JsonArray jsonparams = commandObject["parameters"] as JsonArray;
-                        if (jsonparams != null && jsonparams.Count > 0)
-                        {
-                            p = jsonparams[0].ToString();
-
-                            /*if (jsonparams.Count > 1)
-                                q = int.Parse(jsonparams[1].ToString());*/
-                        }
+                        parameters = jsonparams.Select(x => x.ToString()).ToArray();
                     }
 
-                    foreach (string pa in parameters)
+                    foreach (string s in parameters)
                     {
-                        Debug.Log($"param {pa}");
+                        parametersString += s + " ";
                     }
 
-                    Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
-                    ProcessNPCCommand(category, action, p, agent_text_response);
+                    Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parametersString);
+                    if (category == "Inventory")
+                        ProcessNPCCommand(category, action, parameters.Length > 0 ? parameters[0] : "", agent_text_response);
 
                     Sprite defaultSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.one * 0.5f);
 
                     if (category == "Harvesting")
                     {
-                        HarvestAction harvestAction = new HarvestAction();
-                        harvestAction.ResourceName = p;
-                        harvestAction.RequiredAmount = q;
-                        commandManager.AddCommand(harvestAction);
+                        if (parameters.Length > 0)
+                        {
+                            if (parameters.Length >= 1)
+                                ResourceName = parameters[0];
+                            if (parameters.Length >= 2)
+                                ResourceQuantity = int.Parse(parameters[1]);
+                            if (parameters.Length >= 3)
+                                ResourceNode = parameters[2];
+
+                            HarvestAction harvestAction = new HarvestAction();
+                            harvestAction.humanoidNPC = npc;
+                            harvestAction.ResourceName = ResourceName;
+                            harvestAction.RequiredAmount = ResourceQuantity;
+                            commandManager.AddCommand(harvestAction);
+                        }
+                        else
+                        {
+                            Debug.Log("Brain gave Harvesting command but didn't give 3 parameters");
+                        }
                     }
-                    if (category == "Patrol")
+                    else if (category == "Patrol")
                     {
                         PatrolAction patrolAction = new PatrolAction();
+                        patrolAction.humanoidNPC = npc;
                         patrolAction.patrol_position = Player.m_localPlayer.transform.position;
                         patrolAction.patrol_radius = 15;
                         commandManager.AddCommand(patrolAction);
                     }
-                    if (category == "Combat")
+                    else if (category == "Combat")
                     {
-                        AttackAction attackAction = new AttackAction();
-                        attackAction.TargetName = p;
-                        attackAction.Target = FindClosestEnemy(instance.PlayerNPC, p);
-                        commandManager.AddCommand(attackAction);
+                        if (parameters.Length > 0)
+                        {
+                            if (parameters.Length >= 1)
+                                ResourceNode = parameters[0];
+                            /*if (parameters.Length >= 2)
+                                ResourceQuantity = int.Parse(parameters[1]);
+                            if (parameters.Length >= 3)
+                                ResourceName = parameters[2];*/
+
+                            AttackAction attackAction = new AttackAction();
+                            attackAction.humanoidNPC = npc;
+                            attackAction.TargetName = ResourceNode;
+                            attackAction.Target = FindClosestEnemy(instance.PlayerNPC, ResourceNode);
+                            commandManager.AddCommand(attackAction);
+                        }
+                        else
+                        {
+                            Debug.Log("Brain gave Combat command but didn't give 2 parameters");
+                        }
+
+                        
                     }
                     if (category == "Follow")
                     {
                         FollowAction followAction = new FollowAction();
+                        followAction.humanoidNPC = npc;
                         commandManager.AddCommand(followAction);
                     }
 
@@ -3042,11 +3203,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 AddChatTalk(npc, "NPC", agent_text_response);
                 Debug.Log("No agent commands found.");
             }
-
-            Debug.Log("Response from brain");
-            Debug.Log("You said: " + player_instruction_transcription);
-            Debug.Log("NPC said: " + agent_text_response);
-            Debug.Log("Full response from brain: " + responseJson);
 
             // Download the audio file asynchronously
             DownloadAudioFile(audioFileId);
@@ -3097,7 +3253,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         //string firstParameter = parameters.Length > 0 ? parameters[0] : "NULL";
 
-        if (category == "Follow")
+        /*if (category == "Follow")
         {
             if (action == "Start")
             {
@@ -3127,9 +3283,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 instance.Combat_StopAttacking(agent_text_response);
             }
-        }
+        }*/
 
-        else if (category == "Inventory")
+        //else if (category == "Inventory")
+        if (category == "Inventory")
         {
             if (action == "DropAll")
             {
@@ -3147,11 +3304,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
             }
         }
-        else if (category == "Harvesting")
+        /*else if (category == "Harvesting")
         {
             if (action == "Start")
             {
-                Debug.Log($"harvesting start {parameter}");
+                //Debug.Log($"harvesting start {parameter}");
                 instance.Harvesting_Start(parameter, agent_text_response);
             }
             else if (action == "Stop")
@@ -3169,11 +3326,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 instance.Patrol_Stop(agent_text_response);
             }
-        }
-        else
+        }*/
+        /*else
         {
             Debug.Log($"ProcessNPCCommand failed {category} {action}");
-        }
+        }*/
     }
 
     
@@ -3264,7 +3421,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         instance.AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
-                .Where(go => go != null && go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 300 && go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "MineRock"))
+                .Where(go => go != null && go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 300 && go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
                 .ToArray();
                 //.ToList();
         instance.AllGOInstancesLastRefresh = Time.time;
@@ -3277,28 +3434,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private static void RefreshPickables()
     {
         instance.AllPickableInstances = instance.AllGOInstances.Where(go => go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")).ToList();
-        /*GameObject[] pickables = GameObject.FindObjectsOfType<GameObject>(false)
-                //.Where(go => go != null && !ZoneSystem.instance.IsBlocked(go.transform.position) && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
-                .Where(go => go != null  && (go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")))
-                .ToArray();
-        instance.AllPickableInstances.Clear();
-        foreach (GameObject pickable in pickables)
-        {
-            instance.AllPickableInstances.Add(pickable);
-        }*/
-        //instance.AllPickableInstancesLastRefresh = Time.time;
-        //Debug.Log("pickables len " + instance.AllPickableInstances.Count());
     }
 
     private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
-    {
-        /*if (!(instance.AllPickableInstances.Count > 0 && Time.time - instance.AllPickableInstancesLastRefresh < 30f && instance.AllPickableInstancesLastRefresh != 0f))
-        {
-            //Debug.Log("Updated AllPickableInstances");
-            RefreshPickables();
-        }*/
-
-        if (CanAccessAllGameInstances())
+    {if (CanAccessAllGameInstances())
         {
             GameObject[] nearbyPickables = instance.AllPickableInstances
             .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
@@ -3310,59 +3449,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 return nearbyPickables[0];
             }
         }
-
-        /*IOrderedEnumerable<GameObject> results = instance.AllPickableInstances.ToArray()
-            .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
-            .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position));
-        //Debug.Log("result2 " + results.Count());
-        if (results != null && results.Count() > 0)
-        {
-            try
-            {
-                int i = 0;
-                bool found = false;
-                GameObject result = null;
-
-                while (!found)
-                {
-                    if (i >= results.Count()) return null;
-
-                    result = results.ElementAt(i);
-                    if (result != null)
-                    {
-                        if (result.transform.position.DistanceTo(p_position) < radius)
-                        {
-                            found = true;
-                        }
-                        else
-                        {
-                            Debug.Log("DistanceTo(p_position) < radius");
-                            if (result.transform.position.DistanceTo(character.transform.position) > radius)
-                                return null;
-                            i++;
-                        }
-                    }
-                    else
-                    {
-                        Debug.Log("result == null");
-                        return null;
-                    }
-                }
-
-                return result;
-                    
-            }
-            catch (NullReferenceException ex)
-            {
-                Debug.Log($"An error occurred: {ex.Message}");
-            }
-        }
-        else
-        {
-            Debug.Log("No more pickable items within " + radius + " units  from patrol position");
-        }
-              
-        return null;*/
 
         Debug.Log("FindClosestResource returning null");
         return null;
@@ -3376,7 +3462,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             return instance.AllGOInstances
                 //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
-                .Where(go => go != null && CleanKey(go.name.ToLower()) == ResourceName.ToLower() && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                //.Where(go => go != null && CleanKey(go.name.ToLower()) == ResourceName.ToLower() && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
+                .Where(go => go != null && CleanKey(go.name.ToLower()) == ResourceName.ToLower())
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
         }
@@ -3386,87 +3473,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }
 
     private static GameObject FindClosestItemDrop(GameObject character)
-    {
-        //return GameObject.FindObjectsOfType<GameObject>(true)
-
-        if (CanAccessAllGameInstances())
+    {if (CanAccessAllGameInstances())
         {
             instance.LastFindClosestItemDropTime = Time.time;
-
-            //Debug.Log("instance.AllGOInstances len " + instance.AllGOInstances.Count());
-
-            /*IOrderedEnumerable<GameObject> results = instance.AllGOInstances
-            .Where(go => go.HasAnyComponent("ItemDrop"))
-            .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position));*/
-
 
             GameObject[] allItemDrops = instance.AllGOInstances.Where(go => go != null && go.HasAnyComponent("ItemDrop"))
                 .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .ToArray();
-            //Debug.Log("allItemDrops len " + allItemDrops.Count());
             if (allItemDrops.Length > 0)
             {
-                //Debug.Log($"nearby ItemDrop {allItemDrops[0].name}");
                 return allItemDrops[0];
             }
 
-            
-
-            //GameObject result = GetFirstFromOrderedEnumerable(results);
-
-            //Debug.Log("result " + result.name);
-
-
-            //Debug.Log("result2 " + results.Count());
-            /*if (results != null && results.Count() > 0)
-            {
-                try
-                {
-                    int i = 0;
-                    bool found = false;
-                    GameObject result = null;
-
-                    while (!found)
-                    {
-                        if (i >= results.Count()) return null;
-
-                        result = results.ElementAt(i);
-                        if (result != null)
-                        {
-                            Debug.Log("result == " +  result.name);
-                            return null;
-                        }
-                        else
-                        {
-                            Debug.Log("result == null");
-                            return null;
-                        }
-                    }
-
-                    return result;
-
-                }
-                catch (NullReferenceException ex)
-                {
-                    Debug.Log($"An error occurred: {ex.Message}");
-                }
-            }
-            else
-            {
-                Debug.Log("No more item drops");
-            }*/
-
             return null;
-
-            /*GameObject[] nearbyItemDrops = instance.AllGOInstances
-                //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
-                .Where(go => go.HasAnyComponent("ItemDrop"))
-                .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
-                .ToArray();
-            //.FirstOrDefault();
-
-            Debug.Log("nearbyItemDrops len " + nearbyItemDrops.Count());
-            return null;*/
         }
 
         Debug.Log("FindClosestItemDrop returning null");
@@ -3500,6 +3519,45 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
     Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
 
+    public static List<string> FindCommonElements(string[] array1, string[] array2)
+    {
+        HashSet<string> set = new HashSet<string>(array2);
+        return array1.Where(item => set.Contains(item)).ToList();
+    }
+
+    public static List<string> FindCommonResources(string[] queryResources, Dictionary<string, int> nearbyResources)
+    {
+        List<string> output = new List<string>();
+
+        foreach (var kvp in nearbyResources)
+        {
+            if (queryResources.Contains(kvp.Key))
+            {
+                output.Add(kvp.Key);
+            }
+        }
+
+        // Sort the output list based on resourceHealthMap
+        /*output.Sort((a, b) =>
+        {
+            float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MinValue;
+            float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MinValue;
+            return healthA.CompareTo(healthB); // Sort in descending order
+        });*/
+
+        // Print the common resources
+        Debug.Log("Sorted nearby resources:");
+        foreach (string resource in output)
+        {
+            float health = resourceHealthMap.TryGetValue(resource, out float value) ? value : 0;
+            Debug.Log($"{resource} (Health: {health})");
+        }
+
+        output.Reverse();
+
+        return output;
+    }
+
     public static string CleanKey(string key)
     {
         // Remove everything after and including the last opening parenthesis
@@ -3513,16 +3571,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         key = key.Trim();
 
         // Remove any trailing numbers
-        while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
+        /*while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
         {
             key = key.Substring(0, key.Length - 1);
         }
 
         // Trim again in case there was whitespace before the numbers
-        return key.Trim();
+        return key.Trim();*/
+
+        return key;
     }
 
-    private string GetNearbyResources(GameObject source)
+    private string GetNearbyResourcesJSON(GameObject source)
     {
         /*Pickable[] pickables = GameObject.FindObjectsOfType<Pickable>(true);
         Destructible[] destructibles = GameObject.FindObjectsOfType<Destructible>(true);
@@ -3536,16 +3596,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             key = CleanKey(key);
 
-            if (nearbyResources.ContainsKey(key))
-                nearbyResources[key]++;
+            if (instance.nearbyResources.ContainsKey(key))
+                instance.nearbyResources[key]++;
             else
-                nearbyResources[key] = 1;
+                instance.nearbyResources[key] = 1;
 
             float distance = resource.transform.position.DistanceTo(source.transform.position);
-            if (nearbyResourcesDistance.ContainsKey(key))
-                nearbyResourcesDistance[key] = Mathf.Min(nearbyResourcesDistance[key], distance);
+            if (instance.nearbyResourcesDistance.ContainsKey(key))
+                instance.nearbyResourcesDistance[key] = Mathf.Min(instance.nearbyResourcesDistance[key], distance);
             else
-                nearbyResourcesDistance[key] = distance;
+                instance.nearbyResourcesDistance[key] = distance;
 
             /*Vector3 directionToResource = resource.transform.position - source.transform.position;
             float xRotationDifference = Vector3.SignedAngle(Vector3.ProjectOnPlane(source.transform.forward, Vector3.up), Vector3.ProjectOnPlane(directionToResource, Vector3.up), Vector3.up);
@@ -3578,19 +3638,19 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         var jarray = new JsonArray();
 
-        foreach (var kvp in nearbyResources)
+        foreach (var kvp in instance.nearbyResources)
         {
             //Debug.Log($"{kvp.Key}: {kvp.Value} | nearest's distance: {nearbyResourcesDistance[kvp.Key]:F2} | X rotation difference: {nearbyResourcesXRotation[kvp.Key]:F2}°");
 
             JsonObject thisJobject = new JsonObject();
             thisJobject["name"] = kvp.Key;
             thisJobject["quantity"] = kvp.Value;
-            thisJobject["nearestDistance"] = nearbyResourcesDistance[kvp.Key];
+            thisJobject["nearestDistance"] = instance.nearbyResourcesDistance[kvp.Key];
 
             jarray.Add(thisJobject);
         }
 
-        int totalResources = nearbyResources.Values.Sum();
+        int totalResources = instance.nearbyResources.Values.Sum();
         Debug.Log($"Total resources: {totalResources}");
 
         //string json = jarray.ToString();
@@ -4070,7 +4130,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             ["currentBiome"] = Heightmap.FindBiome(character.transform.position).ToString(),
 
             //["nearbyVegetationCount"] = instance.DetectVegetation(),
-            ["nearbyItems"] = instance.GetNearbyResources(character),
+            ["nearbyItems"] = instance.GetNearbyResourcesJSON(character),
             ["nearbyEnemies"] = instance.GetNearbyEnemies(character),
     };
 
@@ -4541,9 +4601,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     private void PopulateAllItems()
     {
         var allItemsList = new JsonArray();
-        foreach (GameObject prefab in ObjectDB.instance.m_items)
+        foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
         {
-            ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+            //if (prefab.HasAnyComponent("ItemDrop", "Pickable", "CharacterDrop", "DropOnDestroyed", "Character", "Humanoid", "TreeBase", "MineRock", "MineRock5"))
+            if (prefab.HasAnyComponent("ItemDrop"))
+            {
+                allItemsList.Add(prefab.name);
+            }
+
+            /*ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
             if (itemDrop != null)
             {
                 var thisJsonObject = new JsonObject();
@@ -4551,8 +4617,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 thisJsonObject["name"] = itemDrop.name;
                 thisJsonObject["itemName"] = itemDrop.m_itemData.m_shared.m_name;
 
-                allItemsList.Add(thisJsonObject);
-            }
+                allItemsList.Add(prefab.name);
+            }*/
         }
 
         string json = allItemsList.ToString();
@@ -5102,11 +5168,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (task is AttackAction)
             {
                 AttackAction action = (AttackAction)task;
-                AddItemToScrollBox(TaskListScrollBox, $"Attack: {action.TargetName}", defaultSprite, i);
+                AddItemToScrollBox(TaskListScrollBox, $"Attacking: {action.TargetName}", defaultSprite, i);
             }
             if (task is FollowAction)
             {
-                AddItemToScrollBox(TaskListScrollBox, "Following player", defaultSprite, i);
+                AddItemToScrollBox(TaskListScrollBox, "Following Player", defaultSprite, i);
             }
             i++;
         }
