@@ -1528,7 +1528,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 //Debug.Log("PickupItemDrop CanAddItem");
             }*/
 
-            Debug.Log("PickupItemDrop Picking up " + component.name);
+            Debug.Log("Picking up ItemDrop " + component.name);
             __instance.Pickup(component.gameObject);
 
             if (component == null)
@@ -1568,7 +1568,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             else
             {
-                Debug.Log($"NPC can pickup item {component.GetHoverName()} {component.name}");
+                //Debug.Log($"NPC can pickup item {component.GetHoverName()} {component.name}");
             }
 
             if (component.m_itemData.m_shared.m_questItem)
@@ -1995,6 +1995,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         //if (__instance.m_dragItem != null && __instance.m_dragItem.IsEquipable() && !instance.PlayerNPC_humanoid.IsItemEquiped(__instance.m_dragItem))
                         if (__instance.m_dragItem != null && __instance.m_dragItem.IsEquipable())
                         {
+                            if (Player.m_localPlayer.IsItemEquiped(__instance.m_dragItem) || Player.m_localPlayer.GetCurrentWeapon() == __instance.m_dragItem)
+                            {
+                                Debug.Log($"uneqipping {__instance.m_dragItem.m_shared.m_name} from player");
+                                Player.m_localPlayer.UnequipItem(__instance.m_dragItem);
+                            }
+                                
+
                             instance.PlayerNPC_humanoid.EquipItem(__instance.m_dragItem);
                             if (item != null && item.IsEquipable())
                                 instance.PlayerNPC_humanoid.EquipItem(item);
