@@ -18,6 +18,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.Processors;
+using UnityEngine.InputSystem.EnhancedTouch;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -970,8 +971,43 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         if (ZInput.GetKeyDown(KeyCode.P))
         {
+            GameObject prefab = null;
 
-            PerformRaycast(__instance);
+            prefab = ZNetScene.instance.GetPrefab("Rock_3");
+            if (prefab)
+            {
+                Debug.Log("Rock_3");
+                Destructible destructible = prefab.GetComponent<Destructible>();
+                destructible.m_damages.Print();
+            }
+
+            prefab = ZNetScene.instance.GetPrefab("Beech1");
+            if (prefab)
+            {
+                Debug.Log("Beech1");
+                TreeBase treeBase = prefab.GetComponent<TreeBase>();
+                treeBase.m_damageModifiers.Print();
+            }
+
+            prefab = ZNetScene.instance.GetPrefab("AxeBronze");
+            if (prefab)
+            {
+                Debug.Log("AxeBronze");
+                ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+                Debug.Log(itemDrop.m_itemData.m_shared.m_damages.ToString());
+            }
+
+            prefab = ZNetScene.instance.GetPrefab("PickaxeBronze");
+            if (prefab)
+            {
+                Debug.Log("PickaxeBronze");
+                ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
+                Debug.Log(itemDrop.m_itemData.m_shared.m_damages.ToString());
+            }
+
+
+
+            //PerformRaycast(__instance);
 
             /*Vector3 p = Player.m_localPlayer.transform.position;
             float radius = 30f;
@@ -2020,17 +2056,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     [HarmonyPatch(typeof(Player), "SetCrouch")]
     private static void Player_SetCrouch_Postfix(Player __instance, bool crouch)
     {
-
-        GameObject[] allNpcs = instance.FindPlayerNPCs();
-        foreach (GameObject npc in allNpcs)
+        if (instance.PlayerNPC && instance.PlayerNPC_humanoid && instance.NPCCurrentCommand == NPCCommand.CommandType.FollowPlayer)
         {
-            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-            ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-
-            if (humanoidComponent != null)
-            {
-                humanoidComponent.SetCrouch(crouch);
-            }
+            instance.PlayerNPC_humanoid.SetCrouch(crouch);
         }
     }
 
@@ -2038,17 +2066,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     [HarmonyPatch(typeof(Character), "SetWalk")]
     private static void Character_SetWalk_Postfix(Character __instance, bool walk)
     {
-        if (__instance != Player.m_localPlayer) return;
-
-        GameObject[] allNpcs = instance.FindPlayerNPCs();
-        foreach (GameObject npc in allNpcs)
+        if (__instance is Player)
         {
-            MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-            ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-
-            if (humanoidComponent != null)
+            if (instance.PlayerNPC && instance.PlayerNPC_humanoid && instance.NPCCurrentCommand == NPCCommand.CommandType.FollowPlayer)
             {
-                humanoidComponent.SetWalk(walk);
+                instance.PlayerNPC_humanoid.SetWalk(walk);
             }
         }
     }
@@ -2485,6 +2507,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         GameObject npcInstance = Instantiate<GameObject>(npcPrefab, spawnPosition, spawnRotation);
         npcInstance.SetActive(true);
+
+        UnityEngine.CapsuleCollider capsuleCollider = npcInstance.GetComponent<CapsuleCollider>();
+        capsuleCollider.radius = 0.7f;
 
         VisEquipment npcInstanceVis = npcInstance.GetComponent<VisEquipment>();
         VisEquipment playerInstanceVis = localPlayer.GetComponent<VisEquipment>();
