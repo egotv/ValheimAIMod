@@ -524,12 +524,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         //return resourceList.Distinct().ToArray();
 
         List<string> output = resourceList.Distinct().ToList();
-        output.Sort((a, b) =>
+        /*output.Sort((a, b) =>
         {
             float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MaxValue;
             float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MaxValue;
             return healthB.CompareTo(healthA); // Sort in descending order
-        });
+        });*/
 
         return output.ToArray();
     }
@@ -1090,7 +1090,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData) && closestItemDrop.m_itemData.GetWeight() + humanoidNPC.m_inventory.GetTotalWeight() < humanoidNPC.GetMaxCarryWeight())
                 {
-                    Debug.Log($"Going to pickup nearby dropped item on the ground {closestItemDrop.name}");
+                    Debug.Log($"Going to pickup nearby dropped item on the ground {closestItemDrop.name} in free time");
                     __instance.SetFollowTarget(closestItemDrop.gameObject);
                     return true;
                 }
@@ -1185,9 +1185,21 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 humanoidNPC.StartAttack(humanoidNPC, false);
             }
 
-            if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid") || __instance == Player.m_localPlayer)
+            if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid") || __instance == Player.m_localPlayer || (!QueryResource(instance.CurrentHarvestResourceName).Contains(CleanKey(__instance.m_follow.name)) && !__instance.m_follow.HasAnyComponent("Pickable", "ItemDrop")))
             {
                 //comehere
+
+                ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(__instance.transform.position, 7);
+                if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow)
+                {
+                    if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData))
+                    {
+                        Debug.Log($"Going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
+                        __instance.SetFollowTarget(closestItemDrop.gameObject);
+                        return true;
+                    }
+                }
+
 
                 ItemDrop.ItemData currentWeaponData = humanoidNPC.GetCurrentWeapon();
 
@@ -1227,6 +1239,32 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     GameObject go = GetClosestFromArray(resources, instance.PlayerNPC.transform.position);
                     __instance.SetFollowTarget(go);
                     Debug.Log($"going to harvest {go.name}");
+
+                    Destructible destructible = go.GetComponent<Destructible>();
+                    bool isTree = false;
+
+                    if ( destructible != null )
+                    {
+                        isTree = destructible.m_destructibleType == DestructibleType.Tree;
+                    }
+
+                    if (go.HasAnyComponent("TreeBase", "TreeLog") || go.name.ToLower().Contains("log") || isTree)
+                    {
+                        //equip axe
+                        EquipItemType(humanoidNPC, ItemDrop.ItemData.ItemType.OneHandedWeapon);
+
+                        Debug.Log("Equipping OneHandedWeapon");
+                    }
+                    else if (go.HasAnyComponent("MineRock", "MineRock5", "Destructible", "DropOnDestroyed"))
+                    {
+                        //equip pickaxe
+                        ItemDrop.ItemData currentWeapon = humanoidNPC.GetCurrentWeapon();
+                        EquipItemType(humanoidNPC, ItemDrop.ItemData.ItemType.TwoHandedWeapon);
+                        if (currentWeapon == humanoidNPC.GetCurrentWeapon())
+                            EquipItemType(humanoidNPC, ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft);
+
+                        Debug.Log("Equipping TwoHandedWeapon");
+                    }
                 }
                 else
                 {
@@ -1305,6 +1343,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return true;
     }
 
+    private static void EquipItemType(HumanoidNPC npc, ItemDrop.ItemData.ItemType itemType)
+    {
+        if (!npc) return;
+
+        int bestQuality = -1;
+        ItemDrop.ItemData res = null;
+
+        foreach (var i in npc.m_inventory.GetAllItems())
+        {
+            if (i.m_shared.m_itemType == itemType && i.m_quality > bestQuality)
+            {
+                res = i;
+                bestQuality = i.m_quality;
+            }
+        }
+
+        if (res != null)
+        {
+            npc.EquipItem(res);
+        }
+    }
+
     private static GameObject GetClosestFromArray(GameObject[] gos, Vector3 position)
     {
         return gos.OrderBy(go => Vector3.Distance(position, go.transform.position)).FirstOrDefault();
@@ -1359,7 +1419,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                         if (!monsterAIcomponent.m_follow)
                         {
-                            ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 5);
+                            ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 8);
                             if (closestItemDrop != null)
                             {
                                 Debug.Log($"found another nearby item drop {closestItemDrop.name}");
@@ -1386,7 +1446,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                         /*if (!monsterAIcomponent.m_follow)
                         {*/
 
-                        ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 5);
+                        ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 8);
                         if (closestItemDrop != null)
                         {
                             monsterAIcomponent.SetFollowTarget(closestItemDrop.gameObject);
@@ -1425,6 +1485,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         int layerMask = ~0; // This will check all layers
         Collider[] colliders = Physics.OverlapSphere(p, radius, layerMask, QueryTriggerInteraction.Collide);
+        List<T> res = new List<T>();
 
         foreach (Collider collider in colliders)
         {
@@ -1432,9 +1493,12 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (character != null)
             {
-                return character;
+                res.Add(character);
             }
         }
+
+        if (res.Count > 0)
+            return res.OrderBy(go => go.transform.position.DistanceTo(p)).First();
 
         return null;
     }
