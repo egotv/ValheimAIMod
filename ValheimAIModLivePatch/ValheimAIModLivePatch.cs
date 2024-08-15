@@ -17,6 +17,7 @@ using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.Processors;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -33,7 +34,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
 
-    private static ValheimAIModLivePatch instance;
+    public static ValheimAIModLivePatch instance;
     private readonly Harmony harmony = new Harmony("egovalheimmod.ValheimAIModLivePatch");
     
     //private const string brainBaseURL = "http://localhost:5000";
@@ -224,6 +225,31 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
 
         AddTreeRelationships();
+
+        SortDatabase();
+
+
+        //SaveDatabaseToJson();
+    }
+
+    private void SortDatabase()
+    {
+        foreach (var resource in resourceDatabase.Keys)
+        {
+            Dictionary<string, List<string>> resources = resourceDatabase[resource];
+
+            foreach (var key in resources.Keys.ToList())
+            {
+                if (resources[key] != null && resources[key] is IEnumerable<string> stringList)
+                {
+                    resourceDatabase[resource][key] = stringList.OrderBy(s => s).ToList();
+
+                    /*if (resource == "Wood")
+                        foreach (string s in resourceDatabase[resource][key])
+                            Debug.Log($"{resource} {key} {s}");*/
+                }
+            }
+        }
     }
 
     private void AddTreeRelationships()
@@ -232,11 +258,28 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             Dictionary<string, List<string>> resources = kvp.Value;
 
+            // Add logs that drop sub logs that drop this resource
+            List<string> newLogs = new List<string>();
+            newLogs.AddRange(resources["TreeLog"]);
+
+            foreach (string r in resources["TreeLog"])
+            {
+                if (logToLogMap.ContainsKey(r))
+                {
+                    newLogs.AddRange(logToLogMap[r]);
+                    //Debug.Log($"adding {logToLogMap[r].Count} tree logs to {kvp.Key}");
+                }
+            }
+
+            resourceDatabase[kvp.Key]["TreeLog"] = newLogs;
+
+            // add trees that drop logs that drop this resource
             foreach (string r in resources["TreeLog"])
             {
                 if (logToTreeMap.ContainsKey(r))
                 {
                     resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[r]);
+                    //Debug.Log($"adding {logToTreeMap[r].Count} treebases to {kvp.Key}");
 
                     foreach (string x in logToTreeMap[r])
                     {
@@ -246,12 +289,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                             //Debug.Log($"adding {logToTreeMap[x].Count} treebases to {kvp.Key}");
                         }
                     }
-
-                    //Debug.Log($"adding {logToTreeMap[r].Count} treebases to {kvp.Key}");
                 }
             }
         }
     }
+
+
+    private Dictionary<string, List<string>> logToTreeMap = new Dictionary<string, List<string>>();
+    private Dictionary<string, List<string>> logToLogMap = new Dictionary<string, List<string>>();
 
     private void CheckTreeBase(GameObject prefab)
     {
@@ -285,8 +330,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         }
     }
 
-    private Dictionary<string, List<string>> logToTreeMap = new Dictionary<string, List<string>>();
-
     private void CheckTreeLog(GameObject prefab)
     {
         TreeLog treeBase = prefab.GetComponent<TreeLog>();
@@ -311,9 +354,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
             if (treeBase.m_subLogPrefab != null)
             {
-                if (!logToTreeMap.ContainsKey(treeBase.m_subLogPrefab.name))
-                    logToTreeMap[treeBase.m_subLogPrefab.name] = new List<string>();
-                logToTreeMap[treeBase.m_subLogPrefab.name].Add(prefab.name);
+                if (!logToLogMap.ContainsKey(treeBase.m_subLogPrefab.name))
+                    logToLogMap[treeBase.m_subLogPrefab.name] = new List<string>();
+                logToLogMap[treeBase.m_subLogPrefab.name].Add(prefab.name);
             }
         }
     }
@@ -707,17 +750,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void ConfigBindings()
     {
-        /*spawnCompanionKey = Config.Bind<KeyboardShortcut>("Keybinds", "SpawnCompanionKey", new KeyboardShortcut(KeyCode.G), "The key used to spawn an NPC.");
-        TogglePatrolKey = Config.Bind<KeyboardShortcut>("Keybinds", "TogglePatrolKey", new KeyboardShortcut(KeyCode.P), "The key used to command all NPCs to patrol the area the player is at.");
-        ToggleFollowKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleFollowKey", new KeyboardShortcut(KeyCode.F), "The key used to command all NPCs to follow you.");
-        ToggleHarvestKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleHarvestKey", new KeyboardShortcut(KeyCode.H), "The key used to command all NPCs to go harvest.");
-        ToggleAttackKey = Config.Bind<KeyboardShortcut>("Keybinds", "ToggleAttackKey", new KeyboardShortcut(KeyCode.K), "The key used to command all NPCs to attack enemies.");
-        InventoryKey = Config.Bind<KeyboardShortcut>("Keybinds", "InventoryKey", new KeyboardShortcut(KeyCode.U), "The key used to command all NPCs to -");
-        TalkKey = Config.Bind<KeyboardShortcut>("Keybinds", "TalkKey", new KeyboardShortcut(KeyCode.T), "The key used to talk into the game");
-        SendRecordingToBrainKey = Config.Bind<KeyboardShortcut>("Keybinds", "SendRecordingToBrainKey", new KeyboardShortcut(KeyCode.Y), "The key used to ");
-        MicrophoneIndex = Config.Bind<int>("Integer", "MicrophoneIndex", 0, "Input device index in Windows Sound Settings.");
-        CompanionVolume = Config.Bind<float>("Float", "CompanionVolume", 1f, "NPC dialogue volume (0-1)");*/
-
         BrainAPIAddress = Config.Bind<string>("String", "BrainAPIAddress", brainBaseURL, "URL address of the brain API");
         DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
     }
@@ -1207,7 +1239,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 Debug.Log($"queryresource {instance.CurrentHarvestResourceName}");
                 List<string> commonElements = FindCommonElements(QueryResource(instance.CurrentHarvestResourceName, (currentWeaponData != null && currentWeaponData.IsWeapon() && currentWeaponData.m_shared.m_name != "Unarmed")), GetNearbyResources(__instance.gameObject).Keys.ToArray());
                 Dictionary<GameObject, float> ResourcesDistances = new Dictionary<GameObject, float>();
-                GameObject resource;
+                GameObject resource = null;
                 foreach (string s in commonElements)
                 {
                     resource = FindClosestResource(instance.PlayerNPC, s);
@@ -1219,33 +1251,37 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     }
                     else
                     {
-                        ResourcesDistances[resource] = instance.PlayerNPC.transform.position.DistanceTo(resource.transform.position);
+                        //ResourcesDistances[resource] = instance.PlayerNPC.transform.position.DistanceTo(resource.transform.position);
+                        break;
                     }
                 }
 
-                GameObject[] resources = ResourcesDistances.Keys
-                    /*.OrderBy(pair => pair.Value)
-                    .Select(pair => pair.Key)*/
+                /*GameObject[] resources = ResourcesDistances.Keys
+                    //.OrderBy(pair => pair.Value)
+                    //.Select(pair => pair.Key)
                     //.Where(go => go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 40)
-                    .ToArray();
+                    .ToArray();*/
 
                 /*foreach (GameObject s in resources)
                 {
                     Debug.Log($"harvesting options: {s.name}");
                 }*/
 
-                if (resources.Length > 0)
+                if (resource)
                 {
-                    GameObject go = GetClosestFromArray(resources, instance.PlayerNPC.transform.position);
+                    //GameObject go = GetClosestFromArray(resources, instance.PlayerNPC.transform.position);
+                    GameObject go = resource;
                     __instance.SetFollowTarget(go);
                     Debug.Log($"going to harvest {go.name}");
 
                     Destructible destructible = go.GetComponent<Destructible>();
                     bool isTree = false;
 
+                    //humanoidNPC.GetCurrentWeapon().m_shared.m_damages.
+
                     if ( destructible != null )
                     {
-                        isTree = destructible.m_destructibleType == DestructibleType.Tree;
+                        isTree = destructible.m_destructibleType == DestructibleType.Tree || destructible.m_damages.m_chop != HitData.DamageModifier.Immune;
                     }
 
                     if (go.HasAnyComponent("TreeBase", "TreeLog") || go.name.ToLower().Contains("log") || isTree)
@@ -1269,6 +1305,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 else
                 {
                     Debug.Log($"couldnt find any resources to harvest for {instance.CurrentHarvestResourceName}");
+                    Debug.Log($"removing harvest {instance.CurrentHarvestResourceName} command");
+                    instance.CurrentHarvestResourceName = "Wood";
+                    instance.commandManager.RemoveCommand(0);
                 }
                 
 
@@ -1904,7 +1943,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 instance.PlayerNPC_humanoid.SetMaxHealth(hp);
                 instance.PlayerNPC_humanoid.m_maxStamina = stamina;
 
-                instance.AddChatTalk(instance.PlayerNPC_humanoid, instance.PlayerNPC_humanoid.m_name, $"Max Health: {hp}\nMax Stamina: {stamina}\n\n\n", false);
+                instance.AddChatTalk(instance.PlayerNPC_humanoid, instance.PlayerNPC_humanoid.m_name, $"Max Health: {hp.ToString("F1")}\nMax Stamina: {stamina.ToString("F1")}\n\n\n", false);
 
                 /*if (instance.NPCTalker)
                 {
@@ -3148,7 +3187,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
 
-    private void AddChatTalk(Character character, string name, string text, bool addToChat = true)
+    public void AddChatTalk(Character character, string name, string text, bool addToChat = true)
     {
         UserInfo userInfo = new UserInfo();
         if (character is Player)
@@ -3665,13 +3704,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private static void RefreshAllGameObjectInstances()
     {
-        if (!instance.PlayerNPC)
+        if (!instance.PlayerNPC && !Player.m_localPlayer)
         {
+            Debug.Log("RefreshAllGameObjectInstances failed! Local player and PlayerNPC was null");
             return;
         }
 
+        Vector3 p = instance.PlayerNPC != null ? instance.PlayerNPC.transform.position : Player.m_localPlayer.transform.position;
+
         instance.AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
-                .Where(go => go != null && go.transform.position.DistanceTo(instance.PlayerNPC.transform.position) < 300 && go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
+                .Where(go => go != null && go.transform.position.DistanceTo(p) < 300 && go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
                 .ToArray();
                 //.ToList();
         instance.AllGOInstancesLastRefresh = Time.time;
@@ -3769,41 +3811,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
     Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
 
-    
-
-    public static List<string> FindCommonResources(string[] queryResources, Dictionary<string, int> nearbyResources)
-    {
-        List<string> output = new List<string>();
-
-        foreach (var kvp in nearbyResources)
-        {
-            if (queryResources.Contains(kvp.Key))
-            {
-                output.Add(kvp.Key);
-            }
-        }
-
-        // Sort the output list based on resourceHealthMap
-        /*output.Sort((a, b) =>
-        {
-            float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MinValue;
-            float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MinValue;
-            return healthA.CompareTo(healthB); // Sort in descending order
-        });*/
-
-        // Print the common resources
-        Debug.Log("Sorted nearby resources:");
-        foreach (string resource in output)
-        {
-            float health = resourceHealthMap.TryGetValue(resource, out float value) ? value : 0;
-            Debug.Log($"{resource} (Health: {health})");
-        }
-
-        output.Reverse();
-
-        return output;
-    }
-
     public static string CleanKey(string key)
     {
         // Remove everything after and including the last opening parenthesis
@@ -3816,8 +3823,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         // Trim any remaining whitespace
         key = key.Trim();
 
-        // Remove any trailing numbers
-        /*while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
+        /*Remove any trailing numbers
+        while (key.Length > 0 && char.IsDigit(key[key.Length - 1]))
         {
             key = key.Substring(0, key.Length - 1);
         }
@@ -3848,9 +3855,16 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 instance.nearbyResourcesDistance[key] = distance;
         }
 
+        if (instance.AllGOInstances.Length == 0)
+        {
+            RefreshAllGameObjectInstances();
+        }
+
         foreach (GameObject co in instance.AllGOInstances)
             if (co != null)
                 ProcessResource(co, co.name);
+
+        Debug.Log($"Populated nearbyResources {instance.nearbyResources.Count} {instance.nearbyResourcesDistance.Count}");
 
         return instance.nearbyResources;
     }
@@ -6494,6 +6508,32 @@ public class NPCCommandManager
         }
         foreach (NPCCommand command in rmindexes)
         {
+            if (command.humanoidNPC != null)
+            {
+                string commandTypeText = null;
+                if (command is HarvestAction)
+                {
+                    HarvestAction action = (HarvestAction)command;
+                    commandTypeText = $"harvesting {action.RequiredAmount} {action.ResourceName}";
+                }
+                else if (command is AttackAction)
+                {
+                    AttackAction action = (AttackAction)command;
+                    commandTypeText = $"attacking {action.TargetName}";
+                }
+                else if (command is PatrolAction)
+                {
+                    PatrolAction action = (PatrolAction)command;
+                    commandTypeText = $"patrolling around area: {action.patrol_position.ToString()}";
+                }
+                else if (command is FollowAction)
+                {
+                    FollowAction action = (FollowAction)command;
+                    commandTypeText = $"following {Player.m_localPlayer.GetPlayerName()}";
+                }
+                string text = $"Done {commandTypeText}";
+                ValheimAIModLivePatch.instance.AddChatTalk(command.humanoidNPC, "NPC", "Done");
+            }
             commands.Remove(command);
         }
         return next;
