@@ -641,17 +641,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     }*/
 
 
-
-
-
-
-
-
-
-
-
-
-
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Humanoid), "OnDamaged")]
     public static void Character_OnDamaged_Prefix(Humanoid __instance, HitData hit)
@@ -679,40 +668,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 }
             }
         }
-    }
-
-    private void CreateMapOverlay()
-    {
-        // Get or create a map overlay instance by name
-        var zoneOverlay = MinimapManager.Instance.GetMapOverlay("ZoneOverlay");
-
-        // Create a Color array with space for every pixel of the map
-        int mapSize = zoneOverlay.TextureSize * zoneOverlay.TextureSize;
-        Color[] mainPixels = new Color[mapSize];
-
-        // Iterate over the dimensions of the overlay and set a color for
-        // every pixel in our mainPixels array wherever a zone boundary is
-        Color color = Color.white;
-        int zoneSize = 64;
-        int index = 0;
-        for (int x = 0; x < zoneOverlay.TextureSize; ++x)
-        {
-            for (int y = 0; y < zoneOverlay.TextureSize; ++y, ++index)
-            {
-                if (x % zoneSize == 0 || y % zoneSize == 0)
-                {
-                    mainPixels[index] = color;
-                }
-            }
-        }
-
-        // Set the pixel array on the overlay texture
-        // This is much faster than setting every pixel individually
-        zoneOverlay.OverlayTex.SetPixels(mainPixels);
-
-        // Apply the changes to the overlay
-        // This also triggers the MinimapManager to display this overlay
-        zoneOverlay.OverlayTex.Apply();
     }
 
     [HarmonyPrefix]
@@ -1811,6 +1766,23 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             monsterAIcomponent.m_targetCreature = null;
             monsterAIcomponent.m_targetStatic = null;
         }*/
+    }
+
+
+    public static bool IsStringEqual(string a, string b, bool bCleanKey)
+    {
+        if (bCleanKey)
+            return CleanKey(a).ToLower().Equals(CleanKey(b).ToLower());
+
+        return a.ToLower().Equals(b.ToLower());
+    }
+
+    public static bool IsStringStartingWith(string a, string b, bool bCleanKey)
+    {
+        if (bCleanKey)
+            return CleanKey(a).ToLower().StartsWith(CleanKey(b).ToLower());
+
+        return a.ToLower().StartsWith(b.ToLower());
     }
 
 
@@ -3705,7 +3677,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         return instance.FindEnemies()
             //.Where(go => go.name.Contains(EnemyName) && go.HasAnyComponent("Character", "Humanoid" , "BaseAI", "MonsterAI"))
-            .Where(go => go != null && go.name.ToLower().StartsWith(CleanKey(EnemyName.ToLower())))
+            .Where(go => go != null && IsStringStartingWith(go.name, EnemyName, true))
             .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
             .FirstOrDefault();
     }
@@ -3797,7 +3769,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return instance.AllGOInstances
                 //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                 //.Where(go => go != null && CleanKey(go.name.ToLower()) == ResourceName.ToLower() && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
-                .Where(go => go != null && CleanKey(go.name.ToLower()) == ResourceName.ToLower())
+                .Where(go => go != null && IsStringEqual(go.name, ResourceName, true))
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
         }
