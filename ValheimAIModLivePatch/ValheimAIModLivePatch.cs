@@ -2616,7 +2616,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         DropAllItems(humanoidnpc_component);
 
-        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+        //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
         Debug.Log("Inventory_DropAll activated!");
@@ -2634,7 +2634,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         DropItem(ItemName, humanoidnpc_component);
 
-        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+        //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
         Debug.Log("Inventory_DropItem activated!");
@@ -2663,7 +2663,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         EquipItem(ItemName, humanoidnpc_component);
 
-        AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
+        //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
         //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
         Debug.Log($"Inventory_EquipItem activated! ItemName : {ItemName}");
@@ -2882,6 +2882,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 InventoryGui.instance.Hide();
                 IsInventoryShowing = false;
+                SaveNPCData(instance.PlayerNPC);
             }
             else
             {
@@ -3038,13 +3039,17 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         else
             userInfo.Name = character.m_name;
         Vector3 headPoint = character.GetEyePoint() + (Vector3.up * -100f);
-        /*Chat.WorldTextInstance oldtext = Chat.instance.FindExistingWorldText(0);
-        if (oldtext != null && oldtext.m_textMeshField)
-            Destroy(oldtext.m_textMeshField);*/
-        Chat.instance.AddInworldText(character.gameObject, 0, headPoint, Talker.Type.Shout, userInfo, text + "\n\n\n");
+        long senderID = character is Player ? 99991 : 99992;
+        Chat.WorldTextInstance oldtext = Chat.instance.FindExistingWorldText(senderID);
+        if (oldtext != null && oldtext.m_gui)
+        {
+            UnityEngine.Object.Destroy(oldtext.m_gui);
+            Chat.instance.m_worldTexts.Remove(oldtext);
+        }
+        Chat.instance.AddInworldText(character.gameObject, senderID, headPoint, Talker.Type.Shout, userInfo, text + "\n\n\n");
         if (text != "..." && addToChat)
         {
-            Chat.instance.AddString(character.m_name, text, Talker.Type.Normal);
+            Chat.instance.AddString(character is Player ? Player.m_localPlayer.GetPlayerName() : character.m_name, text, Talker.Type.Normal);
             Chat.instance.m_hideTimer = 0f;
             Chat.instance.m_chatWindow.gameObject.SetActive(value: true);
         }
@@ -3217,12 +3222,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     JsonObject commandObject = agentCommands[i] as JsonObject;
                     HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
+                    AddChatTalk(Player.m_localPlayer, "Player", player_instruction_transcription);
+                    AddChatTalk(npc, "NPC", agent_text_response);
+
                     if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
                     {
-                        
-                        AddChatTalk(Player.m_localPlayer, "Player", player_instruction_transcription);
-                        AddChatTalk(npc, "NPC", agent_text_response);
-
                         Debug.Log("Agent command response from brain was incomplete. Command's Action or Category is missing!");
                         continue;
                     }
