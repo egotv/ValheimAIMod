@@ -242,7 +242,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             {
                 if (resources[key] != null && resources[key] is IEnumerable<string> stringList)
                 {
-                    resourceDatabase[resource][key] = stringList.OrderBy(s => s).ToList();
+                    resourceDatabase[resource][key] = stringList.OrderBy(s => s, new CustomComparer()).ToList();
 
                     /*if (resource == "Wood")
                         foreach (string s in resourceDatabase[resource][key])
@@ -562,11 +562,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         // Print the array before returning
         /*Debug.Log($"Resources for '{resourceName}':");
-        Debug.Log(string.Join(", ", resourceList));*/
+        Debug.Log(string.Join(", ", resourceList.ToArray()));*/
 
-        //return resourceList.Distinct().ToArray();
+        return resourceList.ToArray();
 
-        List<string> output = resourceList.Distinct().ToList();
+        //List<string> output = resourceList.Distinct().ToList();
         /*output.Sort((a, b) =>
         {
             float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MaxValue;
@@ -574,22 +574,32 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             return healthB.CompareTo(healthA); // Sort in descending order
         });*/
 
-        return output.ToArray();
+        //return output.ToArray();
     }
 
     public static List<string> FindCommonElements(string[] array1, string[] array2)
     {
         HashSet<string> set = new HashSet<string>(array2);
-        return array1.Where(item => set.Contains(item)).ToList();
-        //List<string> output = array1.Where(item => set.Contains(item)).ToList();
+        //return array1.Where(item => set.Contains(item)).ToList();
+        List<string> output = array1.Where(item => set.Contains(item)).ToList();
+
+        /*Debug.Log($"array1:");
+        Debug.Log(string.Join(", ", array1.ToArray()));
+
+        Debug.Log($"array2:");
+        Debug.Log(string.Join(", ", array2.ToArray()));
+
+        Debug.Log($"Common Elements:");
+        Debug.Log(string.Join(", ", output.ToArray()));*/
+
         /*output.Sort((a, b) =>
         {
             float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MinValue;
             float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MinValue;
             return healthB.CompareTo(healthA); // Sort in descending order
-        });
+        });*/
 
-        return output;*/
+        return output;
     }
 
     /*public static string[] QueryResource(string resourceName)
@@ -1006,12 +1016,14 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (ZInput.GetKeyDown(KeyCode.P))
         {
 
+            PerformRaycast(__instance);
+
             /*Vector3 p = Player.m_localPlayer.transform.position;
             float radius = 30f;
 
             SphereSearchForGameObjects(p, radius);*/
 
-            foreach (string element in QueryResource("Wood"))
+            /*foreach (string element in QueryResource("Wood"))
             {
                 Debug.Log("query " + element);
             }
@@ -1019,9 +1031,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             foreach (string element in FindCommonElements(QueryResource("Wood"), GetNearbyResources(Player.m_localPlayer.gameObject).Keys.ToArray()))
             {
                 Debug.Log("common " + element);
-            }
+            }*/
 
-            
+
 
             //Debug.Log(instance.PlayerNPC_humanoid.m_inventory.;
             /*RefreshAllGameObjectInstances();
@@ -1206,8 +1218,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         else if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource && (instance.enemyList.Count == 0))
         {
-            
-
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
             if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack() && humanoidNPC.GetTimeSinceLastAttack() > 1f)
             {
@@ -1243,10 +1253,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 foreach (string s in commonElements)
                 {
                     resource = FindClosestResource(instance.PlayerNPC, s);
+                    //if (resource == null || resource.transform.position.DistanceTo(__instance.transform.position) < 50)
                     if (resource == null)
                     {
                         // inform API that resource was not found and wasn't processed
-                        Debug.Log($"couldn't find resource: {s}");
+                        Debug.Log($"couldn't find resource {s} or it was more than 50 units away");
                         continue;
                     }
                     else
@@ -1451,6 +1462,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (!__instance.InAttack())
             {
                 if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance + (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop", "Pickable") ? 2f : .5f))
+                //if (PerformRaycast(__instance) == monsterAIcomponent.m_follow.gameObject)
                 {
                     if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
                     {
@@ -1518,6 +1530,36 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             }
             
         }
+    }
+
+    private static GameObject FindTopLevelObject(GameObject obj)
+    {
+        while (obj.transform.parent != null)
+        {
+            obj = obj.transform.parent.gameObject;
+        }
+        return obj;
+    }
+
+    private static GameObject PerformRaycast(Character player)
+    {
+        Vector3 rayStart = player.GetEyePoint();
+        Vector3 rayDirection = player.GetLookDir();
+        float rayDistance = 50f; // Adjust this value to change the raycast distance
+
+        RaycastHit hit;
+        if (Physics.Raycast(rayStart, rayDirection, out hit, rayDistance))
+        {
+            GameObject go = FindTopLevelObject(hit.collider.gameObject);
+            Debug.Log($"raycast hit {go.name}");
+            return go;
+        }
+        else
+        {
+            player.Message(MessageHud.MessageType.TopLeft, "Raycast didn't hit anything", 0, null);
+        }
+
+        return null;
     }
 
     private static T SphereSearchForGameObjectWithComponent<T>(Vector3 p, float radius) where T : Component
@@ -3807,7 +3849,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return instance.SmallTrees;
     }
 
-
+    private static float nearbyResourcesLastRefresh = 0f;
     Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
     Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
 
@@ -3837,7 +3879,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private static Dictionary<string, int> GetNearbyResources(GameObject source)
     {
-        if (instance.nearbyResources.Count > 0) return instance.nearbyResources;
+        if (instance.nearbyResources.Count > 0 && Time.time - nearbyResourcesLastRefresh < 10) return instance.nearbyResources;
 
         void ProcessResource(GameObject resource, string key)
         {
@@ -6532,7 +6574,7 @@ public class NPCCommandManager
                     commandTypeText = $"following {Player.m_localPlayer.GetPlayerName()}";
                 }
                 string text = $"Done {commandTypeText}";
-                ValheimAIModLivePatch.instance.AddChatTalk(command.humanoidNPC, "NPC", "Done");
+                ValheimAIModLivePatch.instance.AddChatTalk(command.humanoidNPC, "NPC", text);
             }
             commands.Remove(command);
         }
@@ -6712,5 +6754,22 @@ public class FollowAction : NPCCommand
     public override void Execute()
     {
 
+    }
+}
+
+
+
+public class CustomComparer : IComparer<string>
+{
+    public int Compare(string x, string y)
+    {
+        // If one is a "_half" version of the other, place "_half" first
+        if (x.EndsWith("_half") && y == x.Substring(0, x.Length - 5))
+            return -1;
+        if (y.EndsWith("_half") && x == y.Substring(0, y.Length - 5))
+            return 1;
+
+        // Otherwise, use standard string comparison
+        return string.Compare(x, y, StringComparison.Ordinal);
     }
 }
