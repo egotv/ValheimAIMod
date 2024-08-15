@@ -201,23 +201,8 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void PopulateDatabase()
     {
-        // This method would need to be implemented to populate the database
-        // You'd need to iterate through all prefabs in the game and check their components
-
-        
-
-        //Example (not actual implementation):
         foreach (GameObject prefab in ZNetScene.instance.m_prefabs)
-        //foreach (GameObject prefab in GameObject.FindObjectsOfType<GameObject>())
-            
         {
-            /*if (resourceDatabase.ContainsKey(CleanKey(prefab.name)))
-            {
-                continue;
-            }*/
-
-
-
             if (prefab.HasAnyComponent("TreeBase"))
                 CheckTreeBase(prefab);
             if (prefab.HasAnyComponent("TreeLog"))
@@ -238,13 +223,34 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 CheckMineRock5(prefab);
         }
 
+        AddTreeRelationships();
+    }
 
-        //SaveDatabaseToJson();
-
-        /*foreach (string s in resourceHealthMap.Keys)
+    private void AddTreeRelationships()
+    {
+        foreach (var kvp in resourceDatabase)
         {
-            Debug.LogError($"{s} {resourceHealthMap[s]} {resourceQuantityMap[s]}");
-        }*/
+            Dictionary<string, List<string>> resources = kvp.Value;
+
+            foreach (string r in resources["TreeLog"])
+            {
+                if (logToTreeMap.ContainsKey(r))
+                {
+                    resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[r]);
+
+                    foreach (string x in logToTreeMap[r])
+                    {
+                        if (logToTreeMap.ContainsKey(x))
+                        {
+                            resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[x]);
+                            //Debug.Log($"adding {logToTreeMap[x].Count} treebases to {kvp.Key}");
+                        }
+                    }
+
+                    //Debug.Log($"adding {logToTreeMap[r].Count} treebases to {kvp.Key}");
+                }
+            }
+        }
     }
 
     private void CheckTreeBase(GameObject prefab)
@@ -254,7 +260,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         {
             foreach (DropTable.DropData drop in treeBase.m_dropWhenDestroyed.m_drops)
             {
-                
                 float health = 0;
                 if (resourceHealthMap.TryGetValue(prefab.name, out health))
                 {
@@ -269,8 +274,18 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                 AddToDatabase(drop.m_item.name, "TreeBase", prefab.name);
             }
+
+            // Store the relationship between the tree and its log prefab
+            if (treeBase.m_logPrefab != null)
+            {
+                if (!logToTreeMap.ContainsKey(treeBase.m_logPrefab.name))
+                    logToTreeMap[treeBase.m_logPrefab.name] = new List<string>();
+                logToTreeMap[treeBase.m_logPrefab.name].Add(prefab.name);
+            }
         }
     }
+
+    private Dictionary<string, List<string>> logToTreeMap = new Dictionary<string, List<string>>();
 
     private void CheckTreeLog(GameObject prefab)
     {
@@ -292,6 +307,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 resourceQuantityMap[prefab.name] = treeBase.m_dropWhenDestroyed.m_dropMax;
 
                 AddToDatabase(drop.m_item.name, "TreeLog", prefab.name);
+            }
+
+            if (treeBase.m_subLogPrefab != null)
+            {
+                if (!logToTreeMap.ContainsKey(treeBase.m_subLogPrefab.name))
+                    logToTreeMap[treeBase.m_subLogPrefab.name] = new List<string>();
+                logToTreeMap[treeBase.m_subLogPrefab.name].Add(prefab.name);
             }
         }
     }
@@ -454,9 +476,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
     private void AddToDatabase(string resourceName, string sourceType, string sourceName)
     {
-        //Debug.Log($"{resourceName} {sourceType} {sourceName}");
-        
-
         if (!resourceDatabase.ContainsKey(resourceName))
         {
             resourceDatabase[resourceName] = new Dictionary<string, List<string>>
@@ -473,13 +492,6 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     { "Pickable", new List<string>() },
 
                     { "CharacterDrop", new List<string>() },
-                    
-                    
-
-                    
-
-
-                    
                 };
         }
 
@@ -937,12 +949,22 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         if (ZInput.GetKeyDown(KeyCode.P))
         {
 
-            Vector3 p = Player.m_localPlayer.transform.position;
+            /*Vector3 p = Player.m_localPlayer.transform.position;
             float radius = 30f;
 
-            SphereSearchForGameObjects(p, radius);
+            SphereSearchForGameObjects(p, radius);*/
 
+            foreach (string element in QueryResource("Wood"))
+            {
+                Debug.Log("query " + element);
+            }
 
+            foreach (string element in FindCommonElements(QueryResource("Wood"), GetNearbyResources(Player.m_localPlayer.gameObject).Keys.ToArray()))
+            {
+                Debug.Log("common " + element);
+            }
+
+            
 
             //Debug.Log(instance.PlayerNPC_humanoid.m_inventory.;
             /*RefreshAllGameObjectInstances();
@@ -3652,7 +3674,15 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     public static List<string> FindCommonElements(string[] array1, string[] array2)
     {
         HashSet<string> set = new HashSet<string>(array2);
-        return array1.Where(item => set.Contains(item)).ToList();
+        List<string> output = array1.Where(item => set.Contains(item)).ToList();
+        output.Sort((a, b) =>
+        {
+            float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MinValue;
+            float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MinValue;
+            return healthB.CompareTo(healthA); // Sort in descending order
+        });
+
+        return output;
     }
 
     public static List<string> FindCommonResources(string[] queryResources, Dictionary<string, int> nearbyResources)
@@ -3857,6 +3887,13 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         TrimSilence();
 
         SaveRecording();
+
+        Chat.WorldTextInstance oldtext = Chat.instance.FindExistingWorldText(99991);
+        if (oldtext != null && oldtext.m_gui)
+        {
+            UnityEngine.Object.Destroy(oldtext.m_gui);
+            Chat.instance.m_worldTexts.Remove(oldtext);
+        }
     }
 
     private void TrimSilence()
