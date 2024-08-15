@@ -521,7 +521,32 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         /*Debug.Log($"Resources for '{resourceName}':");
         Debug.Log(string.Join(", ", resourceList));*/
 
-        return resourceList.Distinct().ToArray();
+        //return resourceList.Distinct().ToArray();
+
+        List<string> output = resourceList.Distinct().ToList();
+        output.Sort((a, b) =>
+        {
+            float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MaxValue;
+            float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MaxValue;
+            return healthB.CompareTo(healthA); // Sort in descending order
+        });
+
+        return output.ToArray();
+    }
+
+    public static List<string> FindCommonElements(string[] array1, string[] array2)
+    {
+        HashSet<string> set = new HashSet<string>(array2);
+        return array1.Where(item => set.Contains(item)).ToList();
+        //List<string> output = array1.Where(item => set.Contains(item)).ToList();
+        /*output.Sort((a, b) =>
+        {
+            float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MinValue;
+            float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MinValue;
+            return healthB.CompareTo(healthA); // Sort in descending order
+        });
+
+        return output;*/
     }
 
     /*public static string[] QueryResource(string resourceName)
@@ -1154,6 +1179,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             //Debug.Log("LastPositionDelta " + humanoidNPC.LastPositionDelta);
             if (humanoidNPC.LastPositionDelta > 2.5f && !humanoidNPC.InAttack() && humanoidNPC.GetTimeSinceLastAttack() > 1f)
             {
+                if (__instance.m_follow)
+                    __instance.LookAt(__instance.m_follow.transform.position);
+
                 humanoidNPC.StartAttack(humanoidNPC, false);
             }
 
@@ -1196,8 +1224,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
                 if (resources.Length > 0)
                 {
-                    __instance.SetFollowTarget(resources[0]);
-                    Debug.Log($"going to harvest {resources[0].name}");
+                    GameObject go = GetClosestFromArray(resources, instance.PlayerNPC.transform.position);
+                    __instance.SetFollowTarget(go);
+                    Debug.Log($"going to harvest {go.name}");
                 }
                 else
                 {
@@ -1274,6 +1303,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
 
         return true;
+    }
+
+    private static GameObject GetClosestFromArray(GameObject[] gos, Vector3 position)
+    {
+        return gos.OrderBy(go => Vector3.Distance(position, go.transform.position)).FirstOrDefault();
     }
 
     // SOMETIMES AI DOESNT START ATTACKING EVEN THOUGH IT IS IN CLOSE RANGE, SO CHECK AND ATTACK ON UPDATE
@@ -3671,19 +3705,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
     Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
     Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
 
-    public static List<string> FindCommonElements(string[] array1, string[] array2)
-    {
-        HashSet<string> set = new HashSet<string>(array2);
-        List<string> output = array1.Where(item => set.Contains(item)).ToList();
-        output.Sort((a, b) =>
-        {
-            float healthA = resourceQuantityMap.TryGetValue(CleanKey(a), out float valueA) ? valueA : float.MinValue;
-            float healthB = resourceQuantityMap.TryGetValue(CleanKey(b), out float valueB) ? valueB : float.MinValue;
-            return healthB.CompareTo(healthA); // Sort in descending order
-        });
-
-        return output;
-    }
+    
 
     public static List<string> FindCommonResources(string[] queryResources, Dictionary<string, int> nearbyResources)
     {
