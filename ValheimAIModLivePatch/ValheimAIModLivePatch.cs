@@ -17,6 +17,7 @@ using Jotunn.Managers;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
+using System.Collections;
 
 namespace ValheimAIModLoader
 { 
@@ -212,6 +213,32 @@ namespace ValheimAIModLoader
             {
                 Debug.Log("Local player spawned, but ego.ai mod is already initialized. Skipping init.");
             }
+
+            instance.FindPlayerNPCs();
+
+            if (!instance.PlayerNPC)
+            {
+                Debug.Log("Local player spawned, but there was no NPC in the world. Trying to spawn an NPC in 1 second...");
+
+                instance.SetTimer(1f, () =>
+                {
+                    if (!instance.PlayerNPC) {
+                        Debug.Log("1 second passed. Spawning NPC now!");
+                        instance.SpawnCompanion();
+                    }
+                });
+            }
+        }
+
+        public void SetTimer(float duration, Action onComplete)
+        {
+            StartCoroutine(TimerCoroutine(duration, onComplete));
+        }
+
+        private System.Collections.IEnumerator TimerCoroutine(float duration, Action onComplete)
+        {
+            yield return new WaitForSeconds(duration);
+            onComplete?.Invoke();
         }
 
 
@@ -916,8 +943,6 @@ namespace ValheimAIModLoader
                 {
                     Debug.Log("Keybind: Spawn Companion");
                     instance.SpawnCompanion();
-                    HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
-                    MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} has entered the world!");
                 }
 
             
@@ -2631,6 +2656,8 @@ namespace ValheimAIModLoader
             if (humanoidNpc_Component != null)
             {
                 LoadNPCData(humanoidNpc_Component);
+
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{humanoidNpc_Component.m_name} has entered the world!");
 
 
                 Character character2 = humanoidNpc_Component;
