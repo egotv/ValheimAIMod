@@ -198,7 +198,7 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(Player), "Awake")]
         public static void Player_Awake_Postfix(Player __instance)
         {
-            Debug.Log("Player_Awake");
+            //Debug.Log("Player_Awake");
 
             if (__instance == null)
                 return;
