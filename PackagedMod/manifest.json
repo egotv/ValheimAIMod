@@ -1,0 +1,9 @@
+{
+  "name": "EgoValheimAIMod",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/",
+  "description": "The Valheim AI Companion Mod introduces an LLM-driven NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2202"
+  ]
+}

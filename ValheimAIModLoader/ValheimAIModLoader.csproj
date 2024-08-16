@@ -91,6 +91,7 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\"
-xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PasteThisInValheimGameDirectory\BepInEx\plugins"</PostBuildEvent>
+xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PasteThisInValheimGameDirectory\BepInEx\plugins"
+xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PackagedMod\plugins"</PostBuildEvent>
   </PropertyGroup>
 </Project>
