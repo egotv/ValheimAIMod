@@ -10,6 +10,8 @@ using System.Reflection;
 using System.Collections;
 using Jotunn.Managers;
 using Jotunn.Entities;
+using System;
+using System.Text;
 
 namespace ValheimAIMod
 {
@@ -33,7 +35,7 @@ namespace ValheimAIMod
             PrefabManager.Instance.AddPrefab(new CustomPrefab(HumanoidNPCPrefab, fixReference: true));
 
             if (HumanoidNPCPrefab) Debug.Log("HumanoidNPCPrefab loaded"); 
-            else Debug.Log("HumanoidNPCPrefab not loaded");
+            else Debug.LogError("HumanoidNPCPrefab not loaded");
 
             script_npc_assetBundle.Unload(false);
 

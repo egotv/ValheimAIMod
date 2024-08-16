@@ -18,6 +18,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
 using System.Collections;
+using ValheimAIMod;
 
 namespace ValheimAIModLoader
 { 
@@ -142,11 +143,13 @@ namespace ValheimAIModLoader
 
         private void DoModInit()
         {
-            Chat.instance.SendText(Talker.Type.Normal, "EGO.AI MOD LOADED!");
+            Chat.instance.SendText(Talker.Type.Normal, "EGO.AI THRALL MOD LOADED!");
 
             CreateModMenuUI();
 
             instance.NPCCurrentMode = NPCMode.Defensive;
+
+            
 
             instance.FindPlayerNPCs();
             if (instance.PlayerNPC)
@@ -160,12 +163,14 @@ namespace ValheimAIModLoader
             //PopulateAllItems();
 
             ModInitComplete = true;
-            Debug.Log("ego.ai mod initialization complete");
+
+            Debug.Log("Thrall mod initialization complete");
+            //Debug.Log("Thrall mod initialization complete");
         }
 
         private void Awake()
         {
-            Debug.Log("ValheimAIModLivePatch Loaded!");
+            Debug.Log("ego.ai Thrall ValheimAIModLivePatch Loaded!");
             instance = this;
 
             ConfigBindings();
@@ -181,13 +186,13 @@ namespace ValheimAIModLoader
 
             if (IsInAWorld())
             {
-                Debug.Log("ego.ai mod loaded at runtime, trying to initialize");
+                Debug.Log("Thrall mod loaded at runtime, trying to initialize");
 
                 instance.DoModInit();
             }
             else
             {
-                Debug.Log("ego.ai mod loaded at startup. Mod not initalized yet! Waiting for player to join a world...");
+                Debug.Log("Thrall mod loaded at startup. Mod not initalized yet! Waiting for player to join a world...");
             }
 
 
@@ -206,19 +211,19 @@ namespace ValheimAIModLoader
 
             if (!ModInitComplete)
             {
-                Debug.Log("Local player spawned, trying to initialize ego.ai mod.");
+                Debug.Log("Local player spawned, trying to initialize Thrall mod.");
                 instance.DoModInit();
             }
             else
             {
-                Debug.Log("Local player spawned, but ego.ai mod is already initialized. Skipping init.");
+                Debug.Log("Skipping Thrall mod init because it is already initialized.");
             }
 
             instance.FindPlayerNPCs();
 
             if (!instance.PlayerNPC)
             {
-                Debug.Log("Local player spawned, but there was no NPC in the world. Trying to spawn an NPC in 1 second...");
+                Debug.Log("Local player spawned, but there is no NPC in the world. Trying to spawn an NPC in 1 second...");
 
                 instance.SetTimer(1f, () =>
                 {
@@ -935,7 +940,7 @@ namespace ValheimAIModLoader
                         }
                     }
 
-                    MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"Ego agent left the world!");
+                    MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"Thrall left the world!");
                     /*instance.PlayerNPC = null;
                     instance.PlayerNPC_humanoid = null;*/
                 }
@@ -1505,7 +1510,7 @@ namespace ValheimAIModLoader
                 .ToList();
         }
 
-
+        private static HitData NPCLastHitData = null;
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(HumanoidNPC), "CustomFixedUpdate")]
@@ -1517,8 +1522,11 @@ namespace ValheimAIModLoader
 
             MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
 
-            if (__instance.LastPosition.DistanceTo(__instance.transform.position) > 1.5f)
+
+            //Debug.Log(__instance.LastPositionDelta);
+            if (__instance.LastPosition.DistanceTo(__instance.transform.position) > 1.5f || __instance.m_lastHit != NPCLastHitData)
             {
+                NPCLastHitData = __instance.m_lastHit;
                 __instance.LastPosition = __instance.transform.position;
                 __instance.LastPositionDelta = 0;
             }
@@ -1534,7 +1542,7 @@ namespace ValheimAIModLoader
                 float distanceBetweenTargetAndSelf = monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position);
 
                 if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource &&
-                            Time.time - NewFollowTargetLastRefresh > MaxChaseTimeForOneFollowTarget || 
+                            (Time.time - NewFollowTargetLastRefresh > MaxChaseTimeForOneFollowTarget && NewFollowTargetLastRefresh != 0) || 
                             (__instance.LastPositionDelta > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5) &&
                             monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
                 {
@@ -1548,7 +1556,13 @@ namespace ValheimAIModLoader
 
                 if (!__instance.InAttack())
                 {
-                    if (distanceBetweenTargetAndSelf < instance.FollowUntilDistance + (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop", "Pickable") ? 2f : 1.5f))
+                    float MinDistanceAllowed = 1f;
+                    if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop", "Pickable"))
+                        MinDistanceAllowed = 2f;
+                    else if (monsterAIcomponent.m_follow.HasAnyComponent("TreeLog"))
+                        MinDistanceAllowed = 0.7f;
+
+                    if (distanceBetweenTargetAndSelf < instance.FollowUntilDistance + MinDistanceAllowed)
                     //if (PerformRaycast(__instance) == monsterAIcomponent.m_follow.gameObject)
                     {
                         if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
@@ -2720,7 +2734,7 @@ namespace ValheimAIModLoader
 
         protected virtual void OnNPCDeath()
         {
-            MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Your NPC died! Press [G] to respawn");
+            MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Your Thrall died! Press [G] to respawn");
 
             HumanoidNPC humanoidNPC = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
@@ -4606,7 +4620,7 @@ namespace ValheimAIModLoader
             string json = SimpleJson.SimpleJson.SerializeObject(data);
 
             //string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, "egoaimod.json");
+            string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, "thrallmod.json");
 
             File.WriteAllText(filePath, json);
             Debug.Log("Saved NPC data to " + filePath);
@@ -4615,7 +4629,7 @@ namespace ValheimAIModLoader
         public static void LoadNPCData(HumanoidNPC npc)
         {
             //string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, "egoaimod.json");
+            string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, "thrallmod.json");
             Debug.Log("Loading NPC data from " + filePath);
 
             if (File.Exists(filePath))
@@ -4749,7 +4763,8 @@ namespace ValheimAIModLoader
             npc.m_name = instance.npcName;
             instance.nameInputField.SetTextWithoutNotify(instance.npcName);
             instance.personalityInputField.SetTextWithoutNotify(instance.npcPersonality);
-            instance.personalityDropdownComp.SetValueWithoutNotify(FindKeyIndexForValue(instance.npcPersonality));
+            int personalityIndex = FindKeyIndexForValue(instance.npcPersonality);
+            instance.personalityDropdownComp.SetValueWithoutNotify(personalityIndex == -1 ? npcPersonalities.Count - 1 : personalityIndex);
             instance.voiceDropdownComp.SetValueWithoutNotify(instance.npcVoice);
             instance.micDropdownComp.SetValueWithoutNotify(instance.MicrophoneIndex);
             instance.volumeSliderComp.SetValueWithoutNotify(instance.npcVolume);
@@ -5069,7 +5084,7 @@ namespace ValheimAIModLoader
         {
             if (!instance.PlayerNPC)
             {
-                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Cannot open mod menu without an NPC in the world!");
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Cannot open Thrall Menu without a Thrall in the world!");
                 return;
             }
 

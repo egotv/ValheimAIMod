@@ -9,16 +9,10 @@
       "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\valheimaimodloader.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{00000000-0000-0000-0000-000000000000}|\u003CSolution\u003E|ValheimAIModLivePatch||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{00000000-0000-0000-0000-000000000000}|\u003CSolution\u003E|ValheimAIModLoader||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\||{B270807C-D8C6-49EB-8EBE-8E8D566637A1}|1e78f8db-6c07-4d61-a18f-7514010abd56"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\||{B270807C-D8C6-49EB-8EBE-8E8D566637A1}|1e78f8db-6c07-4d61-a18f-7514010abd56"
+      "AbsoluteMoniker": "D:0:0:{00000000-0000-0000-0000-000000000000}|\u003CSolution\u003E|ValheimAIModLivePatch||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
     }
   ],
   "DocumentGroupContainers": [
@@ -36,27 +30,25 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "ValheimAIModLivePatch",
               "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj",
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2024-08-16T20:28:06.606Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-16T20:28:06.606Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 2,
               "Title": "ValheimAIModLoader",
               "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.csproj",
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.csproj",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.csproj",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.csproj",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2024-08-16T20:27:11.763Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-16T20:27:11.763Z"
             },
             {
               "$type": "Document",
@@ -66,7 +58,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ViewState": "AQIAACEAAAAAAAAAAAAIwDQAAAAzAAAA",
+              "ViewState": "AQIAAAoAAAAAAAAAAAAAACAAAAAzAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-08-16T17:55:50.021Z",
               "EditorCaption": ""
@@ -79,7 +71,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAAJcDAAAAAAAAAAAIwK0DAAAUAAAA",
+              "ViewState": "AQIAAN8FAAAAAAAAAAAowOsFAABAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:47:42.829Z",
               "EditorCaption": ""
