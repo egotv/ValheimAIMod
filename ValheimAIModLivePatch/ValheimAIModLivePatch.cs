@@ -19,6 +19,7 @@ using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.Processors;
 using UnityEngine.InputSystem.EnhancedTouch;
+using System.Runtime.InteropServices;
 
 [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
 [BepInProcess("valheim.exe")]
@@ -930,6 +931,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 action.humanoidNPC = npc;
                 action.ResourceName = "Wood";
                 action.RequiredAmount = 20;
+                action.OriginalRequiredAmount = 20;
                 instance.commandManager.AddCommand(action);
 
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} harvesting wood!");
@@ -1218,7 +1220,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 humanoidNPC.StartAttack(humanoidNPC, false);
             }
 
-            if (__instance.m_follow == null || __instance.m_follow.HasAnyComponent("Character", "Humanoid") || __instance == Player.m_localPlayer || (!QueryResource(instance.CurrentHarvestResourceName).Contains(CleanKey(__instance.m_follow.name)) && !__instance.m_follow.HasAnyComponent("Pickable", "ItemDrop")))
+            if (__instance.m_follow == null || 
+                __instance.m_follow.HasAnyComponent("Character", "Humanoid") || 
+                __instance == Player.m_localPlayer || 
+                (!QueryResource(instance.CurrentHarvestResourceName).Contains(CleanKey(__instance.m_follow.name)) && !__instance.m_follow.HasAnyComponent("Pickable", "ItemDrop")))
             {
                 //comehere
 
@@ -1245,7 +1250,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 {
                     resource = FindClosestResource(instance.PlayerNPC, s);
                     //if (resource == null || resource.transform.position.DistanceTo(__instance.transform.position) < 50)
-                    if (resource == null)
+                    if (resource == null && !blacklistedItems.Contains(resource))
                     {
                         // inform API that resource was not found and wasn't processed
                         Debug.Log($"couldn't find resource {s} or it was more than 50 units away");
@@ -1254,6 +1259,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                     else
                     {
                         //ResourcesDistances[resource] = instance.PlayerNPC.transform.position.DistanceTo(resource.transform.position);
+                        NewFollowTargetLastRefresh = Time.time;
                         break;
                     }
                 }
@@ -1384,6 +1390,11 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         return true;
     }
 
+    private static HashSet<GameObject> nearbyItemDrops = new HashSet<GameObject>();
+    private static HashSet<GameObject> blacklistedItems = new HashSet<GameObject>(); // list of unreachable items
+    private static float NewFollowTargetLastRefresh = 0f;
+    private static float MaxChaseTimeForOneFollowTarget = 20f;
+
     private static void EquipItemType(HumanoidNPC npc, ItemDrop.ItemData.ItemType itemType)
     {
         if (!npc) return;
@@ -1436,7 +1447,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
 
-        if (__instance.LastPosition.DistanceTo(__instance.transform.position) > 1f)
+        if (__instance.LastPosition.DistanceTo(__instance.transform.position) > 1.5f)
         {
             __instance.LastPosition = __instance.transform.position;
             __instance.LastPositionDelta = 0;
@@ -1450,9 +1461,24 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
 
         if (monsterAIcomponent && monsterAIcomponent.m_follow != null && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject)
         {
+            float distanceBetweenTargetAndSelf = monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position);
+
+            if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource &&
+                        Time.time - NewFollowTargetLastRefresh > MaxChaseTimeForOneFollowTarget || 
+                        (__instance.LastPositionDelta > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5) &&
+                        monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
+            {
+                // time for new follow target
+                Debug.Log($"NPC seems to be stuck for >20s while trying to harvest {monsterAIcomponent.m_follow.gameObject.name}, blacklisted item");
+                blacklistedItems.Add(monsterAIcomponent.m_follow.gameObject);
+                RefreshAllGameObjectInstances();
+                monsterAIcomponent.SetFollowTarget(null);
+                return;
+            }
+
             if (!__instance.InAttack())
             {
-                if (monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position) < instance.FollowUntilDistance + (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop", "Pickable") ? 2f : .5f))
+                if (distanceBetweenTargetAndSelf < instance.FollowUntilDistance + (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop", "Pickable") ? 2f : .5f))
                 //if (PerformRaycast(__instance) == monsterAIcomponent.m_follow.gameObject)
                 {
                     if (monsterAIcomponent.m_follow.HasAnyComponent("ItemDrop"))
@@ -1720,6 +1746,7 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                 //Debug.Log("PickupItemDrop CanAddItem");
             }*/
 
+            string PickupItemDropName = component.name;
             Debug.Log("Picking up ItemDrop " + component.name);
             __instance.Pickup(component.gameObject);
 
@@ -1761,6 +1788,20 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             else
             {
                 //Debug.Log($"NPC can pickup item {component.GetHoverName()} {component.name}");
+                if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource &&
+                    IsStringEqual(instance.CurrentHarvestResourceName, PickupItemDropName, true))
+                {
+                    if (instance.currentcommand != null && instance.currentcommand is HarvestAction)
+                    {
+                        HarvestAction action = (HarvestAction)instance.currentcommand;
+                        action.RequiredAmount = Math.Max(action.RequiredAmount - stack, 0);
+                        Debug.Log($"{action.RequiredAmount} {action.ResourceName} remaining");
+                    }
+                    else
+                    {
+                        Debug.Log($"NPC picked up CurrentHarvestResource {PickupItemDropName} but currentcommand is null or not a HarvestAction");
+                    }
+                }
             }
 
             if (component.m_itemData.m_shared.m_questItem)
@@ -3470,7 +3511,9 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
                             HarvestAction harvestAction = new HarvestAction();
                             harvestAction.humanoidNPC = npc;
                             harvestAction.ResourceName = ResourceName;
-                            harvestAction.RequiredAmount = ResourceQuantity + CountItemsInInventory(npc.m_inventory, ResourceName);
+                            harvestAction.RequiredAmount = ResourceQuantity;
+                            harvestAction.OriginalRequiredAmount = ResourceQuantity;
+                            //harvestAction.RequiredAmount = ResourceQuantity + CountItemsInInventory(npc.m_inventory, ResourceName);
                             instance.commandManager.AddCommand(harvestAction);
                         }
                         else
@@ -3752,7 +3795,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
         Vector3 p = instance.PlayerNPC != null ? instance.PlayerNPC.transform.position : Player.m_localPlayer.transform.position;
 
         instance.AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
-                .Where(go => go != null && go.transform.position.DistanceTo(p) < 300 && go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
+                .Where(go => go != null && 
+                go.transform.position.DistanceTo(p) < 300 && 
+                !blacklistedItems.Contains(go) &&
+                go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
                 .ToArray();
                 //.ToList();
         instance.AllGOInstancesLastRefresh = Time.time;
@@ -5439,10 +5485,10 @@ public class ValheimAIModLivePatch : BaseUnityPlugin
             if (task is HarvestAction)
             {
                 HarvestAction action = (HarvestAction)task;
-                int RequiredAmount = action.RequiredAmount;
+                /*int RequiredAmount = action.RequiredAmount;
                 if (instance.PlayerNPC_humanoid)
-                    RequiredAmount -= CountItemsInInventory(instance.PlayerNPC_humanoid.m_inventory, action.ResourceName);
-                AddItemToScrollBox(TaskListScrollBox, $"Gathering {action.ResourceName} ({RequiredAmount})", defaultSprite, i);
+                    RequiredAmount -= CountItemsInInventory(instance.PlayerNPC_humanoid.m_inventory, action.ResourceName);*/
+                AddItemToScrollBox(TaskListScrollBox, $"Gathering {action.ResourceName} ({action.RequiredAmount})", defaultSprite, i);
             }
             if (task is PatrolAction)
             {
@@ -6553,7 +6599,7 @@ public class NPCCommandManager
                 if (command is HarvestAction)
                 {
                     HarvestAction action = (HarvestAction)command;
-                    commandTypeText = $"harvesting {action.RequiredAmount} {action.ResourceName}";
+                    commandTypeText = $"harvesting {action.OriginalRequiredAmount} {action.ResourceName}";
                 }
                 else if (command is AttackAction)
                 {
@@ -6692,6 +6738,7 @@ public class PatrolAction : NPCCommand
 public class HarvestAction : NPCCommand
 {
     public string ResourceName { get; set; }
+    public int OriginalRequiredAmount { get; set; }
     public int RequiredAmount { get; set; }
 
     public override bool IsTaskComplete()
@@ -6700,7 +6747,9 @@ public class HarvestAction : NPCCommand
         //return Vector3.Distance(npc.transform.position, Resource.transform.position) <= 5f;
         if (humanoidNPC)
         {
-            if (humanoidNPC.HasEnoughResource(ResourceName, RequiredAmount))
+            if (RequiredAmount <= 0)
+                return true;
+            /*if (humanoidNPC.HasEnoughResource(ResourceName, RequiredAmount))
             {
                 Debug.Log("HarvestAction task complete");
                 return true;
@@ -6708,7 +6757,7 @@ public class HarvestAction : NPCCommand
             else
             {
                 //Debug.Log("HarvestAction doesnt have enough resources");
-            }
+            }*/
         }
         else
         {
