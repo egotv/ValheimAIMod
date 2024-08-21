@@ -20,13 +20,16 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using ValheimAIMod;
 using System.Runtime.InteropServices;
+using BepInEx.Logging;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ValheimAIModLoader
 { 
 
-    [BepInPlugin("egovalheimmod.ValheimAIModLivePatch", "EGO.AI Valheim AI NPC Mod Live Patch", "0.0.1")]
+    [BepInPlugin("egoai.thrallmodlivepatch", "ego.ai Thrall Mod Live Patch", "0.0.1")]
     [BepInProcess("valheim.exe")]
-    [BepInDependency("egovalheimmod.ValheimAIModLoader", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("egoai.thrallmodloader", BepInDependency.DependencyFlags.HardDependency)]
     public class ValheimAIModLivePatch : BaseUnityPlugin
     {
         public enum NPCMode
@@ -40,7 +43,7 @@ namespace ValheimAIModLoader
 
 
         public static ValheimAIModLivePatch instance;
-        private readonly Harmony harmony = new Harmony("egovalheimmod.ValheimAIModLivePatch");
+        private readonly Harmony harmony = new Harmony("egoai.thrallmodlivepatch");
     
         //private const string brainBaseURL = "http://localhost:5000";
         private const string brainBaseURL = "https://valheim-agent-brain.fly.dev";
@@ -165,13 +168,17 @@ namespace ValheimAIModLoader
 
             ModInitComplete = true;
 
-            Debug.Log("Thrall mod initialization complete");
+            logger.LogMessage("Thrall mod initialization complete");
             //Debug.Log("Thrall mod initialization complete");
         }
 
+        private static ManualLogSource logger;
+        private static List<string> logEntries = new List<string>();
+
         private void Awake()
         {
-            Debug.Log("ego.ai Thrall ValheimAIModLivePatch Loaded!");
+            logger = Logger;
+            logger.LogMessage("ego.ai Thrall ValheimAIModLivePatch Loaded!");
             instance = this;
 
             ConfigBindings();
@@ -184,6 +191,12 @@ namespace ValheimAIModLoader
             playerDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "playerdialogue.wav");
             npcDialogueAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue.wav");
             npcDialogueRawAudioPath = Path.Combine(UnityEngine.Application.persistentDataPath, "npcdialogue_raw.wav");
+
+            
+            logger.LogInfo("Setting up logging for Thrall");
+            Application.logMessageReceived += CaptureLog;
+            instance.RestartSendLogTimer();
+
 
             if (IsInAWorld())
             {
@@ -200,6 +213,56 @@ namespace ValheimAIModLoader
             harmony.PatchAll(typeof(ValheimAIModLivePatch));
         }
 
+        private void RestartSendLogTimer()
+        {
+            instance.SetTimer(5 * 60, () =>
+            {
+                instance.SendLogToBrain();
+                instance.RestartSendLogTimer();
+            });
+        }
+
+        private void CaptureLog(string logString, string stackTrace, LogType type)
+        {
+            string entry = $"[{Time.time}] [{type}] {logString}";
+            if (type == LogType.Exception)
+            {
+                entry += $"\n{stackTrace}";
+            }
+            logEntries.Add(entry);
+
+            // Optionally, you can set a max number of entries to keep in memory
+            if (logEntries.Count > 10000)  // For example, keep last 10000 entries
+            {
+                logEntries.RemoveAt(0);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ZNet), "Shutdown")] 
+        private static bool ZNet_Shutdown_Prefix()
+        {
+            SaveLogs();
+            return true;
+        }
+
+        private static bool SaveLogs()
+        {
+            logger.LogInfo("Game is shutting down, sending accumulated logs");
+            string FilePath = Path.Combine(UnityEngine.Application.persistentDataPath, "lastlog.json");
+
+            string res = "";
+            foreach (string s in logEntries)
+            {
+                res += s + "\n";
+            }
+
+            File.WriteAllText(FilePath, res);
+            return true;
+        }
+
+
+
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Low)]
         [HarmonyPatch(typeof(Player), "Awake")]
@@ -209,6 +272,12 @@ namespace ValheimAIModLoader
 
             if (__instance == null)
                 return;
+
+            if (ZNetScene.instance == null)
+            {
+                Debug.LogError("Player spawned but not in a game world!");
+                return;
+            }
 
             if (!ModInitComplete)
             {
@@ -1056,7 +1125,10 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKeyDown(KeyCode.P))
             {
-                GameObject prefab = null;
+                //instance.SendLogToBrain();
+                //SaveLogs();
+
+                /*GameObject prefab = null;
 
                 prefab = ZNetScene.instance.GetPrefab("Rock_3");
                 if (prefab)
@@ -1088,7 +1160,7 @@ namespace ValheimAIModLoader
                     Debug.Log("PickaxeBronze");
                     ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
                     Debug.Log(itemDrop.m_itemData.m_shared.m_damages.ToString());
-                }
+                }*/
 
 
 
@@ -1555,8 +1627,8 @@ namespace ValheimAIModLoader
 
                 if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource &&
                             (Time.time - NewFollowTargetLastRefresh > MaxChaseTimeForOneFollowTarget && NewFollowTargetLastRefresh != 0) || 
-                            (__instance.LastPositionDelta > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5) &&
-                            monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
+                            ((__instance.LastPositionDelta > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5) &&
+                            monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5")))
                 {
                     // time for new follow target
                     Debug.Log($"NPC seems to be stuck for >20s while trying to harvest {monsterAIcomponent.m_follow.gameObject.name}, blacklisted item");
@@ -1954,6 +2026,14 @@ namespace ValheimAIModLoader
         {
             if (bCleanKey)
                 return CleanKey(a).ToLower().StartsWith(CleanKey(b).ToLower());
+
+            return a.ToLower().StartsWith(b.ToLower());
+        }
+
+        public static bool DoesStringContains(string a, string b, bool bCleanKey)
+        {
+            if (bCleanKey)
+                return CleanKey(a).ToLower().Contains(CleanKey(b).ToLower());
 
             return a.ToLower().StartsWith(b.ToLower());
         }
@@ -3236,6 +3316,54 @@ namespace ValheimAIModLoader
             }
         }
 
+        private void SendLogToBrain()
+        {
+            if (logEntries.Count <= 0) return;
+
+            StringBuilder res = new StringBuilder();
+            foreach (string entry in logEntries)
+            {
+                res.AppendLine(entry);
+            }
+
+            var jObject = new JsonObject
+            {
+                ["player_id"] = GetPlayerSteamID(),
+                ["timestamp"] = DateTime.Now.ToString(),
+                ["log_string"] = res.ToString(),
+            };
+
+            // Create a new WebClient
+            WebClient webClient = new WebClient();
+            webClient.Headers.Add("Content-Type", "application/json");
+
+            // Send the POST request
+            webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/log_valheim"), jObject.ToString());
+            webClient.UploadStringCompleted += OnSendLogToBrainCompleted;
+
+
+            string FilePath = Path.Combine(UnityEngine.Application.persistentDataPath, "lastlog.json");
+            logger.LogInfo($"Saving temp log to {FilePath}");
+
+            File.WriteAllText(FilePath, jObject.ToString());
+
+            logEntries.Clear();
+        }
+
+        private void OnSendLogToBrainCompleted(object sender, UploadStringCompletedEventArgs e)
+        {
+            if (e.Error == null)
+            {
+                Debug.Log("Successfully log to brain!");
+
+            }
+            else
+            {
+                Debug.LogError("Sending log to brain failed: " + e.Error.Message);
+            }
+        }
+
+
         static bool IsInventoryShowing = false;
         private void OnInventoryKeyPressed(Player player)
         {
@@ -3666,9 +3794,9 @@ namespace ValheimAIModLoader
                                 if (parameters.Length >= 1)
                                     TargetName = parameters[0];
                                 if (parameters.Length >= 2)
-                                    WeaponName = parameters[1];
+                                    TargetQty = int.Parse(parameters[1]);
                                 if (parameters.Length >= 3)
-                                    TargetQty = int.Parse(parameters[2]);
+                                    WeaponName = parameters[2];
 
                                 AttackAction attackAction = new AttackAction();
                                 attackAction.humanoidNPC = npc;
@@ -6074,7 +6202,7 @@ namespace ValheimAIModLoader
         {
             instance.personalityDropdownComp.SetValueWithoutNotify(npcPersonalities.Count - 1);
             instance.npcPersonality = newText;
-            Debug.Log("New personality " + instance.npcPersonality);
+            //Debug.Log("New personality " + instance.npcPersonality);
         }
 
         Dropdown voiceDropdownComp;

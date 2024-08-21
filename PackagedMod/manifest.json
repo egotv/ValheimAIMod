@@ -1,9 +1,10 @@
 {
-  "name": "EgoValheimAIMod",
+  "name": "Thrall ego.ai",
   "version_number": "1.0.0",
   "website_url": "https://github.com/",
-  "description": "The Valheim AI Companion Mod introduces an LLM-driven NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features.",
+  "description": "The Thrall Mod by ego.ai introduces an LLM-driven NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features.",
   "dependencies": [
-    "denikson-BepInExPack_Valheim-5.4.2202"
+    "denikson-BepInExPack_Valheim-5.4.2202",
+	"ValheimModding-Jotunn-2.20.1"
   ]
 }

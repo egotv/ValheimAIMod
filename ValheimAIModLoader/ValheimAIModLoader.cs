@@ -15,12 +15,12 @@ using System.Text;
 
 namespace ValheimAIMod
 {
-    [BepInPlugin("egovalheimmod.ValheimAIModLoader", "Valheim AI NPC Mod Loader", "1.0.0")]
+    [BepInPlugin("egoai.thrallmodloader", "ego.ai Thrall Mod Loader", "1.0.0")]
     [BepInProcess("valheim.exe")]
     public class ValheimAIModLoader : BaseUnityPlugin
     {
         private static ValheimAIModLoader instance;
-        private readonly Harmony harmony = new Harmony("egovalheimmod.ValheimAIModLoader");
+        private readonly Harmony harmony = new Harmony("egoai.thrallmodloader");
 
         private static GameObject HumanoidNPCPrefab;
 
