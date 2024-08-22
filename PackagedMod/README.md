@@ -3,7 +3,7 @@
 
 ## Overview
 
-Thrall introduces an LLM-driven AI NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features. For example, you can tell the companion to go hunt 10 deer, and change its personality from Elon Musk to Hermione Granger.
+Thrall is an AI language model-driven AI NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features. For example, you can tell the companion to go hunt 10 deer, and change its personality from Elon Musk to Hermione Granger (or anyone you fancy).
 
 ## Features
 
@@ -17,6 +17,10 @@ Thrall introduces an LLM-driven AI NPC companion to your Valheim adventures. Thi
     
 5.  Combat Support: Engage your companion in battles against enemies.
     
+
+## Youtube Demo Video
+
+[https://youtu.be/OVR0dhJw840](https://youtu.be/OVR0dhJw840)
 
 ## Installation
 
@@ -105,7 +109,7 @@ Your companion can assist in combat situations:
 
 ## Compatibility
 
-This mod is compatible with Valheim version [0.218.20] and requires BepInEx version [5.4.22] or higher.
+This mod is compatible with Valheim version [0.218.20] and requires BepInEx version [5.4.22] or higher, and Jotunn version [2.20.1] or higher.
 
 ## Known Issues
 
@@ -118,8 +122,13 @@ For support, bug reports, or feature requests, please join the [Ego Discord comm
 
 ## Credits
 
-Developed by Ego.AI
+Developed by Ego Live Inc. Reach out to us on discord: [https://discord.gg/egoai](https://discord.gg/egoai)  
+Sahej Hundal (swag_disease on Discord)  
+Cody Drake (DetectiveDrake on Discord)  
+Connor Brennan (ConnorB on Discord)  
+Peggy Wang (@peggy_wang on Twitter)  
+Vishnu Hari (@simulacronist on Twitter)
 
 ## License
 
-This mod is released under ???
+All rights reserved.

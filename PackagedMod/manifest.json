@@ -1,10 +1,11 @@
 {
-  "name": "Thrall ego.ai",
-  "version_number": "1.0.0",
-  "website_url": "https://github.com/",
-  "description": "The Thrall Mod by ego.ai introduces an LLM-driven NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features.",
-  "dependencies": [
-    "denikson-BepInExPack_Valheim-5.4.2202",
-	"ValheimModding-Jotunn-2.20.1"
-  ]
+	"name": "Thrall",
+    "author": "ego.ai",
+	"version_number": "1.0.0",
+	"website_url": "https://discord.gg/egoai",
+	"description": "Thrall is an AI language model-driven AI NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features. For example, you can tell the companion to go hunt 10 deer, and change its personality from Elon Musk to Hermione Granger (or anyone you fancy).",
+	"dependencies": [
+		"denikson-BepInExPack_Valheim-5.4.2202",
+		"ValheimModding-Jotunn-2.20.1"
+	]
 }
