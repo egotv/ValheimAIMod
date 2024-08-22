@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "atoVBok6w1Z2wefjON7IQ/RF0HR5Be2/FmUW2UnIbyayZa0TMyoUWzGKepk7GpdG0C7PyldjQjKErbS6XfyHog==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\APIEncryptionTool.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hunda\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.22621.31\\microsoft.windows.sdk.net.ref.10.0.22621.31.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -7,6 +7,12 @@
     },
     {
       "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\valheimaimodloader.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}|..\\APIEncryptionTool\\APIEncryptionTool.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\apiencryptiontool\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}|..\\APIEncryptionTool\\APIEncryptionTool.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\apiencryptiontool\\apiencryptiontool.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
     }
   ],
   "DocumentGroupContainers": [
@@ -16,11 +22,36 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "APIEncryptionTool",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\APIEncryptionTool.csproj",
+              "RelativeDocumentMoniker": "..\\APIEncryptionTool\\APIEncryptionTool.csproj",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\APIEncryptionTool.csproj",
+              "RelativeToolTip": "..\\APIEncryptionTool\\APIEncryptionTool.csproj",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2024-08-22T18:30:49.254Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\Program.cs",
+              "RelativeDocumentMoniker": "..\\APIEncryptionTool\\Program.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\Program.cs",
+              "RelativeToolTip": "..\\APIEncryptionTool\\Program.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAA0AAAAGAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-08-22T18:25:00.334Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -30,9 +61,10 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ViewState": "AQIAAAMAAAAAAAAAAAAAABUAAAAzAAAA",
+              "ViewState": "AQIAAAMAAAAAAAAAAAAAABAAAAABAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-16T17:55:50.021Z"
+              "WhenOpened": "2024-08-16T17:55:50.021Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -42,7 +74,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAABYEAAAAAAAAAAAqwDAEAAAAAAAA",
+              "ViewState": "AQIAAIQOAAAAAAAAAAAgwKcOAAA9AAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:47:42.829Z",
               "EditorCaption": ""

@@ -1,0 +1,15 @@
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\bin\Debug\net8.0\APIEncryptionTool.exe
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\bin\Debug\net8.0\APIEncryptionTool.deps.json
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\bin\Debug\net8.0\APIEncryptionTool.runtimeconfig.json
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\bin\Debug\net8.0\APIEncryptionTool.dll
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\bin\Debug\net8.0\APIEncryptionTool.pdb
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.AssemblyInfoInputs.cache
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.AssemblyInfo.cs
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.csproj.CoreCompileInputs.cache
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.sourcelink.json
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.dll
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\refint\APIEncryptionTool.dll
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.pdb
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\APIEncryptionTool.genruntimeconfig.cache
+C:\Users\hunda\OneDrive\Documents\valheimmods\APIEncryptionTool\obj\Debug\net8.0\ref\APIEncryptionTool.dll

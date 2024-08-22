@@ -23,6 +23,10 @@ using System.Runtime.InteropServices;
 using BepInEx.Logging;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+using UnityEngine.InputSystem;
+using HarmonyLib.Tools;
 
 namespace ValheimAIModLoader
 { 
@@ -46,7 +50,8 @@ namespace ValheimAIModLoader
         private readonly Harmony harmony = new Harmony("egoai.thrallmodlivepatch");
     
         //private const string brainBaseURL = "http://localhost:5000";
-        private const string brainBaseURL = "https://valheim-agent-brain.fly.dev";
+        //private const string brainBaseURL = "https://valheim-agent-brain.fly.dev";
+        private const string encryptedBrainBaseURL = "Ju1M0vL+9PbHCPO8Tr0Leb92JpHZZcYqtuCSwhjbizen4omyPMmvjXjfSZ9MBoCv";
 
         private string playerDialogueAudioPath;
         private string npcDialogueAudioPath;
@@ -138,6 +143,42 @@ namespace ValheimAIModLoader
         private static Dictionary<string, float> resourceQuantityMap = new Dictionary<string, float>();
 
 
+        private static readonly byte[] Key = new byte[32]
+        {
+            23, 124, 67, 88, 190, 12, 45, 91,
+            255, 7, 89, 45, 168, 42, 109, 187,
+            23, 100, 76, 217, 154, 200, 43, 79,
+            19, 176, 62, 9, 201, 33, 95, 128
+        };
+        private static readonly byte[] IV = new byte[16]
+        {
+        88, 145, 23, 200, 56, 178, 12, 90,
+        167, 34, 78, 191, 78, 23, 12, 78
+        };
+
+        public static string Decrypt(string cipherText)
+        {
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.Key = Key;
+                aesAlg.IV = IV;
+
+                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+
+                using (var msDecrypt = new System.IO.MemoryStream(Convert.FromBase64String(cipherText)))
+                using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                using (var srDecrypt = new System.IO.StreamReader(csDecrypt))
+                {
+                    return srDecrypt.ReadToEnd();
+                }
+            }
+        }
+
+        private static string GetBrainAPIAddress()
+        {
+            return Decrypt(encryptedBrainBaseURL);
+        }
+
         public static bool IsInAWorld()
         {
             return ZNetScene.instance != null && Player.m_localPlayer != null;
@@ -200,13 +241,13 @@ namespace ValheimAIModLoader
 
             if (IsInAWorld())
             {
-                Debug.Log("Thrall mod loaded at runtime, trying to initialize");
+                logger.LogWarning("Thrall mod loaded at runtime, trying to initialize");
 
                 instance.DoModInit();
             }
             else
             {
-                Debug.Log("Thrall mod loaded at startup. Mod not initalized yet! Waiting for player to join a world...");
+                logger.LogWarning("Thrall mod loaded at startup. Mod not initalized yet! Waiting for player to join a world...");
             }
 
 
@@ -238,7 +279,7 @@ namespace ValheimAIModLoader
             }
         }
 
-        [HarmonyPrefix]
+        /*[HarmonyPrefix]
         [HarmonyPatch(typeof(ZNet), "Shutdown")] 
         private static bool ZNet_Shutdown_Prefix()
         {
@@ -259,7 +300,7 @@ namespace ValheimAIModLoader
 
             File.WriteAllText(FilePath, res);
             return true;
-        }
+        }*/
 
 
 
@@ -275,30 +316,30 @@ namespace ValheimAIModLoader
 
             if (ZNetScene.instance == null)
             {
-                Debug.LogError("Player spawned but not in a game world!");
+                //logger.LogWarning("Player spawned but not in a game world!");
                 return;
             }
 
             if (!ModInitComplete)
             {
-                Debug.Log("Local player spawned, trying to initialize Thrall mod.");
+                logger.LogWarning("Local player spawned, trying to initialize Thrall mod.");
                 instance.DoModInit();
             }
             else
             {
-                Debug.Log("Skipping Thrall mod init because it is already initialized.");
+                logger.LogInfo("Skipping Thrall mod init because it is already initialized.");
             }
 
             instance.FindPlayerNPCs();
 
             if (!instance.PlayerNPC)
             {
-                Debug.Log("Local player spawned, but there is no NPC in the world. Trying to spawn an NPC in 1 second...");
+                //logger.LogWarning("Local player spawned, but there is no NPC in the world. Trying to spawn an NPC in 1 second...");
 
                 instance.SetTimer(1f, () =>
                 {
                     if (!instance.PlayerNPC) {
-                        Debug.Log("1 second passed. Spawning NPC now!");
+                        logger.LogWarning("Spawning a Thrall into the world!");
                         instance.SpawnCompanion();
                     }
                 });
@@ -859,7 +900,7 @@ namespace ValheimAIModLoader
 
         private void ConfigBindings()
         {
-            BrainAPIAddress = Config.Bind<string>("String", "BrainAPIAddress", brainBaseURL, "URL address of the brain API");
+            //BrainAPIAddress = Config.Bind<string>("String", "BrainAPIAddress", GetBrainAPIAddress(), "URL address of the brain API");
             DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
         }
 
@@ -872,6 +913,9 @@ namespace ValheimAIModLoader
             {
                 panelManager.DestroyAllPanels();
             }
+
+            if (!ZInput.GetKey(KeyCode.F6))
+                instance.SendLogToBrain();
 
             harmony.UnpatchSelf();
         }
@@ -980,6 +1024,8 @@ namespace ValheimAIModLoader
                 if (instance.PlayerNPC)
                     SaveNPCData(instance.PlayerNPC);*/
 
+                logger.LogInfo("Keybind: Thrall Menu");
+
                 instance.ToggleModMenu();
 
                 return;
@@ -989,7 +1035,7 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKeyDown(KeyCode.E) && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5)
             {
-                Debug.Log("Trying to access NPC inventory");
+                logger.LogInfo("Keybind: Inventory");
                 instance.OnInventoryKeyPressed(__instance);
                 return;
             }
@@ -1001,7 +1047,7 @@ namespace ValheimAIModLoader
                 GameObject[] allNpcs = instance.FindPlayerNPCs();
                 if (allNpcs.Length > 0)
                 {
-                    Debug.Log("Keybind: Dismiss Companion");
+                    logger.LogInfo("Keybind: Dismiss Companion");
 
                     foreach (GameObject aNpc in allNpcs)
                     {
@@ -1023,7 +1069,7 @@ namespace ValheimAIModLoader
                 }
                 else
                 {
-                    Debug.Log("Keybind: Spawn Companion");
+                    logger.LogInfo("Keybind: Spawn Companion");
                     instance.SpawnCompanion();
                 }
 
@@ -1031,36 +1077,19 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            /*if (ZInput.GetKeyDown(KeyCode.X))
-            {
-                Debug.Log("Keybind: Dismiss Companion");
-                //Console.instance.TryRunCommand("despawn_all");
-                if (!instance.PlayerNPC)
-                {
-                    MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "There isn't an NPC in the world!");
-                    return;
-                }
-
-                SaveNPCData(instance.PlayerNPC);
-                Destroy(instance.PlayerNPC);
-                instance.PlayerNPC = null;
-
-                return;
-            }*/
-
             if (ZInput.GetKeyDown(KeyCode.F) && instance.PlayerNPC)
             {
                 HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
                 if (instance.NPCCurrentCommand != NPCCommand.CommandType.FollowPlayer)
                 {
-                    Debug.Log("Keybind: Follow Player");
+                    logger.LogInfo("Keybind: Follow Player");
                     MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} now following you!");
                     instance.Follow_Start(__instance.gameObject);
                 }
                 else
                 {
-                    Debug.Log("Keybind: Patrol Area");
+                    logger.LogInfo("Keybind: Patrol Area");
                     MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} now patrolling this area!");
                     instance.Patrol_Start();
                 }
@@ -1073,12 +1102,16 @@ namespace ValheimAIModLoader
 
                 if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource)
                 {
+                    logger.LogInfo("Keybind: Stop All Harvesting");
+
                     instance.commandManager.RemoveCommandsOfType<HarvestAction>();
                     //instance.Harvesting_Stop();
                     MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} stopped harvesting!");
                 }
                 else
                 {
+                    logger.LogInfo("Keybind: Harvest Wood");
+
                     HarvestAction action = new HarvestAction();
                     action.humanoidNPC = npc;
                     action.ResourceName = "Wood";
@@ -1094,6 +1127,8 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKeyDown(KeyCode.J) && instance.PlayerNPC)
             {
+                logger.LogInfo("Keybind: Change Combat Mode");
+
                 HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
                 ToggleNPCCurrentCommand();
@@ -1103,6 +1138,8 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKey(KeyCode.T) && !instance.IsRecording)
             {
+                logger.LogInfo("Keybind: Start Recording");
+
                 instance.StartRecording();
                 return;
             }
@@ -1282,7 +1319,7 @@ namespace ValheimAIModLoader
                 {
                     if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData) && closestItemDrop.m_itemData.GetWeight() + humanoidNPC.m_inventory.GetTotalWeight() < humanoidNPC.GetMaxCarryWeight())
                     {
-                        Debug.Log($"Going to pickup nearby dropped item on the ground {closestItemDrop.name} in free time");
+                        logger.LogInfo($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} in free time");
                         __instance.SetFollowTarget(closestItemDrop.gameObject);
                         return true;
                     }
@@ -1310,7 +1347,7 @@ namespace ValheimAIModLoader
                 {
                     SetMonsterAIAggravated(__instance, false);
                     instance.MovementLock = true;
-                    Debug.Log("Running away from patrol radius, heading back to patrol position");
+                    logger.LogInfo($"{humanoidNPC.m_name} went too far ({instance.chaseUntilPatrolRadiusDistance}m away) from patrol position, heading back now!");
                 }
                 else if (dist < instance.patrol_radius - 3f)
                 {
@@ -1344,19 +1381,19 @@ namespace ValheimAIModLoader
                         //newfollow = FindClosestPickableResource(__instance.gameObject, instance.patrol_position, instance.chaseUntilPatrolRadiusDistance);
                         if (closestPickable == null)
                         {
-                            Debug.Log("Stopped harvesting while patrolling!");
+                            logger.LogMessage($"{humanoidNPC.m_name} has picked up all dropped items around the patrolling area. Only keeping guard now!");
                             instance.patrol_harvest = false;
                             return true;
                         }
 
                         else if (closestPickable.transform.position.DistanceTo(instance.patrol_position) < instance.chaseUntilPatrolRadiusDistance)
                         {
-                            Debug.Log("Going to loot " + closestPickable.name + ", distance: " + closestPickable.transform.position.DistanceTo(__instance.transform.position));
+                            logger.LogMessage($"{humanoidNPC.m_name} is going to pickup {closestPickable.name} in patrol area, distance: {closestPickable.transform.position.DistanceTo(__instance.transform.position)}");
                             __instance.SetFollowTarget(closestPickable.gameObject);
                         }
                         else
                         {
-                            Debug.Log("distance too far!");
+                            logger.LogInfo("Closest pickable's distance is too far!");
                         }
                     }
                 }
@@ -1391,17 +1428,17 @@ namespace ValheimAIModLoader
                     {
                         if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData))
                         {
-                            Debug.Log($"Going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
+                            logger.LogMessage($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
                             __instance.SetFollowTarget(closestItemDrop.gameObject);
                             return true;
                         }
                     }
 
 
-                    
+
 
                     //Debug.Log($"queryresource {currentWeaponData != null && currentWeaponData.IsWeapon() && currentWeaponData.m_shared.m_name != "Unarmed"}");
-                    Debug.Log($"queryresource {instance.CurrentHarvestResourceName}");
+                    logger.LogInfo($"Querying for resource: {instance.CurrentHarvestResourceName}");
                     List<string> commonElements = FindCommonElements(queryresources, GetNearbyResources(__instance.gameObject).Keys.ToArray());
                     Dictionary<GameObject, float> ResourcesDistances = new Dictionary<GameObject, float>();
                     GameObject resource = null;
@@ -1412,7 +1449,7 @@ namespace ValheimAIModLoader
                         if (resource == null && !blacklistedItems.Contains(resource))
                         {
                             // inform API that resource was not found and wasn't processed
-                            Debug.Log($"couldn't find resource {s} or it was more than 50 units away");
+                            logger.LogInfo($"Couldn't find resource {s} or it was more than 50 units away");
                             continue;
                         }
                         else
@@ -1439,7 +1476,7 @@ namespace ValheimAIModLoader
                         //GameObject go = GetClosestFromArray(resources, instance.PlayerNPC.transform.position);
                         GameObject go = resource;
                         __instance.SetFollowTarget(go);
-                        Debug.Log($"going to harvest {go.name}");
+                        logger.LogMessage($"{humanoidNPC.m_name} is going to harvest {go.name}");
 
                         Destructible destructible = go.GetComponent<Destructible>();
                         bool isTree = false;
@@ -1456,7 +1493,7 @@ namespace ValheimAIModLoader
                             //equip axe
                             EquipItemType(humanoidNPC, ItemDrop.ItemData.ItemType.OneHandedWeapon);
 
-                            Debug.Log("Equipping OneHandedWeapon");
+                            logger.LogInfo($"{humanoidNPC.m_name} is equipping OneHandedWeapon");
                         }
                         else if (go.HasAnyComponent("MineRock", "MineRock5", "Destructible", "DropOnDestroyed"))
                         {
@@ -1466,13 +1503,13 @@ namespace ValheimAIModLoader
                             if (currentWeapon == humanoidNPC.GetCurrentWeapon())
                                 EquipItemType(humanoidNPC, ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft);
 
-                            Debug.Log("Equipping TwoHandedWeapon");
+                            logger.LogInfo($"{humanoidNPC.m_name} is equipping TwoHandedWeapon");
                         }
                     }
                     else
                     {
-                        Debug.Log($"couldnt find any resources to harvest for {instance.CurrentHarvestResourceName}");
-                        Debug.Log($"removing harvest {instance.CurrentHarvestResourceName} command");
+                        logger.LogMessage($"Couldnt find any resources to harvest for {instance.CurrentHarvestResourceName}");
+                        logger.LogInfo($"Removing harvest {instance.CurrentHarvestResourceName} command");
                         instance.CurrentHarvestResourceName = "Wood";
                         instance.commandManager.RemoveCommand(0);
                     }
@@ -1496,7 +1533,7 @@ namespace ValheimAIModLoader
                     if (newfollow != null)
                     {
                         __instance.SetFollowTarget(newfollow);
-                        Debug.Log("New enemy target " + newfollow.name);
+                        logger.LogMessage("New enemy target " + newfollow.name);
                     }
                 }
             }
@@ -1506,12 +1543,12 @@ namespace ValheimAIModLoader
                 if (__instance.m_follow && __instance.m_follow != Player.m_localPlayer.gameObject && !__instance.m_follow.HasAnyComponent("ItemDrop", "Pickable") && !instance.enemyList.Contains(__instance.m_follow))
                 {
                     __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
-                    Debug.Log("Following player again ");
+                    logger.LogMessage("Following player again ");
                 }
                 else if (!__instance.m_follow)
                 {
                     __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
-                    Debug.Log("Following player again ");
+                    logger.LogMessage("Following player again ");
                 }
             }
 
@@ -1531,7 +1568,7 @@ namespace ValheimAIModLoader
                     __instance.SetAggravated(true, BaseAI.AggravatedReason.Damage);
                     __instance.SetAlerted(true);
                     __instance.SetFollowTarget(instance.enemyList[0]);
-                    Debug.Log($"New enemy in defense mode: {__instance.m_follow.name}");
+                    logger.LogMessage($"New enemy in defensive mode: {__instance.m_follow.name}");
                 }
                 else
                 {
@@ -1631,7 +1668,7 @@ namespace ValheimAIModLoader
                             monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5")))
                 {
                     // time for new follow target
-                    Debug.Log($"NPC seems to be stuck for >20s while trying to harvest {monsterAIcomponent.m_follow.gameObject.name}, blacklisted item");
+                    logger.LogMessage($"NPC seems to be stuck for >20s while trying to harvest {monsterAIcomponent.m_follow.gameObject.name}, evading task!");
                     blacklistedItems.Add(monsterAIcomponent.m_follow.gameObject);
                     RefreshAllGameObjectInstances();
                     monsterAIcomponent.SetFollowTarget(null);
@@ -1658,13 +1695,13 @@ namespace ValheimAIModLoader
                                 ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 8);
                                 if (closestItemDrop != null)
                                 {
-                                    Debug.Log($"found another nearby item drop {closestItemDrop.name}");
+                                    logger.LogInfo($"Found another nearby item drop {closestItemDrop.name}");
                                     monsterAIcomponent.SetFollowTarget(closestItemDrop.gameObject);
                                 }
                                 else
                                 {
                                     monsterAIcomponent.SetFollowTarget(null);
-                                    Debug.Log($"follow target set to null after picking up item drop");
+                                    //logger.LogMessage($"follow target set to null after picking up item drop");
                                 }
                             }
                         
@@ -1686,12 +1723,12 @@ namespace ValheimAIModLoader
                             if (closestItemDrop != null)
                             {
                                 monsterAIcomponent.SetFollowTarget(closestItemDrop.gameObject);
-                                Debug.Log($"found nearby item drop {closestItemDrop.name} after interacting with pickable");
+                                logger.LogInfo($"Found nearby item drop {closestItemDrop.name} after interacting with pickable");
                             }
                             else
                             {
                                 monsterAIcomponent.SetFollowTarget(null);
-                                Debug.Log($"follow target set to null after interacting with pickable");
+                                logger.LogInfo($"follow target set to null after interacting with pickable");
                             }
 
 
@@ -1886,7 +1923,7 @@ namespace ValheimAIModLoader
             }*/
             if (component == null || __instance.HaveUniqueKey(component.m_itemData.m_shared.m_name) || !component.GetComponent<ZNetView>().IsValid())
             {
-                Debug.Log("comp null or ");
+                //Debug.Log("comp null or ");
                 return;
             }
             if (!component.CanPickup())
@@ -1898,7 +1935,7 @@ namespace ValheimAIModLoader
             {
                 if (component.InTar())
                 {
-                    Debug.Log("InTar");
+                    //Debug.Log("InTar");
                     return;
                 }
                 component.Load();
@@ -1915,7 +1952,7 @@ namespace ValheimAIModLoader
                 }*/
 
                 string PickupItemDropName = component.name;
-                Debug.Log("Picking up ItemDrop " + component.name);
+                logger.LogMessage($"{__instance.m_name} is picking up {component.name}");
                 __instance.Pickup(component.gameObject);
 
                 if (component == null)
@@ -1936,20 +1973,20 @@ namespace ValheimAIModLoader
                 }
                 if (component.m_itemData.m_shared.m_questItem && __instance.HaveUniqueKey(component.m_itemData.m_shared.m_name))
                 {
-                    Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name}");
+                    logger.LogInfo($"Thrall cannot pickup item {component.GetHoverName()} {component.name}");
                     return;
                 }
                 int stack = component.m_itemData.m_stack;
                 bool flag = __instance.m_inventory.AddItem(component.m_itemData);
                 if (__instance.m_nview.GetZDO() == null)
                 {
-                    Debug.Log($"__instance.m_nview.GetZDO() == null");
+                    //Debug.Log($"__instance.m_nview.GetZDO() == null");
                     UnityEngine.Object.Destroy(component.gameObject);
                     return;
                 }
                 if (!flag)
                 {
-                    Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name} because no room");
+                    logger.LogInfo($"Thrall can't pickup item {component.GetHoverName()} {component.name} because no room");
                     //Message(MessageHud.MessageType.Center, "$msg_noroom");
                     return;
                 }
@@ -1963,11 +2000,11 @@ namespace ValheimAIModLoader
                         {
                             HarvestAction action = (HarvestAction)instance.currentcommand;
                             action.RequiredAmount = Math.Max(action.RequiredAmount - stack, 0);
-                            Debug.Log($"{action.RequiredAmount} {action.ResourceName} remaining");
+                            logger.LogInfo($"{action.RequiredAmount} {action.ResourceName} remaining");
                         }
                         else
                         {
-                            Debug.Log($"NPC picked up CurrentHarvestResource {PickupItemDropName} but currentcommand is null or not a HarvestAction");
+                            logger.LogInfo($"NPC picked up CurrentHarvestResource {PickupItemDropName} but currentcommand is null or not a HarvestAction");
                         }
                     }
                 }
@@ -2055,7 +2092,7 @@ namespace ValheimAIModLoader
                     if (attacker != null && __instance.m_lastHit.GetAttacker() != null && __instance.m_lastHit.GetAttacker().gameObject != null && attacker.gameObject == instance.PlayerNPC)
                     {
                         action.TargetQuantity = Math.Max(action.TargetQuantity - 1, 0);
-                        Debug.Log($"{action.TargetQuantity} {action.TargetName} remaining to kill");
+                        logger.LogInfo($"{action.TargetQuantity} {action.TargetName} remaining to kill");
                     }
                 }
             }
@@ -2409,8 +2446,8 @@ namespace ValheimAIModLoader
                     {
                         if (__instance.m_dragInventory == instance.PlayerNPC_humanoid.m_inventory && __instance.m_containerGrid != grid)
                         {
-                            Debug.Log($"came from NPC inventory");
-                            Debug.Log($"dropped into player inventory");
+                            //Debug.Log($"came from NPC inventory");
+                            //Debug.Log($"dropped into player inventory");
 
                             localPlayer.GetInventory().MoveItemToThis(grid.GetInventory(), __instance.m_dragItem);
 
@@ -2420,13 +2457,13 @@ namespace ValheimAIModLoader
                                 instance.PlayerNPC_humanoid.UnequipItem(__instance.m_dragItem);
                                 if (item != null && item.IsEquipable())
                                     instance.PlayerNPC_humanoid.UnequipItem(item);
-                                Debug.Log($"NPC unequipping item {__instance.m_dragItem.m_shared.m_name}");
+                                //Debug.Log($"NPC unequipping item {__instance.m_dragItem.m_shared.m_name}");
                             }
                         }
                         else if (__instance.m_dragInventory == localPlayer.m_inventory && __instance.m_containerGrid == grid)
                         {
-                            Debug.Log($"came from player inventory");
-                            Debug.Log($"dropped into npc inventory");
+                            //Debug.Log($"came from player inventory");
+                            //Debug.Log($"dropped into npc inventory");
 
                             __instance.m_currentContainer.GetInventory().MoveItemToThis(localPlayer.GetInventory(), __instance.m_dragItem);
 
@@ -2435,7 +2472,7 @@ namespace ValheimAIModLoader
                             {
                                 if (Player.m_localPlayer.IsItemEquiped(__instance.m_dragItem) || Player.m_localPlayer.GetCurrentWeapon() == __instance.m_dragItem)
                                 {
-                                    Debug.Log($"uneqipping {__instance.m_dragItem.m_shared.m_name} from player");
+                                    //Debug.Log($"uneqipping {__instance.m_dragItem.m_shared.m_name} from player");
                                     Player.m_localPlayer.UnequipItem(__instance.m_dragItem);
                                 }
                                 
@@ -2443,18 +2480,18 @@ namespace ValheimAIModLoader
                                 instance.PlayerNPC_humanoid.EquipItem(__instance.m_dragItem);
                                 if (item != null && item.IsEquipable())
                                     instance.PlayerNPC_humanoid.EquipItem(item);
-                                Debug.Log($"NPC equipping item {__instance.m_dragItem.m_shared.m_name}");
+                                //Debug.Log($"NPC equipping item {__instance.m_dragItem.m_shared.m_name}");
                             }
                         }
                     }
                     else
                     {
-                        Debug.Log($"InventoryGUI OnSelectedItem failed, __instance.m_dragInventory was null");
+                        //Debug.Log($"InventoryGUI OnSelectedItem failed, __instance.m_dragInventory was null");
                     }
                 }
                 else
                 {
-                    Debug.Log($"not interacting w npc inventory");
+                    //Debug.Log($"not interacting w npc inventory");
                 }
 
                 __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
@@ -2516,7 +2553,7 @@ namespace ValheimAIModLoader
                 //Debug.LogError("not drag go");
                 if (item == null)
                 {
-                    Debug.LogError("item == null");
+                    //Debug.LogError("item == null");
                     return false;
                 }
                 //Debug.LogError("switch (mod)");
@@ -2728,7 +2765,7 @@ namespace ValheimAIModLoader
             GameObject[] npcs = FindPlayerNPCs();
             if (npcs.Length > 0)
             {
-                Debug.Log("Spawning more than one NPC is disabled");
+                logger.LogError("Spawning more than one NPC is disabled");
                 return;
             }
             Player localPlayer = Player.m_localPlayer;
@@ -2765,7 +2802,7 @@ namespace ValheimAIModLoader
 
             if (npcInstance.HasAnyComponent("Tameable"))
             {
-                Debug.Log("removing npc tameable comp");
+                //Debug.Log("removing npc tameable comp");
                 Destroy(npcInstance.GetComponent<Tameable>());
             }
 
@@ -2884,7 +2921,7 @@ namespace ValheimAIModLoader
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Follow_Start failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Follow_Start failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -2898,14 +2935,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.FollowPlayer;
-            Debug.Log("Follow_Start activated!");
+            logger.LogMessage("Follow_Start activated!");
         }
 
         private void Follow_Stop(string NPCDialogueMessage = "I'm gonna wander off on my own now!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Follow_Stop failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Follow_Stop failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -2918,14 +2955,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log("Follow_Stop activated!");
+            logger.LogMessage("Follow_Stop activated!");
         }
 
         private void Combat_StartAttacking(string EnemyName, string NPCDialogueMessage = "Watch out, here I come!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Combat_StartAttacking failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Combat_StartAttacking failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -2947,12 +2984,12 @@ namespace ValheimAIModLoader
 
             if (EnemyName != "")
             {
-                Debug.Log($"Trying to find enemy {EnemyName}");
+                logger.LogInfo($"Trying to find enemy {EnemyName}");
                 closestEnemy = FindClosestEnemy(instance.PlayerNPC, EnemyName);
             }
             else
             {
-                Debug.Log("EnemyName was null");
+                logger.LogError("EnemyName was null");
             }
 
             
@@ -2960,12 +2997,12 @@ namespace ValheimAIModLoader
             if (closestEnemy != null)
             {
                 monsterAIcomponent.SetFollowTarget(closestEnemy);
-                Debug.Log($"Combat_StartAttacking closestEnemy found! " + closestEnemy.name);
+                logger.LogInfo($"Combat_StartAttacking closestEnemy found! " + closestEnemy.name);
             }
             else
             {
                 monsterAIcomponent.SetFollowTarget(null);
-                Debug.Log("Combat_StartAttacking closestEnemy not found!");
+                logger.LogError("Combat_StartAttacking closestEnemy not found!");
             }
             
 
@@ -2977,14 +3014,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.CombatAttack;
-            Debug.Log("Combat_StartAttacking activated!");
+            logger.LogMessage("Combat_StartAttacking activated!");
         }
 
         private void Combat_StartSneakAttacking(GameObject target, string NPCDialogueMessage = "Sneaking up on em!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Combat_StartSneakAttacking failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Combat_StartSneakAttacking failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3001,14 +3038,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.CombatSneakAttack;
-            Debug.Log("Combat_StartSneakAttacking activated!");
+            logger.LogMessage("Combat_StartSneakAttacking activated!");
         }
 
         private void Combat_StartDefending(GameObject target, string NPCDialogueMessage = "Don't worry, I'm here with you!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Combat_StartDefending failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Combat_StartDefending failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3022,14 +3059,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.CombatDefend;
-            Debug.Log("Combat_StartDefending activated!");
+            logger.LogMessage("Combat_StartDefending activated!");
         }
 
         private void Combat_StopAttacking(string NPCDialogueMessage = "I'll give em a break!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Combat_StopAttacking failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Combat_StopAttacking failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3043,14 +3080,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log("Combat_StopAttacking activated!");
+            logger.LogMessage("Combat_StopAttacking activated!");
         }
 
         private void Inventory_DropAll(string NPCDialogueMessage = "Here is all I got!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Inventory_DropAll failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Inventory_DropAll failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3062,13 +3099,13 @@ namespace ValheimAIModLoader
             //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log("Inventory_DropAll activated!");
+            logger.LogMessage("Inventory_DropAll activated!");
         }
         private void Inventory_DropItem(string ItemName, string NPCDialogueMessage = "Here is what you asked for!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Inventory_DropItem failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Inventory_DropItem failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3080,14 +3117,14 @@ namespace ValheimAIModLoader
             //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log("Inventory_DropItem activated!");
+            logger.LogMessage("Inventory_DropItem activated!");
         }
 
         private void Inventory_EquipItem(string ItemName, string NPCDialogueMessage = "On it boss!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Inventory_EquipItem failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Inventory_EquipItem failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3109,14 +3146,14 @@ namespace ValheimAIModLoader
             //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             //instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log($"Inventory_EquipItem activated! ItemName : {ItemName}");
+            logger.LogMessage($"Inventory_EquipItem activated! ItemName : {ItemName}");
         }
 
         private void Harvesting_Start(string ResourceName, string NPCDialogueMessage = "On it boss!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Harvesting_Start failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Harvesting_Start failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3124,7 +3161,7 @@ namespace ValheimAIModLoader
             HumanoidNPC humanoidnpc_component = instance.PlayerNPC.GetComponent<HumanoidNPC>();
 
             instance.CurrentHarvestResourceName = CleanKey(ResourceName);
-            Debug.Log("trying to harvest resource: " + instance.CurrentHarvestResourceName);
+            logger.LogInfo("trying to harvest resource: " + instance.CurrentHarvestResourceName);
 
             //ResourceName = "Beech";
 
@@ -3132,14 +3169,14 @@ namespace ValheimAIModLoader
                 AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.HarvestResource;
-            Debug.Log("Harvesting_Start activated!");
+            logger.LogMessage("Harvesting_Start activated!");
         }
 
         private void Harvesting_Stop(string NPCDialogueMessage = "No more labor!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Harvesting_Stop failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Harvesting_Stop failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3151,14 +3188,14 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log("Harvesting_Stop activated!");
+            logger.LogMessage("Harvesting_Stop activated!");
         }
 
         private void Patrol_Start(string NPCDialogueMessage = "I'm keeping guard around here! They know not to try!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Patrol_Start failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Patrol_Start failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3178,14 +3215,14 @@ namespace ValheimAIModLoader
                 AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.PatrolArea;
-            Debug.Log("Patrol_Start activated!");
+            logger.LogMessage("Patrol_Start activated!");
         }
 
         private void Patrol_Stop(string NPCDialogueMessage = "My job is done here!")
         {
             if (instance.PlayerNPC == null)
             {
-                Debug.Log("NPC command Patrol_Stop failed, instance.PlayerNPC == null");
+                logger.LogError("NPC command Patrol_Stop failed, instance.PlayerNPC == null");
                 return;
             }
 
@@ -3197,101 +3234,7 @@ namespace ValheimAIModLoader
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
             instance.NPCCurrentCommand = NPCCommand.CommandType.Idle;
-            Debug.Log("Patrol_Stop activated!");
-        }
-
-
-
-        private void StartPatrol(Player player)
-        {
-            GameObject[] allNpcs = FindPlayerNPCs();
-            foreach (GameObject npc in allNpcs)
-            {
-                MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                ValheimAIModLoader.HumanoidNPC humanoidNPC_component = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-
-                patrol_position = player.transform.position;
-                instance.NPCCurrentCommand = NPCCommand.CommandType.PatrolArea;
-                instance.patrol_harvest = true;
-
-                //Vector3 randLocation = GetRandomReachableLocationInRadius(humanoidNPC_component.patrol_position, patrol_radius);
-
-                SetMonsterAIAggravated(monsterAIcomponent, false);
-                monsterAIcomponent.SetFollowTarget(null);
-            }
-        }
-    
-        private void StartFollowing(Player player)
-        {
-            instance.NPCCurrentCommand = NPCCommand.CommandType.FollowPlayer;
-
-            GameObject[] allNpcs = FindPlayerNPCs();
-            foreach (GameObject npc in allNpcs)
-            {
-                MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                ValheimAIModLoader.HumanoidNPC humanoidnpc_component = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-                SetMonsterAIAggravated(monsterAIcomponent, false);
-                monsterAIcomponent.SetFollowTarget(player.gameObject);
-                Debug.Log("Everyone now following player!");
-
-                AddChatTalk(humanoidnpc_component, "NPC", "Coming!");
-
-                /*string text = "Coming!";
-                UserInfo userInfo = new UserInfo();
-                userInfo.Name = "NPC";
-
-                Vector3 headPoint = humanoidnpc_component.GetEyePoint();
-                //Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Shout, userInfo, text);
-                Chat.instance.AddInworldText(npc, 0, headPoint, Talker.Type.Normal, userInfo, text);
-                Chat.instance.AddString("NPC", text, Talker.Type.Normal);*/
-                //humanoidnpc_component.m_zanim.SetTrigger("Talk");
-            }
-        }
-
-        private void StartHarvesting(Player player)
-        {
-            instance.NPCCurrentCommand = NPCCommand.CommandType.HarvestResource;
-
-            GameObject[] allNpcs = FindPlayerNPCs();
-            foreach (GameObject npc in allNpcs)
-            {
-                MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                GameObject ClosestTree = FindClosestTreeFor(npc);
-
-                SetMonsterAIAggravated(monsterAIcomponent, false);
-                monsterAIcomponent.SetFollowTarget(ClosestTree);
-
-                Debug.Log("Everyone harvesting!");
-
-                //TODO: AVOID MULTIPLE NPCS GOING TO CHOP THE SAME TREE
-                //TODO: LOOP FUNCTION TO KEEP HARVESTING RESOURCES UNTIL A CONDITION IS MET
-            }
-        }
-
-        private void StartAttacking(Player player)
-        {
-            instance.NPCCurrentCommand = NPCCommand.CommandType.CombatAttack;
-
-            GameObject[] allEnemies = FindEnemies();
-            /*foreach (GameObject npc in allEnemies)
-            {
-                Debug.Log(npc.name);
-            }*/ 
-
-            GameObject[] allNpcs = FindPlayerNPCs();
-            foreach (GameObject npc in allNpcs)
-            {
-                MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-
-                // disregard nearby enemies
-                monsterAIcomponent.SetFollowTarget(null);
-            
-                monsterAIcomponent.m_alerted = false;
-                monsterAIcomponent.m_aggravatable = true;
-                monsterAIcomponent.SetHuntPlayer(true);
-
-                Debug.Log("Everyone attacking!");
-            }
+            logger.LogMessage("Patrol_Stop activated!");
         }
 
         float lastSentToBrainTime = 0f;
@@ -3316,7 +3259,7 @@ namespace ValheimAIModLoader
             }
         }
 
-        private void SendLogToBrain()
+        private async Task SendLogToBrain()
         {
             if (logEntries.Count <= 0) return;
 
@@ -3337,15 +3280,47 @@ namespace ValheimAIModLoader
             WebClient webClient = new WebClient();
             webClient.Headers.Add("Content-Type", "application/json");
 
+
+            try
+            {
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+                var uploadTask = webClient.UploadStringTaskAsync(new Uri($"{GetBrainAPIAddress()}/log_valheim"), jObject.ToString());
+
+                var completedTask = await Task.WhenAny(uploadTask, timeoutTask);
+
+                if (completedTask == timeoutTask)
+                {
+                    webClient.CancelAsync();
+                    throw new TimeoutException("Request timed out after 10 seconds");
+                }
+
+                await uploadTask; // Ensure any exceptions are thrown
+                logger.LogInfo("Successfully logged to brain!");
+            }
+            catch (WebException ex)
+            {
+                logger.LogError($"Error connecting to server/log: {ex.Message}");
+            }
+            catch (TimeoutException ex)
+            {
+                logger.LogError($"Request timed out /log: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"An error occurred /log: {ex.Message}");
+            }
+
+
+
             // Send the POST request
-            webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/log_valheim"), jObject.ToString());
-            webClient.UploadStringCompleted += OnSendLogToBrainCompleted;
+            /*webClient.UploadStringAsync(new System.Uri($"{GetBrainAPIAddress()}/log_valheim"), jObject.ToString());
+            webClient.UploadStringCompleted += OnSendLogToBrainCompleted;*/
 
 
-            string FilePath = Path.Combine(UnityEngine.Application.persistentDataPath, "lastlog.json");
+            /*string FilePath = Path.Combine(UnityEngine.Application.persistentDataPath, "lastlog.json");
             logger.LogInfo($"Saving temp log to {FilePath}");
 
-            File.WriteAllText(FilePath, jObject.ToString());
+            File.WriteAllText(FilePath, jObject.ToString());*/
 
             logEntries.Clear();
         }
@@ -3354,12 +3329,12 @@ namespace ValheimAIModLoader
         {
             if (e.Error == null)
             {
-                Debug.Log("Successfully log to brain!");
+                logger.LogInfo("Logged to brain completed!");
 
             }
             else
             {
-                Debug.LogError("Sending log to brain failed: " + e.Error.Message);
+                logger.LogError("Sending log to brain failed: " + e.Error.Message);
             }
         }
 
@@ -3369,11 +3344,11 @@ namespace ValheimAIModLoader
         {
             if (instance.PlayerNPC)
             {
+                SaveNPCData(instance.PlayerNPC);
                 if (IsInventoryShowing)
                 {
                     InventoryGui.instance.Hide();
                     IsInventoryShowing = false;
-                    SaveNPCData(instance.PlayerNPC);
                 }
                 else
                 {
@@ -3385,91 +3360,18 @@ namespace ValheimAIModLoader
             }
             else
             {
-                Debug.Log("OnInventoryKeyPressed instance.PlayerNPC is null ");
+                logger.LogError("OnInventoryKeyPressed instance.PlayerNPC is null ");
             }
-
-            /*Debug.Log(craftingRequirements.Count());
-
-            foreach (KeyValuePair<string, Piece.Requirement[]> s in craftingRequirements.ToArray())
-            {
-                Debug.Log(s.Key);
-                Debug.Log("\n\n" + s.Key + " requires ");
-                foreach (Piece.Requirement x in s.Value)
-                {
-                    Debug.Log(x.m_amount + "x " + x.m_resItem.name);
-                }
-            }*/
-
-            /*Debug.Log("OnInventoryKeyPressed");
-
-            GameObject[] allNpcs = FindPlayerNPCs();
-            foreach (GameObject npc in allNpcs)
-            {
-                MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-                if (monsterAIcomponent != null && humanoidComponent != null)
-                {
-                    *//*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
-                    humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 15);*//*
-
-                    //PrintInventoryItems(humanoidComponent.m_inventory);
-
-
-                    DropAllItems(humanoidComponent);
-
-                    *//*GameObject[] pickable_stones = GameObject.FindObjectsOfType<GameObject>(true)
-                    .Where(go => go.name.Contains("Pickable_"))
-                    .ToArray();
-
-                    Debug.Log("ps len " + pickable_stones.Length);
-                    int i = 0;
-
-                    foreach (GameObject go in pickable_stones)
-                    {
-                        if (i > 20) break;
-                        i++;
-                        player.Interact(go, false, false);
-                        player.Pickup(go);
-                    }*/
-
-
-            /*GameObject itemPrefab = ZNetScene.instance.GetPrefab("Bread");
-            if (itemPrefab != null)
-            {
-                humanoidComponent.GetInventory().AddItem(itemPrefab.gameObject, 5);
-                player.GetInventory().AddItem(itemPrefab.gameObject, 5);
-            }
-            else
-            {
-                Debug.LogError($"itemprefab was null");
-            }
-
-            ItemDrop.ItemData bread_itemdata = humanoidComponent.GetInventory().GetItem("$item_bread");
-            if (bread_itemdata != null)
-            {
-                humanoidComponent.UseItem(humanoidComponent.GetInventory(), bread_itemdata, true);
-            }
-            else
-            {
-                Debug.LogError("bread_itemdata was null");
-            }*//*
-
-            //humanoidComponent.m_zanim.SetTrigger("eat");
-
-            //Debug.Log(GetJSONForBrain(npc));
-
-
-        }
-    }*/
         }
 
         private void DropAllItems(HumanoidNPC humanoidNPC)
         {
             List<ItemDrop.ItemData> allItems = humanoidNPC.m_inventory.GetAllItems();
             int num = 1;
+            logger.LogInfo($"{humanoidNPC.m_name} dropping {humanoidNPC.m_inventory.GetAllItems().Count} items: ");
             foreach (ItemDrop.ItemData item in allItems)
             {
-                Debug.Log("Dropping " + item.m_shared.m_name);
+                logger.LogInfo(item.m_shared.m_name);
                 //Vector3 position = humanoidNPC.transform.position + Vector3.up * 0.5f + UnityEngine.Random.insideUnitSphere * 0.3f;
                 Vector3 position = humanoidNPC.transform.position + Vector3.up * 2f + UnityEngine.Random.insideUnitSphere * 0.3f + humanoidNPC.transform.forward * 2.5f;
                 Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
@@ -3487,7 +3389,7 @@ namespace ValheimAIModLoader
             {
                 if (ItemName == item.m_shared.m_name)
                 {
-                    Debug.Log("Dropping " + item.m_shared.m_name);
+                    logger.LogInfo($"{humanoidNPC.m_name} dropping item: " + item.m_shared.m_name);
                     //Vector3 position = humanoidNPC.transform.position + Vector3.up * 0.5f + UnityEngine.Random.insideUnitSphere * 0.3f;
                     Vector3 position = humanoidNPC.transform.position + Vector3.up * 2f + UnityEngine.Random.insideUnitSphere * 0.3f + humanoidNPC.transform.forward * 2.5f;
                     Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f);
@@ -3508,7 +3410,7 @@ namespace ValheimAIModLoader
             {
                 if (ItemName == item.m_shared.m_name)
                 {
-                    Debug.Log("Equipping  " + item.m_shared.m_name);
+                    logger.LogInfo($"{humanoidNPC.m_name} equipping  " + item.m_shared.m_name);
                     humanoidNPC.EquipItem(item);
                     return;
                 }
@@ -3551,7 +3453,7 @@ namespace ValheimAIModLoader
             using (WebClient client = new WebClient())
             {
                 // Construct the URL with query parameters
-                string url = $"{BrainAPIAddress.Value}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}";
+                string url = $"{GetBrainAPIAddress()}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}";
 
                 client.DownloadStringCompleted += OnBrainSynthesizeAudioResponse;
                 client.DownloadStringAsync(new Uri(url));
@@ -3562,7 +3464,7 @@ namespace ValheimAIModLoader
         {
             if (e.Error != null)
             {
-                Debug.Log($"Download failed: {e.Error.Message}");
+                logger.LogError($"Synthesize Audio Download failed: {e.Error.Message}");
                 return;
             }
 
@@ -3578,7 +3480,7 @@ namespace ValheimAIModLoader
             }
             catch (Exception ex)
             {
-                Debug.Log($"Failed to parse JSON: {ex.Message}");
+                logger.LogError($"Failed to parse Synthesize Audio Download JSON: {ex.Message}");
             }
 
             instance.previewVoiceButton.SetActive(true);
@@ -3592,7 +3494,7 @@ namespace ValheimAIModLoader
             WebClient webClient = new WebClient();
             webClient.Headers.Add("Content-Type", "application/json");
 
-            webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/instruct_agent"), jsonData);
+            webClient.UploadStringAsync(new System.Uri($"{GetBrainAPIAddress()}/instruct_agent"), jsonData);
             webClient.UploadStringCompleted += OnBrainSendPeriodicUpdateResponse;
         }
 
@@ -3623,7 +3525,7 @@ namespace ValheimAIModLoader
                             HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
                             AddChatTalk(npc, "NPC", agent_text_response);
 
-                            Debug.Log("Agent command response from brain was incomplete. Command's Action or Category is missing!");
+                            logger.LogError("Agent command response from brain was incomplete. Command's Action or Category is missing!");
                             continue;
                         }
 
@@ -3644,7 +3546,7 @@ namespace ValheimAIModLoader
 
                         foreach (string pa in parameters)
                         {
-                            Debug.Log($"param {pa}");
+                            logger.LogError($"param {pa}");
                         }
 
                         Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parameters);
@@ -3670,7 +3572,7 @@ namespace ValheimAIModLoader
             }
         }
 
-        private void BrainSendInstruction(GameObject npc)
+        private async Task BrainSendInstruction(GameObject npc)
         {
             string jsonData = GetJSONForBrain(npc);
 
@@ -3679,10 +3581,45 @@ namespace ValheimAIModLoader
             // Create a new WebClient
             WebClient webClient = new WebClient();
             webClient.Headers.Add("Content-Type", "application/json");
+            webClient.UploadStringCompleted += OnBrainSendInstructionResponse;
+
+            try
+            {
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+                var uploadTask = webClient.UploadStringTaskAsync(new Uri($"{GetBrainAPIAddress()}/instruct_agent"), jsonData);
+
+                var completedTask = await Task.WhenAny(uploadTask, timeoutTask);
+
+                if (completedTask == timeoutTask)
+                {
+                    webClient.CancelAsync();
+                    throw new TimeoutException("Request timed out after 10 seconds");
+
+                }
+
+                await uploadTask; // Ensure any exceptions are thrown
+            }
+            catch (WebException ex)
+            {
+                logger.LogError($"Brain Send Instruction | Error connecting to server: {ex.Message}");
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Error connecting to Thrall server!");
+            }
+            catch (TimeoutException ex)
+            {
+                logger.LogError($"Brain Send Instruction | Request timed out: {ex.Message}");
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Timeout error while connecting to Thrall server!");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Brain Send Instruction | An error occurred: {ex.Message}");
+                MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "An error occurred while trying to connect to Thrall server!");
+            }
+
+
 
             // Send the POST request
-            webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/instruct_agent"), jsonData);
-            webClient.UploadStringCompleted += OnBrainSendInstructionResponse;
+            /*webClient.UploadStringAsync(new System.Uri($"{BrainAPIAddress.Value}/instruct_agent"), jsonData);
+            webClient.UploadStringCompleted += OnBrainSendInstructionResponse;*/
         }
 
         private void OnBrainSendInstructionResponse(object sender, UploadStringCompletedEventArgs e)
@@ -3697,10 +3634,11 @@ namespace ValheimAIModLoader
                 string agent_text_response = responseObject["agent_text_response"].ToString().TrimStart('\n');
                 string player_instruction_transcription = responseObject["player_instruction_transcription"].ToString();
 
-                Debug.Log("Response from brain");
-                Debug.Log("You said: " + player_instruction_transcription);
-                Debug.Log("NPC said: " + agent_text_response);
-                Debug.Log("Full response from brain: " + responseJson);
+                //Debug.Log("Response from brain");
+                
+                logger.LogInfo("Full response from brain: " + responseJson);
+                logger.LogMessage("You said: " + player_instruction_transcription);
+                logger.LogMessage("NPC said: " + agent_text_response);
 
                 // Get the agent_commands array
                 JsonArray agentCommands = responseObject["agent_commands"] as JsonArray;
@@ -3718,7 +3656,7 @@ namespace ValheimAIModLoader
 
                         if (!(commandObject.ContainsKey("action") && commandObject.ContainsKey("category")))
                         {
-                            Debug.Log("Agent command response from brain was incomplete. Command's Action or Category is missing!");
+                            logger.LogError("Agent command response from brain was incomplete. Command's Action or Category is missing!");
                             continue;
                         }
 
@@ -3726,7 +3664,6 @@ namespace ValheimAIModLoader
                         string category = commandObject["category"].ToString();
 
                         string[] parameters = {};
-                        
 
                         string parametersString = "";
 
@@ -3738,10 +3675,10 @@ namespace ValheimAIModLoader
 
                         foreach (string s in parameters)
                         {
-                            parametersString += s + " ";
+                            parametersString += $"{s}, ";
                         }
 
-                        Debug.Log("NEW COMMAND: Category: " + category + ". Action : " + action + ". Parameters: " + parametersString);
+                        logger.LogInfo($"NEW COMMAND: {category} {action} {parametersString}");
                         if (category == "Inventory")
                             ProcessNPCCommand(category, action, parameters.Length > 0 ? parameters[0] : "", agent_text_response);
 
@@ -3762,6 +3699,8 @@ namespace ValheimAIModLoader
                                 if (parameters.Length >= 3)
                                     ResourceNode = parameters[2];
 
+
+
                                 HarvestAction harvestAction = new HarvestAction();
                                 harvestAction.humanoidNPC = npc;
                                 harvestAction.ResourceName = ResourceName;
@@ -3772,7 +3711,7 @@ namespace ValheimAIModLoader
                             }
                             else
                             {
-                                Debug.Log("Brain gave Harvesting command but didn't give 3 parameters");
+                                logger.LogError("Brain gave Harvesting command but didn't give 3 parameters");
                             }
                         }
                         else if (category == "Patrol")
@@ -3787,16 +3726,43 @@ namespace ValheimAIModLoader
                         {
                             string TargetName = null;
                             string WeaponName = null;
-                            int TargetQty = 0;
+                            int TargetQty = 1;
 
                             if (parameters.Length > 0)
                             {
-                                if (parameters.Length >= 1)
+                                /*if (parameters.Length >= 1)
                                     TargetName = parameters[0];
                                 if (parameters.Length >= 2)
                                     TargetQty = int.Parse(parameters[1]);
                                 if (parameters.Length >= 3)
-                                    WeaponName = parameters[2];
+                                    WeaponName = parameters[2];*/
+
+                                for (int x = 0; i < parameters.Length; x++)
+                                {
+                                    if (x > 2) break;
+                                    //Debug.Log($"x {x} {parameters[x]}");
+                                    
+                                    if (x == 0)
+                                    {
+                                        TargetName = parameters[x];
+                                        //Debug.Log($"target name {x} {parameters[x]}");
+                                    }
+                                    else if (int.TryParse(parameters[x], out int quantity))
+                                    {
+                                        TargetQty = quantity;
+                                        //Debug.Log($"target qty {x} {parameters[x]}");
+                                    }
+                                    else
+                                    {
+                                        WeaponName = parameters[x];
+                                        //Debug.Log($"weapon name {x} {parameters[x]}");
+                                    }
+                                }
+
+                                if (TargetQty < 1)
+                                {
+                                    TargetQty = 1;
+                                }
 
                                 AttackAction attackAction = new AttackAction();
                                 attackAction.humanoidNPC = npc;
@@ -3808,7 +3774,7 @@ namespace ValheimAIModLoader
                             }
                             else
                             {
-                                Debug.Log("Brain gave Combat command but didn't give 2 parameters");
+                                logger.LogError("Brain gave Combat command but didn't give a parameters");
                             }
 
                         
@@ -3832,7 +3798,7 @@ namespace ValheimAIModLoader
                     HumanoidNPC npc = instance.PlayerNPC.GetComponent<HumanoidNPC>();
                     AddChatTalk(Player.m_localPlayer, "Player", player_instruction_transcription);
                     AddChatTalk(npc, "NPC", agent_text_response);
-                    Debug.Log("No agent commands found.");
+                    logger.LogInfo("No agent commands sent by brain.");
                 }
 
                 // Download the audio file asynchronously
@@ -3840,7 +3806,7 @@ namespace ValheimAIModLoader
             }
             else
             {
-                Debug.LogError("Request failed: " + e.Error.Message);
+                logger.LogError("Request failed: " + e.Error.Message);
             }
         }
 
@@ -3850,7 +3816,7 @@ namespace ValheimAIModLoader
             WebClient webClient = new WebClient();
 
             // Download the audio file asynchronously
-            webClient.DownloadDataAsync(new System.Uri($"{BrainAPIAddress.Value}/get_audio_file?audio_file_id={audioFileId}"));
+            webClient.DownloadDataAsync(new System.Uri($"{GetBrainAPIAddress()}/get_audio_file?audio_file_id={audioFileId}"));
             webClient.DownloadDataCompleted += OnAudioFileDownloaded;
         }
 
@@ -3863,18 +3829,18 @@ namespace ValheimAIModLoader
                 //Debug.Log("Audio file downloaded to: " + npcDialogueRawAudioPath);
 
                 if (instance.lastSentToBrainTime > 0)
-                    Debug.Log("Brain response time: " + (Time.time - instance.lastSentToBrainTime));
+                    logger.LogInfo("Brain response time: " + (Time.time - instance.lastSentToBrainTime));
 
                 PlayWavFile(npcDialogueRawAudioPath);
             
             }
             else if (e.Error is WebException webException && webException.Status == WebExceptionStatus.ProtocolError && ((HttpWebResponse)webException.Response).StatusCode == HttpStatusCode.NotFound)
             {
-                Debug.LogError("Audio file does not exist.");
+                logger.LogError("Audio file does not exist.");
             }
             else
             {
-                Debug.LogError("Download failed: " + e.Error.Message);
+                logger.LogError("Download failed: " + e.Error.Message);
             }
         }
 
@@ -4048,7 +4014,7 @@ namespace ValheimAIModLoader
         {
             if (!instance.PlayerNPC && !Player.m_localPlayer)
             {
-                Debug.Log("RefreshAllGameObjectInstances failed! Local player and PlayerNPC was null");
+                logger.LogError("RefreshAllGameObjectInstances failed! Local player and PlayerNPC was null");
                 return;
             }
 
@@ -4063,7 +4029,7 @@ namespace ValheimAIModLoader
                     //.ToList();
             instance.AllGOInstancesLastRefresh = Time.time;
 
-            Debug.Log($"RefreshAllGameObjectInstances len {instance.AllGOInstances.Count()}");
+            logger.LogInfo($"RefreshAllGameObjectInstances len {instance.AllGOInstances.Count()}");
 
             RefreshPickables();
         }
@@ -4074,7 +4040,8 @@ namespace ValheimAIModLoader
         }
 
         private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
-        {if (CanAccessAllGameInstances())
+        {
+            if (CanAccessAllGameInstances())
             {
                 GameObject[] nearbyPickables = instance.AllPickableInstances
                 .Where(t => t != null && Vector3.Distance(p_position, t.transform.position) <= radius)
@@ -4087,7 +4054,7 @@ namespace ValheimAIModLoader
                 }
             }
 
-            Debug.Log("FindClosestResource returning null");
+            logger.LogInfo("FindClosestResource returning null");
             return null;
         }
 
@@ -4105,12 +4072,13 @@ namespace ValheimAIModLoader
                     .FirstOrDefault();
             }
 
-            Debug.Log("FindClosestResource returning null");
+            logger.LogError($"FindClosestResource returning null for {ResourceName}");
             return null;
         }
 
         private static GameObject FindClosestItemDrop(GameObject character)
-        {if (CanAccessAllGameInstances())
+        {
+            if (CanAccessAllGameInstances())
             {
                 instance.LastFindClosestItemDropTime = Time.time;
 
@@ -4125,7 +4093,7 @@ namespace ValheimAIModLoader
                 return null;
             }
 
-            Debug.Log("FindClosestItemDrop returning null");
+            //logger.LogError("FindClosestItemDrop returning null");
             return null;
         }
 
@@ -4138,7 +4106,7 @@ namespace ValheimAIModLoader
                     .FirstOrDefault();
             }
 
-            Debug.Log("FindClosestTreeFor returning null");
+            //Debug.Log("FindClosestTreeFor returning null");
             return null;
         }
 
@@ -4231,11 +4199,11 @@ namespace ValheimAIModLoader
             }
 
             int totalResources = instance.nearbyResources.Values.Sum();
-            Debug.Log($"Total resources: {totalResources}");
+            
 
-            //string json = jarray.ToString();
             string json = SimpleJson.SimpleJson.SerializeObject(jarray);
-            Debug.Log(json);
+            //logger.LogInfo(json);
+            logger.LogInfo($"Total nearby resources count: {totalResources}");
             return json;
         }
 
@@ -4246,8 +4214,8 @@ namespace ValheimAIModLoader
             Character[] characters = GameObject.FindObjectsOfType<Character>(true);
             Humanoid[] humanoids = GameObject.FindObjectsOfType<Humanoid>(true);
 
-            Debug.Log("characters len " + characters.Length);
-            Debug.Log("humanoids len " + humanoids.Length);
+            /*Debug.Log("characters len " + characters.Length);
+            Debug.Log("humanoids len " + humanoids.Length);*/
 
         
 
@@ -4290,11 +4258,12 @@ namespace ValheimAIModLoader
             }
 
             int totalEnemies = nearbyEnemies.Values.Sum();
-            Debug.Log($"Total enemies: {totalEnemies}");
+            
 
             //string json = jarray.ToString();
             string json = SimpleJson.SimpleJson.SerializeObject(jarray);
-            Debug.Log(json);
+            //Debug.Log(json);
+            logger.LogInfo($"Total nearby enemies: {totalEnemies}");
             return json;
         }
 
@@ -4419,7 +4388,7 @@ namespace ValheimAIModLoader
             }
             catch (Exception e)
             {
-                Debug.LogError("Error saving recording: " + e.Message);
+                logger.LogError("Error saving recording: " + e.Message);
             }
         }
 
@@ -4452,7 +4421,7 @@ namespace ValheimAIModLoader
             }
             else
             {
-                Debug.LogError("Audio file not found: " + audioPath);
+                logger.LogError("Audio file not found: " + audioPath);
                 return null;
             }
         }
@@ -4470,7 +4439,7 @@ namespace ValheimAIModLoader
             if (recordedClip != null)
                 AudioSource.PlayClipAtPoint(recordedClip, Player.m_localPlayer.transform.position, 1f);
 
-            Debug.Log("Playing last recorded clip audio");
+            logger.LogInfo("Playing last recorded clip audio");
         }
 
         public void MyPlayAudio(AudioClip clip)
@@ -4493,7 +4462,7 @@ namespace ValheimAIModLoader
         {
             if (!File.Exists(filePath))
             {
-                Debug.LogError($"File not found: {filePath}");
+                logger.LogError($"File not found: {filePath}");
                 return;
             }
 
@@ -4506,7 +4475,7 @@ namespace ValheimAIModLoader
             }
             catch (Exception e)
             {
-                Debug.LogError($"Error playing WAV file: {e.Message}");
+                logger.LogError($"Error playing WAV file: {e.Message}");
             }
         }
 
@@ -4579,7 +4548,7 @@ namespace ValheimAIModLoader
             }
             else
             {
-                Debug.LogError("Audio file not found: " + audioPath);
+                logger.LogError("Audio file not found: " + audioPath);
                 return null;
             }
         }
@@ -4670,15 +4639,16 @@ namespace ValheimAIModLoader
 
 
             var npcInventoryItems = new JsonArray();
+            //logger.LogInfo("Thrall's inventory items:");
             foreach (ItemDrop.ItemData item in humanoidNPC.m_inventory.m_inventory)
             {
                 var itemData = new JsonObject
                 {
-                    ["name"] = item.m_shared.m_name,
+                    ["name"] = item.m_dropPrefab ? item.m_dropPrefab.name : item.m_shared.m_name,
                     ["amount"] = item.m_stack,
                 };
 
-                Debug.Log($"item: {item.m_shared.m_name} x{item.m_stack}");
+                //logger.LogInfo($"{item.m_shared.m_name} x{item.m_stack}");
                 npcInventoryItems.Add(itemData);
             }
 
@@ -4741,7 +4711,7 @@ namespace ValheimAIModLoader
 
             jsonObject["player_instruction_audio_file_base64"] = "";
             string jsonString2 = SimpleJson.SimpleJson.SerializeObject(jsonObject);
-            Debug.Log("Sending to brain: " + jsonString2);
+            logger.LogInfo("Sending to brain: " + jsonString2);
 
             return jsonString;
         }
@@ -4797,14 +4767,14 @@ namespace ValheimAIModLoader
             string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, "thrallmod.json");
 
             File.WriteAllText(filePath, json);
-            Debug.Log("Saved NPC data to " + filePath);
+            logger.LogInfo("Saved NPC data to " + filePath);
         }
 
         public static void LoadNPCData(HumanoidNPC npc)
         {
             //string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string filePath = Path.Combine(UnityEngine.Application.persistentDataPath, "thrallmod.json");
-            Debug.Log("Loading NPC data from " + filePath);
+            logger.LogInfo("Loading NPC data from " + filePath);
 
             if (File.Exists(filePath))
             {
@@ -4863,6 +4833,7 @@ namespace ValheimAIModLoader
                 npc.m_inventory.RemoveAll();
                 npc.GetInventory().RemoveAll();
                 npc.m_inventory.m_inventory.Clear();
+                logger.LogMessage($"Loading {inventoryArray.Count} items to {npc.m_name}'s inventory");
                 foreach (JsonObject itemData in inventoryArray)
                 {
                     string itemName = itemData["name"].ToString();
@@ -4872,14 +4843,10 @@ namespace ValheimAIModLoader
                         equipped = int.Parse(itemData["equipped"].ToString());
 
 
-                    //string prefabRealName = TransformToPrefabName(LocalizationManager.Instance.TryTranslate(itemName));
-                    string prefabRealName = itemName;
-
-                    Debug.Log($"trying to add to inventory: {itemName} x{stack} {prefabRealName}");
+                    logger.LogMessage($"{itemName} x{stack}");
                 
 
-                    GameObject itemPrefab = ZNetScene.instance.GetPrefab(prefabRealName);
-                    //if (itemPrefab != null && prefabRealName != "AxeBronze" && prefabRealName != "ArmorBronzeChest" && prefabRealName != "ArmorBronzeLegs")
+                    GameObject itemPrefab = ZNetScene.instance.GetPrefab(itemName);
                     if (itemPrefab != null)
                     {
                         ItemDrop.ItemData itemdata = npc.PickupPrefab(itemPrefab, stack);
@@ -4890,16 +4857,16 @@ namespace ValheimAIModLoader
                     }
                     else if (itemPrefab == null)
                     {
-                        Debug.Log($"itemPrefab {itemName} was null");
+                        logger.LogError($"itemPrefab {itemName} was null");
                     }
                 }
 
-                Debug.Log($"NPC data loaded for {npc.m_name}");
+                logger.LogMessage($"{npc.m_name} data loaded successfully!");
             }
             else
             {
-                Debug.LogWarning("No saved NPC data found.");
-                Debug.LogWarning("Applying default NPC personality");
+                logger.LogWarning("No saved NPC data found.");
+                logger.LogMessage("Applying default NPC personality");
 
                 /*instance.npcName = "The Truth";
                 instance.npcPersonality = "He always lies and brags about stuff he doesn't have or has never seen. His lies are extremely obvious. Always brings up random stuff out of nowhere";
@@ -4909,17 +4876,6 @@ namespace ValheimAIModLoader
 
                 ApplyNPCData(npc);
             }
-        }
-
-        static string TransformToPrefabName(string localizedName)
-        {
-            // Split the name into words
-            string[] words = localizedName.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-            // Capitalize the first letter of each word and join them
-            string prefabName = string.Join("", words.Select(word => char.ToUpper(word[0]) + word.Substring(1)));
-
-            return prefabName;
         }
 
         static int FindKeyIndexForValue(string value)
@@ -5077,7 +5033,7 @@ namespace ValheimAIModLoader
             string filePath = Path.Combine(desktopPath, "crafting_requirements.json");
 
             File.WriteAllText(filePath, json);
-            Debug.Log($"Crafting requirements exported to {filePath}");
+            logger.LogError($"Crafting requirements exported to {filePath}");
         }
 
         private void PopulateBuildingRequirements()
@@ -5148,7 +5104,7 @@ namespace ValheimAIModLoader
             string filePath = Path.Combine(desktopPath, "building_requirements.json");
 
             File.WriteAllText(filePath, json);
-            Debug.Log($"Building requirements exported to {filePath}");
+            logger.LogError($"Building requirements exported to {filePath}");
         }
 
         private void PopulateMonsterPrefabs()
@@ -5183,7 +5139,7 @@ namespace ValheimAIModLoader
             string filePath = Path.Combine(desktopPath, "monsters.json");
 
             File.WriteAllText(filePath, json);
-            Debug.Log($"Monster prefab list exported to {filePath}");
+            logger.LogError($"Monster prefab list exported to {filePath}");
         }
 
         private void PopulateAllItems()
@@ -5215,7 +5171,7 @@ namespace ValheimAIModLoader
             string filePath = Path.Combine(desktopPath, "all_items_list.json");
 
             File.WriteAllText(filePath, json);
-            Debug.Log($"Crafting requirements exported to {filePath}");
+            logger.LogError($"Crafting requirements exported to {filePath}");
         }
 
         /*private void PopulateResourceLocations()
@@ -5251,6 +5207,8 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(Game), "UpdateSaving")]
         private static bool Game_UpdateSaving_Prefix()
         {
+            if (instance.DisableAutoSave == null)
+                return false;
             return !instance.DisableAutoSave.Value;
         }
 
@@ -5280,12 +5238,12 @@ namespace ValheimAIModLoader
 
         private static void PrintInventoryItems(Inventory inventory)
         {
-            Debug.Log("Character Inventory Items:");
+            logger.LogMessage("Character Inventory Items:");
 
             List<ItemDrop.ItemData> items = inventory.GetAllItems();
             foreach (ItemDrop.ItemData item in items)
             {
-                Debug.Log($"- {item.m_shared.m_name} (Quantity: {item.m_stack} | {item.m_dropPrefab.name})");
+                logger.LogMessage($"- {item.m_shared.m_name} (Quantity: {item.m_stack} | {item.m_dropPrefab.name})");
             }
         }
 
@@ -5309,13 +5267,13 @@ namespace ValheimAIModLoader
             {
                 if (panels.ContainsKey(panelName))
                 {
-                    Debug.Log($"Panel {panelName} already exists.");
+                    logger.LogWarning($"Panel {panelName} already exists.");
                     return panels[panelName];
                 }
 
                 if (GUIManager.Instance == null || GUIManager.CustomGUIFront == null)
                 {
-                    Debug.Log("GUIManager instance or CustomGUI is null");
+                    logger.LogError("GUIManager instance or CustomGUI is null");
                     return null;
                 }
 
@@ -5366,7 +5324,7 @@ namespace ValheimAIModLoader
             {
                 if (!panels.ContainsKey(panelName))
                 {
-                    Debug.Log($"Panel {panelName} does not exist.");
+                    logger.LogError($"TogglePanel failed! Panel {panelName} does not exist.");
                     return;
                 }
 
@@ -5535,7 +5493,7 @@ namespace ValheimAIModLoader
 
             textObject.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
 
-            Debug.Log("Creating scrollable task queue");
+            //Debug.Log("Creating scrollable task queue");
 
             TaskListScrollBox = CreateScrollBox(taskQueueSubPanel, new Vector2(-10, -10), 400, 140);
 
@@ -5713,7 +5671,7 @@ namespace ValheimAIModLoader
                 // Delete functionality
                 buttonComponent.onClick.AddListener(() => {
                     GameObject.Destroy(itemObject);
-                    Debug.Log($"removing command {index}");
+                    logger.LogMessage($"Removing npc command [{index}]");
                     instance.commandManager.RemoveCommand(index);
                     instance.RefreshTaskList();
                 });
@@ -5874,7 +5832,7 @@ namespace ValheimAIModLoader
         private void OnMicInputDropdownChanged(int index)
         {
             instance.MicrophoneIndex = index;
-            Debug.Log("new MicrophoneName " + Microphone.devices[index]);
+            logger.LogWarning("New microphone picked: " + Microphone.devices[index]);
         }
 
         private void CreateEgoBanner()
@@ -5996,7 +5954,7 @@ namespace ValheimAIModLoader
 
         private void OnNPCNameChanged(string newValue)
         {
-            Debug.Log("Input value changed to: " + newValue);
+            //logger.L("Input value changed to: " + newValue);
 
             if (!instance.PlayerNPC) return;
 
@@ -6073,8 +6031,8 @@ namespace ValheimAIModLoader
                     instance.OnNPCNameChanged(npcPersonalities[index]);
                 }
             }
-        
-            Debug.Log("new NPCPersonality " + instance.npcPersonalityIndex);
+
+            logger.LogInfo($"New NPCPersonality picked from dropdown: {npcPersonalities[instance.npcPersonalityIndex]}");
         }
 
         private InputField personalityInputField;
@@ -6336,13 +6294,13 @@ namespace ValheimAIModLoader
         private void OnNPCVoiceDropdownChanged(int index)
         {
             instance.npcVoice = index;
-            Debug.Log("new instance.npcVoice " + instance.npcVoice);
+            logger.LogInfo("New NPCVoice picked: " + npcVoices[instance.npcVoice]);
         }
 
         private void OnVolumeSliderValueChanged(float value)
         {
             instance.npcVolume = value;
-            Debug.Log("new companion volume " + instance.npcVolume);
+            //Debug.Log("new companion volume " + instance.npcVolume);
         }
 
 
@@ -6397,10 +6355,10 @@ namespace ValheimAIModLoader
             }
             else
             {
-                Debug.Log("OnBodyTypeToggleChanged instance.PlayerNPC is null");
+                //Debug.Log("OnBodyTypeToggleChanged instance.PlayerNPC is null");
             }
 
-            Debug.Log("new npcGender " + instance.npcGender);
+            logger.LogInfo("New NPCGender picked: " + changedToggle.name);
         }
 
 
@@ -7024,7 +6982,7 @@ namespace ValheimAIModLoader
             }
             else
             {
-                Debug.Log("HarvestAction no humanoidNPC");
+                Debug.LogError("HarvestAction no humanoidNPC");
             }
             return false;
         }
