@@ -35,12 +35,13 @@
     <Reference Include="0Harmony">
       <HintPath>..\ValheimModOne\Libs\0Harmony.dll</HintPath>
     </Reference>
-    <Reference Include="assembly_utils">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_utils.dll</HintPath>
+    <Reference Include="assembly_utils, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\publicized_assemblies\assembly_utils.dll</HintPath>
     </Reference>
     <Reference Include="assembly_valheim, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_valheim.dll</HintPath>
+      <HintPath>..\References\publicized_assemblies\assembly_valheim.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx">
       <HintPath>..\ValheimModOne\Libs\BepInEx.dll</HintPath>
@@ -148,8 +149,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll" "C:\Program Files (x86)\Steam\steamapps\common\ValheimDev\BepInEx\scripts\"
-xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PasteThisInValheimGameDirectory\BepInEx\scripts"
-xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PackagedMod\plugins"</PostBuildEvent>
+    <PostBuildEvent>call "C:\Users\hunda\OneDrive\Documents\valheimmods\PatchValheim_MUST_EDIT.bat"</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -109,7 +109,7 @@ Your companion can assist in combat situations:
 
 ## Compatibility
 
-This mod is compatible with Valheim version [0.218.20] and requires BepInEx version [5.4.22] or higher, and Jotunn version [2.20.1] or higher.
+This mod is designed for single-player gameplay and may not function correctly when used alongside other mods. This mod is compatible with Valheim version [0.218.20] and requires BepInEx version [5.4.22] or higher, and Jotunn version [2.20.1] or higher.
 
 ## Known Issues
 

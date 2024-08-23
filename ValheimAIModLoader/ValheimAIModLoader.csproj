@@ -90,8 +90,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Program Files (x86)\Steam\steamapps\common\ValheimDev\BepInEx\plugins\"
-xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PasteThisInValheimGameDirectory\BepInEx\plugins"
-xcopy /Y "C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll" "C:\Users\hunda\OneDrive\Documents\valheimmods\PackagedMod\plugins"</PostBuildEvent>
+    <PostBuildEvent>call "C:\Users\hunda\OneDrive\Documents\valheimmods\PatchValheim_MUST_EDIT.bat"</PostBuildEvent>
   </PropertyGroup>
 </Project>

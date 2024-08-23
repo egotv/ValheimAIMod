@@ -1,8 +1,11 @@
 @echo off
 setlocal
 
+REM Set the working directory to the script's location
+cd /d "%~dp0"
+
 REM Define the base directory of Valheim
-set "VALHEIM_BASE_DIR=H:\SteamLibrary\steamapps\common\Valheim"
+set "VALHEIM_BASE_DIR=C:\Program Files (x86)\Steam\steamapps\common\ValheimDev"
 
 REM Define the source directories
 set "LOADER_DLL=ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll"
@@ -22,4 +25,3 @@ xcopy /y "%PATCH_DLL%" "%SCRIPTS_DIR%\"
 echo Files copied successfully.
 
 endlocal
-pause
