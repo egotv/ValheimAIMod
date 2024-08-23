@@ -3311,6 +3311,7 @@ namespace ValheimAIModLoader
             // Create a new WebClient
             WebClient webClient = new WebClient();
             webClient.Headers.Add("Content-Type", "application/json");
+            webClient.UploadStringCompleted += OnSendLogToBrainCompleted;
 
 
             try
@@ -5368,7 +5369,15 @@ namespace ValheimAIModLoader
                     instance.RefreshTaskList();
                 }
 
-                panel.SetActive(state);
+                if (panel != null)
+                {
+                    panel.SetActive(state);
+                }
+                else
+                {
+                    LogError($"TogglePanel failed! Panel {panelName} was null!");
+                    return;
+                }
                 // Assuming instance is accessible, you might need to adjust this
                 instance.IsModMenuShowing = state;
 

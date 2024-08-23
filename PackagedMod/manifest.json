@@ -1,7 +1,7 @@
 {
 	"name": "Thrall",
     "author": "ego.ai",
-	"version_number": "1.0.0",
+	"version_number": "1.0.1",
 	"website_url": "https://discord.gg/egoai",
 	"description": "Thrall is an AI language model-driven AI NPC companion to your Valheim adventures. This mod allows for dynamic interaction with your companion through voice commands, personality customization, and various gameplay-enhancing features.",
 	"dependencies": [
