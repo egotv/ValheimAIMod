@@ -317,11 +317,18 @@ namespace ValheimAIModLoader
                 return false;
             }
             bool flag = HaveStamina();
-            float skillFactor = Player.m_localPlayer.m_skills.GetSkillFactor(Skills.SkillType.Run);
+
+            float skillFactor = 1;
+            if (Player.m_localPlayer)
+                skillFactor = Player.m_localPlayer.m_skills.GetSkillFactor(Skills.SkillType.Run);
             float num = Mathf.Lerp(1f, 0.5f, skillFactor);
             float num2 = m_runStaminaDrain * num;
-            num2 -= num2 * Player.m_localPlayer.GetEquipmentMovementModifier();
-            num2 += num2 * Player.m_localPlayer.GetEquipmentRunStaminaModifier();
+            if (Player.m_localPlayer)
+            {
+                num2 -= num2 * Player.m_localPlayer.GetEquipmentMovementModifier();
+                num2 += num2 * Player.m_localPlayer.GetEquipmentRunStaminaModifier();
+            }
+                
             //m_seman.ModifyRunStaminaDrain(num2, ref num2);
             if (m_stamina > MinimumStaminaToRun)
             {

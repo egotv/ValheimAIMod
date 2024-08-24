@@ -26,3 +26,4 @@ C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLivePatch\obj\Debug\Va
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLivePatch\obj\Debug\ValheimAIModLivePatch.pdb
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll
 C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.pdb
+C:\Users\hunda\OneDrive\Documents\valheimmods\ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll.config
