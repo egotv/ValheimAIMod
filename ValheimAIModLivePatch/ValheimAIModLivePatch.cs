@@ -156,9 +156,9 @@ namespace ValheimAIModLoader
             public float CalculateEaseScore(float distance, bool HasWeapon)
             {
                 // Constants for weighting different factors
-                float AMOUNT_WEIGHT = HasWeapon ? 0.1f : 0.1f;
-                float HEALTH_WEIGHT = HasWeapon ? 0.1f : 0.4f;
-                float DISTANCE_WEIGHT = HasWeapon ? 0.8f : 0.5f;
+                float AMOUNT_WEIGHT = HasWeapon ? 0.0f : 0.4f;
+                float HEALTH_WEIGHT = HasWeapon ? 0.6f : 0.0f;
+                float DISTANCE_WEIGHT = HasWeapon ? 0.4f : 0.6f;
 
                 // Calculate sub-scores
                 float amountScore = ((MinAmount + MaxAmount) / 2.0f) * 10; // Assuming max possible amount is 10
@@ -845,7 +845,7 @@ namespace ValheimAIModLoader
             if (pickable != null && pickable.m_itemPrefab != null)
             {
                 resourceQuantityMap[prefab.name] = pickable.m_amount;
-                Resource sourceResource = new Resource(prefab.name, pickable.m_amount, pickable.m_amount, 3);
+                Resource sourceResource = new Resource(prefab.name, pickable.m_amount, pickable.m_amount, 5);
                 AddToDatabase(pickable.m_itemPrefab.name, "Pickable", sourceResource);
             }
         }
@@ -1735,7 +1735,7 @@ namespace ValheimAIModLoader
                         }
                     }
 
-                    LogInfo($"Querying for resource: {instance.CurrentHarvestResourceName}");
+                    LogInfo($"Querying for resource: {instance.CurrentHarvestResourceName} weapon: {HasCurrentWeapon}");
 
                     bool success = false;
                     /*foreach(List<Resource> queriesOfType in queryresources.Values)

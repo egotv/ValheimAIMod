@@ -12,7 +12,7 @@ All notable changes to Thrall will be documented in this file.
 
 ### Changed
 
--   Resource harvesting logic
+-   Resource harvesting logic (experimental)
 
 ### Fixed
 
