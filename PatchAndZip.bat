@@ -14,15 +14,21 @@ set "PATCH_DLL=ValheimAIModLoader\bin\Debug\ValheimAIModLivePatch.dll"
 REM Define the target directories
 set "PLUGINS_DIR=%VALHEIM_BASE_DIR%\BepInEx\plugins"
 set "SCRIPTS_DIR=%VALHEIM_BASE_DIR%\BepInEx\scripts"
+
+set "PASTE_PLUGINS_DIR=PasteThisInValheimGameDirectory\BepInEx\plugins"
+set "PASTE_SCRIPTS_DIR=PasteThisInValheimGameDirectory\BepInEx\scripts"
+
 set "PACKAGE_DIR=PackagedMod\plugins"
 
 REM Copy the files
 echo Copying %LOADER_DLL% to %PLUGINS_DIR%
 xcopy /y "%LOADER_DLL%" "%PLUGINS_DIR%\"
+xcopy /y "%LOADER_DLL%" "%PASTE_PLUGINS_DIR%\"
 xcopy /y "%LOADER_DLL%" "%PACKAGE_DIR%\"
 
 echo Copying %PATCH_DLL% to %SCRIPTS_DIR%
 xcopy /y "%PATCH_DLL%" "%SCRIPTS_DIR%\"
+xcopy /y "%LOADER_DLL%" "%PASTE_SCRIPTS_DIR%\"
 xcopy /y "%PATCH_DLL%" "%PACKAGE_DIR%\"
 
 echo Files copied successfully.
