@@ -18,9 +18,13 @@ Thrall is an AI language model-driven AI NPC companion to your Valheim adventure
 5.  Combat Support: Engage your companion in battles against enemies.
     
 
-## Youtube Demo Video
+## Youtube Gameplay Demo Video
 
 [https://youtu.be/OVR0dhJw840](https://youtu.be/OVR0dhJw840)
+
+## Youtube Trailer
+
+[Thrall: Valheim AI NPC Mod Trailer](https://www.youtube.com/watch?v=QIr_Jp_D3wU)
 
 ## Installation
 
@@ -114,6 +118,22 @@ This mod is designed for single-player gameplay and may not function correctly w
 ## Known Issues
 
 -   Companion is unable to craft items or build structures for now
+    
+-   Known mod conflicts
+    
+
+-   MagicPlugin
+    
+-   DragonRiders
+    
+-   Epic MMO System (shared keybinds)
+    
+-   VikingNPC
+    
+
+-   Mod does not officially support languages that are not English
+    
+-   Mod does not officially support multiplayer
     
 
 ## Support
