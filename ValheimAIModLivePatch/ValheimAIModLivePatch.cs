@@ -70,6 +70,7 @@ namespace ValheimAIModLoader
         private ConfigEntry<float> CompanionVolume;*/
 
         private ConfigEntry<string> BrainAPIAddress;
+        private ConfigEntry<bool> LogToBrain;
         private ConfigEntry<bool> DisableAutoSave;
 
         private Dictionary<string, Piece.Requirement[]> craftingRequirements = new Dictionary<string, Piece.Requirement[]>();
@@ -1176,6 +1177,7 @@ namespace ValheimAIModLoader
         private void ConfigBindings()
         {
             //BrainAPIAddress = Config.Bind<string>("String", "BrainAPIAddress", GetBrainAPIAddress(), "URL address of the brain API");
+            LogToBrain = Config.Bind<bool>("Bool", "LogToBrain", true, "Log To Brain?");
             DisableAutoSave = Config.Bind<bool>("Bool", "DisableAutoSave", false, "Disable auto saving the game world?");
 
             spawnKey = Config.Bind("Keybinds", "Spawn", KeyCode.G, "Key for spawning a Thrall");
@@ -1186,7 +1188,7 @@ namespace ValheimAIModLoader
             thrallMenuKey = Config.Bind("Keybinds", "Menu", KeyCode.Y, "Key for spawning a Thrall");
             combatModeKey = Config.Bind("Keybinds", "CombatMode", KeyCode.J, "Key for spawning a Thrall");
 
-            allKeybinds = new List<ConfigEntry<KeyCode>> { instance.spawnKey, instance.harvestKey, instance.followKey };
+            allKeybinds = new List<ConfigEntry<KeyCode>> { instance.spawnKey, instance.harvestKey, instance.followKey, instance.inventoryKey, instance.talkKey, instance.thrallMenuKey, instance.combatModeKey };
         }
 
         private void OnDestroy() 
@@ -1267,6 +1269,13 @@ namespace ValheimAIModLoader
                 }
             }
 
+            if (IsInventoryShowing && ZInput.GetKeyDown(KeyCode.Escape))
+            {
+                instance.OnInventoryKeyPressed(__instance, false);
+
+                return;
+            }
+
             if (instance.IsModMenuShowing && ZInput.GetKeyDown(KeyCode.Escape))
             {
                 instance.ToggleModMenu();
@@ -1294,21 +1303,14 @@ namespace ValheimAIModLoader
                 return;
             }
 
-
-            if (ZInput.GetKeyDown(KeyCode.Y))
+            /*if (!__instance.m_hovering || CleanKey(__instance.m_hovering.name) != "HumanoidNPC")
             {
-                /*if (!instance.PlayerNPC)
-                {
-                    MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, "Cannot open mod menu without an NPC in the world!");
-                    return;
-                }
-            
-                instance.panelManager.TogglePanel("Settings");
-                instance.panelManager.TogglePanel("Thrall Customization");
+                return;
+            }*/
 
-                if (instance.PlayerNPC)
-                    SaveNPCData(instance.PlayerNPC);*/
 
+            if (ZInput.GetKeyDown(instance.thrallMenuKey.Value))
+            {
                 LogInfo("Keybind: Thrall Menu");
 
                 instance.ToggleModMenu();
@@ -1318,10 +1320,10 @@ namespace ValheimAIModLoader
 
         
 
-            if (ZInput.GetKeyDown(KeyCode.E) && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5)
+            if (ZInput.GetKeyDown(instance.inventoryKey.Value) && !IsInventoryShowing && instance.PlayerNPC && instance.PlayerNPC.transform.position.DistanceTo(__instance.transform.position) < 5 && __instance.m_hovering && CleanKey(__instance.m_hovering.name) == "HumanoidNPC")
             {
                 LogInfo("Keybind: Inventory");
-                instance.OnInventoryKeyPressed(__instance);
+                instance.OnInventoryKeyPressed(__instance, true);
                 return;
             }
 
@@ -1410,7 +1412,7 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            if (ZInput.GetKeyDown(KeyCode.J) && instance.PlayerNPC)
+            if (ZInput.GetKeyDown(instance.combatModeKey.Value) && instance.PlayerNPC)
             {
                 LogInfo("Keybind: Change Combat Mode");
 
@@ -1421,14 +1423,14 @@ namespace ValheimAIModLoader
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"{npc.m_name} is now {instance.NPCCurrentMode.ToString()}");
             }
 
-            if (ZInput.GetKey(KeyCode.T) && !instance.IsRecording)
+            if (ZInput.GetKey(instance.talkKey.Value) && !instance.IsRecording)
             {
                 LogInfo("Keybind: Start Recording");
 
                 instance.StartRecording();
                 return;
             }
-            else if (!ZInput.GetKey(KeyCode.T) && instance.IsRecording)
+            else if (!ZInput.GetKey(instance.talkKey.Value) && instance.IsRecording)
             {
                 if (Time.time - instance.recordingStartedTime > 1f)
                 {
@@ -1527,6 +1529,28 @@ namespace ValheimAIModLoader
             //instance.LoadAndPlayAudioFromBase64(instance.npcDialogueAudioPath);
             //instance.PlayWavFile(instance.npcDialogueRawAudioPath);
         }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Player), "Interact")]
+        private static bool Player_Interact_Prefix(Player __instance, GameObject go, bool hold, bool alt)
+        {
+            if (go && CleanKey(go.name) == NPCPrefabName) 
+            {
+                if (!IsInventoryShowing)
+                {
+                    instance.OnInventoryKeyPressed(__instance, true);
+                }
+                else
+                {
+                    instance.OnInventoryKeyPressed(__instance, false);
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+
 
         private static GameObject textObject;
 
@@ -2482,10 +2506,10 @@ namespace ValheimAIModLoader
                 HumanoidNPC humanoidNPC_component = __instance.GetComponent<HumanoidNPC>();
 
                 __result = __instance.m_name;
-                __result += "\n<color=yellow><b>[E]</b></color> Inventory";
-                __result += "\n<color=yellow><b>[T]</b></color> Push to Talk";
-                __result += "\n<color=yellow><b>[Y]</b></color> Menu";
-                __result += $"\n<color=yellow><b>[J]</b></color> Combat Mode: <color=yellow>{instance.NPCCurrentMode}</color>";
+                __result += $"\n<color=yellow><b>[{instance.inventoryKey.Value.ToString()}]</b></color> Inventory";
+                __result += $"\n<color=yellow><b>[{instance.talkKey.Value.ToString()}]</b></color> Push to Talk";
+                __result += $"\n<color=yellow><b>[{instance.thrallMenuKey.Value.ToString()}]</b></color> Menu";
+                __result += $"\n<color=yellow><b>[{instance.combatModeKey.Value.ToString()}]</b></color> Combat Mode: <color=yellow>{instance.NPCCurrentMode}</color>";
 
                 return false; // Skip original method
             }
@@ -3622,6 +3646,8 @@ namespace ValheimAIModLoader
         {
             if (logEntries.Count <= 0) return;
 
+            if (!LogToBrain.Value) return;
+
             StringBuilder res = new StringBuilder();
             foreach (string entry in logEntries)
             {
@@ -3700,12 +3726,14 @@ namespace ValheimAIModLoader
 
 
         static bool IsInventoryShowing = false;
-        private void OnInventoryKeyPressed(Player player)
+        private void OnInventoryKeyPressed(Player player, bool Show)
         {
+            //LogError("OnInventoryKeyPressed pressed ");
             if (instance.PlayerNPC)
             {
+                //LogError("e pressed ");
                 SaveNPCData(instance.PlayerNPC);
-                if (IsInventoryShowing)
+                if (!Show)
                 {
                     InventoryGui.instance.Hide();
                     IsInventoryShowing = false;
@@ -4313,7 +4341,7 @@ namespace ValheimAIModLoader
                 return instance.AllEnemiesInstances;
             }
             instance.AllEnemiesInstances = GameObject.FindObjectsOfType<GameObject>(true)
-                    .Where(go => go != null && go.HasAnyComponent("MonsterAI", "BaseAI", "AnimalAI"))
+                    .Where(go => go != null && go.HasAnyComponent("MonsterAI", "BaseAI", "AnimalAI", "Character", "Humanoid"))
                     .ToArray();
             AllEnemiesInstancesLastRefresh = Time.time;
             return instance.AllEnemiesInstances;
@@ -5705,6 +5733,8 @@ namespace ValheimAIModLoader
 
             private void AddTitleText(GameObject panel, string title)
             {
+                //LogError("AddTitleText");
+
                 // Create a new GameObject for the text
                 GameObject titleObject = new GameObject("PanelTitle");
                 titleObject.transform.SetParent(panel.transform, false);
@@ -5833,7 +5863,7 @@ namespace ValheimAIModLoader
                 anchorMax: new Vector2(0f, .5f),
                 position: new Vector2(100, TopOffset),
                 width: 480,
-                height: 700,
+                height: 760,
                 draggable: false,
                 pivot: new Vector2(0, 1f)
             );
@@ -5850,9 +5880,9 @@ namespace ValheimAIModLoader
             );
 
             taskQueueSubPanel = panelManager.CreateSubPanel(settingsPanel, "Task Queue", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -100f), 430, 180, pivot: new Vector2(0.5f, 1f));
-            keybindsSubPanel = panelManager.CreateSubPanel(settingsPanel, "Keybinds", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -300f), 430, 170, pivot: new Vector2(0.5f, 1f));
-            micInputSubPanel = panelManager.CreateSubPanel(settingsPanel, "Mic Input", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -490f), 430, 80, pivot: new Vector2(0.5f, 1f));
-            egoBannerSubPanel = panelManager.CreateSubPanel(settingsPanel, "Ego Banner", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -590f), 430, 30, pivot: new Vector2(0.5f, 1f));
+            keybindsSubPanel = panelManager.CreateSubPanel(settingsPanel, "Keybinds", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -300f), 430, 260, pivot: new Vector2(0.5f, 1f));
+            micInputSubPanel = panelManager.CreateSubPanel(settingsPanel, "Mic Input", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -580f), 430, 80, pivot: new Vector2(0.5f, 1f));
+            egoBannerSubPanel = panelManager.CreateSubPanel(settingsPanel, "Ego Banner", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -680f), 430, 30, pivot: new Vector2(0.5f, 1f));
         
         
         
@@ -6204,9 +6234,23 @@ namespace ValheimAIModLoader
         private void CreateKeyBindings()
         {
             string[] bindings = {
-                $"[{spawnKey.Value.ToString()}] Spawn/Dismiss",
-                $"[{harvestKey.Value.ToString()}] Harvest",
-                $"[{followKey.Value.ToString()}] Follow/Patrol"
+                $"[{spawnKey.Value.ToString()}]",
+                $"[{harvestKey.Value.ToString()}]",
+                $"[{followKey.Value.ToString()}]",
+                $"[{inventoryKey.Value.ToString()}]",
+                $"[{talkKey.Value.ToString()}]",
+                $"[{thrallMenuKey.Value.ToString()}]",
+                $"[{combatModeKey.Value.ToString()}]",
+            };
+
+            string[] bindingsLabels = {
+                $"Spawn/Dismiss",
+                $"Harvest",
+                $"Follow/Patrol",
+                $"Inventory",
+                $"Push To Talk",
+                $"Thrall Menu",
+                $"Switch Combat Mode",
             };
 
             GameObject textObject = GUIManager.Instance.CreateText(
@@ -6263,6 +6307,21 @@ namespace ValheimAIModLoader
                     position: Vector2.zero,
                     font: GUIManager.Instance.AveriaSerif,
                     fontSize: 20,
+                    color: GUIManager.Instance.ValheimYellow,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 300f,
+                    height: 30f,
+                    addContentSizeFitter: false);
+
+                GameObject textObject3 = GUIManager.Instance.CreateText(
+                    text: bindingsLabels[i],
+                    parent: rowContainer.transform,
+                    anchorMin: new Vector2(0f, 0f),
+                    anchorMax: new Vector2(1f, 1f),
+                    position: new Vector2(35, 0),
+                    font: GUIManager.Instance.AveriaSerif,
+                    fontSize: 20,
                     color: Color.white,
                     outline: true,
                     outlineColor: Color.black,
@@ -6273,6 +6332,10 @@ namespace ValheimAIModLoader
                 RectTransform textRectTransform = textObject2.GetComponent<RectTransform>();
                 textRectTransform.pivot = new Vector2(0, 1f);
                 textRectTransform.anchoredPosition = Vector2.zero;
+
+                RectTransform textRectTransform2 = textObject3.GetComponent<RectTransform>();
+                textRectTransform2.pivot = new Vector2(0, 1f);
+                //textRectTransform2.anchoredPosition = Vector2.zero;
 
                 // Create edit button
                 GameObject editButton = GUIManager.Instance.CreateButton(
