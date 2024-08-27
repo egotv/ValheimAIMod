@@ -10,7 +10,6 @@ using SimpleJson;
 
 
 using UnityEngine;
-using ValheimAIModLoader;
 using System.IO;
 using System.Net;
 using Jotunn.Managers;
@@ -18,17 +17,12 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.EventSystems;
 using System.Collections;
-using ValheimAIMod;
-using System.Runtime.InteropServices;
 using BepInEx.Logging;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using TMPro;
-using UnityEngine.Windows;
-using System.Diagnostics.Eventing.Reader;
-using System.Reflection;
-using UnityEngine.InputSystem;
+
 
 namespace ValheimAIModLoader
 {
@@ -4352,7 +4346,7 @@ namespace ValheimAIModLoader
             if (EnemyName == "")
             {
                 return instance.FindEnemies()
-                .Where(go => go != null && go.HasAnyComponent("Character") && !go.GetComponent<Character>().IsTamed())
+                .Where(go => go != null && go.HasAnyComponent("Character") && go.GetComponent<Character>() && !go.GetComponent<Character>().m_tamed)
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
             }
