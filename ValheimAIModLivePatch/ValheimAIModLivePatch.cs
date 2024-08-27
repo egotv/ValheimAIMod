@@ -1443,6 +1443,24 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKeyDown(KeyCode.P))
             {
+                if (instance.PlayerNPC_humanoid)
+                {
+                    var enemy = FindClosestEnemy(instance.PlayerNPC);
+                    if (enemy)
+                    {
+                        Character enemyCharacter = enemy.GetComponent<Character>();
+                        if (enemyCharacter)
+                        {
+                            if (instance.PlayerNPC_humanoid.StartAttack(instance.PlayerNPC_humanoid, true))
+                            {
+                                LogError($"Attacking {enemyCharacter.name}");
+                            }
+                            
+                        }
+                        
+                    }
+                    
+                }
                 //Debug.LogError($"IsUnderwater {IsUnderwater(__instance.transform.position)}");
                 //instance.SendLogToBrain();
                 //SaveLogs();
@@ -2097,6 +2115,59 @@ namespace ValheimAIModLoader
                 }
             
             }
+        }
+
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Humanoid), "StartAttack")]
+        private static bool Humanoid_StartAttack_Prefix(Humanoid __instance, Character target, bool secondaryAttack, bool __result)
+        {
+            if ((__instance.InAttack() && !__instance.HaveQueuedChain()) || __instance.InDodge() || !__instance.CanMove() || __instance.IsKnockedBack() || __instance.IsStaggering() || __instance.InMinorAction())
+            {
+                __result = false;
+                return false;
+            }
+
+            ItemDrop.ItemData currentWeapon = __instance.GetCurrentWeapon();
+            if (currentWeapon == null)
+            {
+                __result = false;
+                return false;
+            }
+
+            if (secondaryAttack && !currentWeapon.HaveSecondaryAttack())
+            {
+                __result = false;
+                return false;
+            }
+
+            if (!secondaryAttack && !currentWeapon.HavePrimaryAttack())
+            {
+                __result = false;
+                return false;
+            }
+
+            if (__instance.m_currentAttack != null)
+            {
+                __instance.m_currentAttack.Stop();
+                __instance.m_previousAttack = __instance.m_currentAttack;
+                __instance.m_currentAttack = null;
+            }
+
+            Attack attack = ((!secondaryAttack) ? (attack = currentWeapon.m_shared.m_attack.Clone()) : (attack = currentWeapon.m_shared.m_secondaryAttack.Clone()));
+            if (attack.Start(__instance, __instance.m_body, __instance.m_zanim, __instance.m_animEvent, __instance.m_visEquipment, currentWeapon, __instance.m_previousAttack, __instance.m_timeSinceLastAttack, 1f))
+            {
+                __instance.ClearActionQueue();
+                __instance.StartAttackGroundCheck();
+                __instance.m_currentAttack = attack;
+                __instance.m_currentAttackIsSecondary = secondaryAttack;
+                __instance.m_lastCombatTimer = 0f;
+                __result = true;
+                //return true;
+            }
+
+            __result = false;
+            return false;
         }
 
         private static GameObject FindTopLevelObject(GameObject obj)
@@ -2955,6 +3026,9 @@ namespace ValheimAIModLoader
                                             //humanoidNPC_component.m_inventory.RemoveItem(item);
                                         }
                                     }
+
+                                    if (item != null && localPlayer.IsItemEquiped(item))
+                                        instance.PlayerNPC_humanoid.UnequipItem(item);
                                 }
                             }
                             __instance.m_moveItemEffects.Create(__instance.transform.position, Quaternion.identity);
@@ -4346,7 +4420,7 @@ namespace ValheimAIModLoader
             if (EnemyName == "")
             {
                 return instance.FindEnemies()
-                .Where(go => go != null && go.HasAnyComponent("Character") && go.GetComponent<Character>() && !go.GetComponent<Character>().m_tamed)
+                .Where(go => go != null && go.HasAnyComponent("Character") && go.GetComponent<Character>() && !go.GetComponent<Character>().m_tamed && go != Player.m_localPlayer.gameObject)
                 .ToArray().OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                 .FirstOrDefault();
             }

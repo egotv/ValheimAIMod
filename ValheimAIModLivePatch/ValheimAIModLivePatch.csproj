@@ -160,7 +160,7 @@
     </Reference>
     <Reference Include="ValheimAIModLoader, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\ValheimAIModLoader.dll</HintPath>
+      <HintPath>..\ValheimAIModLoader\bin\Debug\ValheimAIModLoader.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
