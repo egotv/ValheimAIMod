@@ -151,8 +151,8 @@ namespace ValheimAIModLoader
             public float CalculateEaseScore(float distance, bool HasWeapon)
             {
                 // Constants for weighting different factors
-                float AMOUNT_WEIGHT = HasWeapon ? 0.0f : 0.4f;
-                float HEALTH_WEIGHT = HasWeapon ? 0.6f : 0.0f;
+                float AMOUNT_WEIGHT = HasWeapon ? 0.3f : 0.4f;
+                float HEALTH_WEIGHT = HasWeapon ? 0.3f : 0.0f;
                 float DISTANCE_WEIGHT = HasWeapon ? 0.4f : 0.6f;
 
                 // Calculate sub-scores
@@ -1395,7 +1395,7 @@ namespace ValheimAIModLoader
 
                     HarvestAction action = new HarvestAction();
                     action.humanoidNPC = npc;
-                    action.ResourceName = "Stone";
+                    action.ResourceName = "Wood";
                     action.RequiredAmount = 20;
                     action.OriginalRequiredAmount = 20;
                     instance.commandManager.AddCommand(action);
@@ -1777,11 +1777,15 @@ namespace ValheimAIModLoader
                     /*foreach(List<Resource> queriesOfType in queryresources.Values)
                     {*/
                     List<Resource> commonElements = FindCommonResources(queryresources.Values.SelectMany(innerList => innerList).ToList(), GetNearbyResources(__instance.gameObject).Keys.ToList());
+                    foreach (Resource r in commonElements)
+                    {
+                        LogError($"r {r.Name}");
+                    }
 
                     Dictionary<Resource, GameObject> ResourcesToGameObjects = new Dictionary<Resource, GameObject>();
                     for (int r = 0; r < commonElements.Count; r++)
                     {
-                        GameObject resource = FindClosestResource(instance.PlayerNPC, commonElements[r].Name);
+                        GameObject resource = FindClosestResource(instance.PlayerNPC, commonElements[r].Name, false);
                         //if (resource == null || resource.transform.position.DistanceTo(__instance.transform.position) < 50)
                         if (resource == null && !blacklistedItems.Contains(resource))
                         {
@@ -1811,10 +1815,10 @@ namespace ValheimAIModLoader
                     NewFollowTargetLastRefresh = Time.time;
 
                     List<GameObject> sortedResources = SortResourcesByEase(ResourcesToGameObjects, instance.PlayerNPC.transform.position, HasCurrentWeapon);
-                    /*foreach (GameObject s in sortedResources)
+                    foreach (GameObject s in sortedResources)
                     {
                         Debug.Log($"sorted harvesting options: {s.name}");
-                    }*/
+                    }
 
                     if (sortedResources.Count > 0)
                     {
@@ -1987,6 +1991,46 @@ namespace ValheimAIModLoader
                 .ToList();
         }
 
+        private static bool IsRangedWeapon(ItemDrop.ItemData item)
+        {
+            if (item == null) return false;
+
+            return item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow ||
+                   item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Torch ||
+                   item.m_shared.m_attack.m_attackType == Attack.AttackType.Projectile;
+        }
+
+        private static bool IsMeleeWeapon(ItemDrop.ItemData item)
+        {
+            if (item == null) return false;
+
+            return item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.OneHandedWeapon ||
+                   item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon ||
+                   item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft;
+        }
+
+        private static int CheckArrows(Inventory inventory)
+        {
+            var arrows = inventory.GetAllItems()
+                .Where(item => item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Ammo)
+                .ToList();
+
+            if (arrows.Any())
+            {
+                Debug.Log($"Player has {arrows.Count} types of arrows:");
+                foreach (var arrow in arrows)
+                {
+                    Debug.Log($"- {arrow.m_shared.m_name}: {arrow.m_stack}");
+                }
+                return arrows.Count;
+            }
+            else
+            {
+                Debug.Log("Player has no arrows!");
+                return 0;
+            }
+        }
+
         private static HitData NPCLastHitData = null;
 
         [HarmonyPostfix]
@@ -2025,9 +2069,9 @@ namespace ValheimAIModLoader
                 float distanceBetweenTargetAndSelf = monsterAIcomponent.m_follow.transform.position.DistanceTo(__instance.transform.position);
 
                 if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource &&
+                    monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5") &&
                             (Time.time - NewFollowTargetLastRefresh > MaxChaseTimeForOneFollowTarget && NewFollowTargetLastRefresh != 0) || 
-                            ((__instance.LastPositionDelta > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5) &&
-                            monsterAIcomponent.m_follow.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5")))
+                            ((__instance.LastPositionDelta > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5)))
                 {
                     // time for new follow target
                     LogMessage($"NPC seems to be stuck for >20s while trying to harvest {monsterAIcomponent.m_follow.gameObject.name}, evading task!");
@@ -2110,6 +2154,14 @@ namespace ValheimAIModLoader
                         monsterAIcomponent.LookAt(monsterAIcomponent.m_follow.transform.position);
                         __instance.StartAttack(__instance, false);
                     }
+                    /*else if (monsterAIcomponent.m_follow.HasAnyComponent("Character", "Humanoid", "BaseAI", "MonsterAI", "AnimalAI") && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject && IsRangedWeapon(__instance.GetCurrentWeapon()))
+                    {
+                        if (CheckArrows(__instance.GetInventory()) > 0)
+                        {
+                            monsterAIcomponent.LookAt(monsterAIcomponent.m_follow.transform.position);
+                            __instance.StartAttack(__instance, false);
+                        }
+                    }*/
                     /*else
                         Debug.Log("velocity " + __instance.GetVelocity());*/
                 }
