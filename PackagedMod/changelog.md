@@ -8,7 +8,8 @@ All notable changes to Thrall will be documented in this file.
 ### Fixed
 
 -   NPC picking up 2x item quantity
--   Bug fixes
+-   Inventory UI open/close bug fix
+-   More bug fixes
 
 ## [1.0.3] - 2024-08-27
 
