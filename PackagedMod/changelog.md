@@ -3,6 +3,17 @@
 
 All notable changes to Thrall will be documented in this file.
 
+## [1.0.5] - 2024-08-29
+
+### Fixed
+
+-   NPC unable to pickup items when really far away from player
+-	Improvements to resource harvesting system
+
+### Added
+
+-	Equip best weapon for targeted harvesting resource
+
 ## [1.0.4] - 2024-08-28
 
 ### Fixed

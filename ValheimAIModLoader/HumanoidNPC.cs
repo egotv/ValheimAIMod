@@ -194,6 +194,96 @@ namespace ValheimAIModLoader
                 m_humanoid.m_seman.RemoveStatusEffect(SEMan.s_statusEffectSoftDeath);
             }
             UpdateEnvStatusEffects(dt);*/
+
+            UpdateEnvStatusEffects(dt);
+        }
+
+        public bool InShelter()
+        {
+            if (m_coverPercentage >= 0.8f)
+            {
+                return m_underRoof;
+            }
+            return false;
+        }
+
+        public bool IsSensed()
+        {
+            return m_timeSinceSensed < 1f;
+        }
+
+        private void UpdateEnvStatusEffects(float dt)
+        {
+            m_nearFireTimer += dt;
+            HitData.DamageModifiers damageModifiers = GetDamageModifiers();
+            bool flag = m_nearFireTimer < 0.25f;
+            bool flag2 = m_seman.HaveStatusEffect(SEMan.s_statusEffectBurning);
+            bool flag3 = InShelter();
+            HitData.DamageModifier modifier = damageModifiers.GetModifier(HitData.DamageType.Frost);
+            bool flag4 = EnvMan.IsFreezing();
+            bool num = EnvMan.IsCold();
+            bool flag5 = EnvMan.IsWet();
+            bool flag6 = IsSensed();
+            bool flag7 = m_seman.HaveStatusEffect(SEMan.s_statusEffectWet);
+            bool flag8 = IsSitting();
+            bool flag9 = EffectArea.IsPointInsideArea(base.transform.position, EffectArea.Type.WarmCozyArea, 1f);
+            bool flag10 = ShieldGenerator.IsInsideShield(base.transform.position);
+            bool flag11 = flag4 && !flag && !flag3;
+            bool flag12 = (num && !flag) || (flag4 && flag && !flag3) || (flag4 && !flag && flag3);
+            if (modifier == HitData.DamageModifier.Resistant || modifier == HitData.DamageModifier.VeryResistant || flag9)
+            {
+                flag11 = false;
+                flag12 = false;
+            }
+            if (flag5 && !m_underRoof && !flag10)
+            {
+                m_seman.AddStatusEffect(SEMan.s_statusEffectWet, resetTime: true);
+            }
+            if (flag3)
+            {
+                m_seman.AddStatusEffect(SEMan.s_statusEffectShelter);
+            }
+            else
+            {
+                m_seman.RemoveStatusEffect(SEMan.s_statusEffectShelter);
+            }
+            if (flag)
+            {
+                m_seman.AddStatusEffect(SEMan.s_statusEffectCampFire);
+            }
+            else
+            {
+                m_seman.RemoveStatusEffect(SEMan.s_statusEffectCampFire);
+            }
+            bool flag13 = !flag6 && (flag8 || flag3) && !flag12 && !flag11 && (!flag7 || flag9) && !flag2 && flag;
+            if (flag13)
+            {
+                m_seman.AddStatusEffect(SEMan.s_statusEffectResting);
+            }
+            else
+            {
+                m_seman.RemoveStatusEffect(SEMan.s_statusEffectResting);
+            }
+            m_safeInHome = flag13 && flag3;
+            if (flag11)
+            {
+                if (!m_seman.RemoveStatusEffect(SEMan.s_statusEffectCold, quiet: true))
+                {
+                    m_seman.AddStatusEffect(SEMan.s_statusEffectFreezing);
+                }
+            }
+            else if (flag12)
+            {
+                if (!m_seman.RemoveStatusEffect(SEMan.s_statusEffectFreezing, quiet: true) && (bool)m_seman.AddStatusEffect(SEMan.s_statusEffectCold))
+                {
+                    //ShowTutorial("cold");
+                }
+            }
+            else
+            {
+                m_seman.RemoveStatusEffect(SEMan.s_statusEffectCold);
+                m_seman.RemoveStatusEffect(SEMan.s_statusEffectFreezing);
+            }
         }
 
         public void UpdatePin()
@@ -226,6 +316,17 @@ namespace ValheimAIModLoader
         {
             base.Awake();
             m_autoPickupMask = LayerMask.GetMask("item");
+
+            m_nview = GetComponent<ZNetView>();
+
+            if (m_nview == null)
+            {
+                Debug.LogError("PersistentNPC: Missing ZNetView component");
+                return;
+            }
+
+            // Set the persistent flag
+            m_nview.m_persistent = true;
 
             /*m_inventory.m_width = 10;
             m_inventory.m_height = 6;*/
