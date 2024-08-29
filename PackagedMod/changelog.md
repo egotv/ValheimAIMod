@@ -3,7 +3,14 @@
 
 All notable changes to Thrall will be documented in this file.
 
-## [1.0.3] - 2024-08-23
+## [1.0.4] - 2024-08-28
+
+### Fixed
+
+-   NPC picking up 2x item quantity
+-   Bug fixes
+
+## [1.0.3] - 2024-08-27
 
 ### Added
 
