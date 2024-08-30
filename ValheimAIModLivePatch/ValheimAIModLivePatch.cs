@@ -648,12 +648,12 @@ namespace ValheimAIModLoader
                     CheckDropOnDestroyed(prefab);
             }
 
-            /*AddTreeRelationships();
+            AddTreeRelationships();
 
-            SortDatabase();*/
+            //SortDatabase();
 
 
-            //SaveDatabaseToJson();
+            SaveDatabaseToJson();
         }
 
         /*private void SortDatabase()
@@ -676,33 +676,39 @@ namespace ValheimAIModLoader
             }
         }*/
 
-        /*private void AddTreeRelationships()
+        private void AddTreeRelationships()
         {
             foreach (var kvp in resourceDatabase)
             {
-                Dictionary<string, List<string>> resources = kvp.Value;
+                Dictionary<string, List<Resource>> resources = kvp.Value;
 
                 // Add logs that drop sub logs that drop this resource
-                List<string> newLogs = new List<string>();
+                List<Resource> newLogs = new List<Resource>();
                 newLogs.AddRange(resources["TreeLog"]);
 
-                foreach (string r in resources["TreeLog"])
+                foreach (Resource r in resources["TreeLog"])
                 {
-                    if (logToLogMap.ContainsKey(r))
+                    if (logToLogMap.ContainsKey(r.Name))
                     {
-                        newLogs.AddRange(logToLogMap[r]);
+                        newLogs.AddRange(logToLogMap[r.Name]);
                         //Debug.Log($"adding {logToLogMap[r].Count} tree logs to {kvp.Key}");
                     }
                 }
 
-                resourceDatabase[kvp.Key]["TreeLog"] = newLogs;
+                resourceDatabase[kvp.Key]["TreeLog"] = newLogs.ToList();
+                newLogs.Clear();
+                newLogs.AddRange(resources["TreeBase"]);
 
                 // add trees that drop logs that drop this resource
-                foreach (string r in resources["TreeLog"])
+                foreach (Resource r in resources["TreeLog"])
                 {
-                    if (logToTreeMap.ContainsKey(r))
+                    if (logToTreeMap.ContainsKey(r.Name))
                     {
-                        resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[r]);
+
+                        newLogs.AddRange(logToTreeMap[r.Name]);
+
+
+                        /*resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[r]);
                         //Debug.Log($"adding {logToTreeMap[r].Count} treebases to {kvp.Key}");
 
                         foreach (string x in logToTreeMap[r])
@@ -712,15 +718,17 @@ namespace ValheimAIModLoader
                                 resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[x]);
                                 //Debug.Log($"adding {logToTreeMap[x].Count} treebases to {kvp.Key}");
                             }
-                        }
+                        }*/
                     }
                 }
+
+                resourceDatabase[kvp.Key]["TreeBase"] = newLogs.ToList();
             }
-        }*/
+        }
 
 
-        private Dictionary<string, List<string>> logToTreeMap = new Dictionary<string, List<string>>();
-        private Dictionary<string, List<string>> logToLogMap = new Dictionary<string, List<string>>();
+        private Dictionary<string, List<Resource>> logToTreeMap = new Dictionary<string, List<Resource>>();
+        private Dictionary<string, List<Resource>> logToLogMap = new Dictionary<string, List<Resource>>();
 
         private void CheckTreeBase(GameObject prefab)
         {
@@ -751,8 +759,31 @@ namespace ValheimAIModLoader
                     /*if (!logToTreeMap.ContainsKey(treeBase.m_logPrefab.name))
                         logToTreeMap[treeBase.m_logPrefab.name] = new List<string>();
                     logToTreeMap[treeBase.m_logPrefab.name].Add(prefab.name);*/
-                    Resource sourceResource = new Resource(prefab.name, 1, 1, treeBase.m_health);
+
+                    TreeLog treelog = treeBase.m_logPrefab.GetComponent<TreeLog>();
+                    TreeLog subLog = null;
+
+                    if (treelog)
+                    {
+                        if (treelog.m_subLogPrefab)
+                        {
+                            subLog = treelog.m_subLogPrefab.GetComponent<TreeLog>();
+                        }
+                        else
+                        {
+                            LogError($"sublogprefab is null for {treelog.name}");
+                        }
+                    }
+
+                    int min = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMin * .3f) : 1;
+                    int max = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMax * .3f) : 1;
+
+                    Resource sourceResource = new Resource(prefab.name, min, max, treeBase.m_health);
                     AddToDatabase(treeBase.m_logPrefab.name, "TreeBase", sourceResource);
+
+                    if (!logToTreeMap.ContainsKey(treeBase.m_logPrefab.name))
+                        logToTreeMap[treeBase.m_logPrefab.name] = new List<Resource>();
+                    logToTreeMap[treeBase.m_logPrefab.name].Add(sourceResource);
                 }
             }
         }
@@ -782,11 +813,16 @@ namespace ValheimAIModLoader
 
                 if (treeBase.m_subLogPrefab != null)
                 {
-                    /*if (!logToLogMap.ContainsKey(treeBase.m_subLogPrefab.name))
-                        logToLogMap[treeBase.m_subLogPrefab.name] = new List<string>();
-                    logToLogMap[treeBase.m_subLogPrefab.name].Add(prefab.name);*/
-                    Resource sourceResource = new Resource(prefab.name, 1, 1, treeBase.m_health);
+                    TreeLog subLog = treeBase.m_subLogPrefab.GetComponent<TreeLog>();
+                    int min = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMin * .6f) : 1;
+                    int max = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMax * .6f) : 1;
+
+                    Resource sourceResource = new Resource(prefab.name, min, max, treeBase.m_health);
                     AddToDatabase(treeBase.m_subLogPrefab.name, "TreeLog", sourceResource);
+
+                    if (!logToLogMap.ContainsKey(treeBase.m_subLogPrefab.name))
+                        logToLogMap[treeBase.m_subLogPrefab.name] = new List<Resource>();
+                    logToLogMap[treeBase.m_subLogPrefab.name].Add(sourceResource);
                 }
             }
         }
@@ -1544,15 +1580,31 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKeyDown(KeyCode.P))
             {
-                Character character = FindClosestEnemy(__instance.gameObject, "Greyling");
 
-                if (character != null)
+                var resourceName = "Wood";
+                var sources = instance.FindResourceSourcesRecursive(resourceName, __instance.GetCurrentWeapon());
+
+                sources = sources.OrderByDescending(s => s.Efficiency).ToList();
+
+                if (sources.Count == 0)
                 {
-                    LogError($"character {character.name} {character.transform.position.DistanceTo(__instance.transform.position)}");
+                    Debug.Log($"No sources found for {resourceName} in nearby resources.");
                 }
                 else
                 {
-                    LogError($"character null");
+                    Debug.Log($"Sources for {resourceName}, sorted by efficiency:");
+                    for (int i = 0; i < sources.Count; i++)
+                    {
+                        var (category, name, efficiency, distance, depth) = sources[i];
+                        if (efficiency > 0)
+                        {
+                            Debug.Log($"{i + 1}. {category} - {name} (Efficiency: {efficiency:F2}, Distance: {distance:F2}, Depth: {depth})");
+                        }
+                        else
+                        {
+                            Debug.Log($"{i + 1}. {category} - {name} (Not interactable with current weapon, Distance: {distance:F2}, Depth: {depth})");
+                        }
+                    }
                 }
                 /*GameObject[] gos = instance.FindEnemies();
                 foreach (var go in gos)
@@ -1643,7 +1695,7 @@ namespace ValheimAIModLoader
                 //QueryResource("Wood");
             
 
-                List<string> commonElements = FindCommonElements(QueryResource("Wood"), instance.nearbyResources.Keys.ToArray());
+                List<string> commonElements = FindCommonElements(QueryResource("Wood"), nearbyResources.Keys.ToArray());
                 Debug.Log("Common elements:");
                 foreach (string element in commonElements)
                 {
@@ -1827,71 +1879,128 @@ namespace ValheimAIModLoader
             return tools.OrderByDescending(CalculateEffectiveDamage).FirstOrDefault();
         }
 
-        /*public static ItemDrop.ItemData FindBestWeapon(Inventory inventory, HitData.DamageModifiers resourceModifiers)
-        {
-            if (inventory == null || inventory.m_inventory.Count == 0)
-            {
-                return null;
-            }
-
-            return inventory.m_inventory.OrderByDescending(weapon => CalculateEffectiveDamage(weapon, resourceModifiers)).First();
-        }
-
-        private static float CalculateEffectiveDamage(ItemDrop.ItemData weapon, List<HitData.DamageModPair> resourceModifiers)
-        {
-            float totalDamage = 0;
-
-            foreach (DamageType damageType in Enum.GetValues(typeof(DamageType)))
-            {
-                if (damageType == DamageType.Physical || damageType == DamageType.Elemental || damageType == DamageType.Damage)
-                    continue;
-
-                var weaponMod = weapon.m_damageModifiers.FirstOrDefault(dm => dm.m_type == damageType);
-                var resourceMod = resourceModifiers.FirstOrDefault(dm => dm.m_type == damageType);
-
-                totalDamage += CalculateDamageForType(weapon.BaseDamage * 0.1f, weaponMod.m_modifier, resourceMod.m_modifier);
-            }
-
-            return totalDamage;
-        }
-
-        private static float CalculateDamageForType(float baseDamage, HitData.DamageModifier weaponModifier, HitData.DamageModifier resourceModifier)
-        {
-            float damageMultiplier = GetDamageMultiplier(weaponModifier);
-            float resistanceMultiplier = GetResistanceMultiplier(resourceModifier);
-            return baseDamage * damageMultiplier * resistanceMultiplier;
-        }
-
-        private static float GetDamageMultiplier(HitData.DamageModifier modifier)
+        private float GetDamageModifierValue(HitData.DamageModifier modifier)
         {
             switch (modifier)
             {
-                case HitData.DamageModifier.VeryWeak: return 0.5f;
-                case HitData.DamageModifier.Weak: return 0.75f;
-                case HitData.DamageModifier.Normal: return 1f;
-                case HitData.DamageModifier.Resistant: return 1.5f;
-                case HitData.DamageModifier.VeryResistant: return 2f;
-                case HitData.DamageModifier.Ignore: return 0f;
-                case HitData.DamageModifier.Immune: return 0f;
-                default: return 1f;
-            }
-        }
-
-        private static float GetResistanceMultiplier(HitData.DamageModifier modifier)
-        {
-            switch (modifier)
-            {
-                case HitData.DamageModifier.VeryWeak: return 2f;
+                case HitData.DamageModifier.Normal: return 1.0f;
+                case HitData.DamageModifier.Resistant: return 0.5f;
                 case HitData.DamageModifier.Weak: return 1.5f;
-                case HitData.DamageModifier.Normal: return 1f;
-                case HitData.DamageModifier.Resistant: return 0.75f;
-                case HitData.DamageModifier.VeryResistant: return 0.5f;
-                case HitData.DamageModifier.Ignore: return 0f;
-                case HitData.DamageModifier.Immune: return 0f;
-                default: return 1f;
+                case HitData.DamageModifier.Immune: return 0.0f;
+                case HitData.DamageModifier.Ignore: return 1.0f;
+                case HitData.DamageModifier.VeryResistant: return 0.25f;
+                case HitData.DamageModifier.VeryWeak: return 2.0f;
+                default: return 1.0f;
             }
-        }*/
+        }
 
+        private float CalculateWeaponEffectiveness(ItemDrop.ItemData weapon, HitData.DamageModifiers resourceModifiers)
+        {
+            float effectiveness = 0f;
+            HitData.DamageTypes damages = weapon.m_shared.m_damages;
+
+            if (damages.m_blunt > 0)
+                effectiveness += damages.m_blunt * GetDamageModifierValue(resourceModifiers.m_blunt);
+
+            if (damages.m_slash > 0)
+                effectiveness += damages.m_slash * GetDamageModifierValue(resourceModifiers.m_slash);
+
+            if (damages.m_pierce > 0)
+                effectiveness += damages.m_pierce * GetDamageModifierValue(resourceModifiers.m_pierce);
+
+            if (damages.m_chop > 0)
+                effectiveness += damages.m_chop * GetDamageModifierValue(resourceModifiers.m_chop);
+
+            if (damages.m_pickaxe > 0 )
+                effectiveness += damages.m_pickaxe * GetDamageModifierValue(resourceModifiers.m_pickaxe);
+
+            if (damages.m_fire > 0 )
+                effectiveness += damages.m_fire * GetDamageModifierValue(resourceModifiers.m_fire);
+
+            if (damages.m_frost > 0 )
+                effectiveness += damages.m_frost * GetDamageModifierValue(resourceModifiers.m_frost);
+
+            if (damages.m_lightning > 0 )
+                effectiveness += damages.m_lightning * GetDamageModifierValue(resourceModifiers.m_lightning);
+
+            if (damages.m_poison > 0)
+                effectiveness += damages.m_poison * GetDamageModifierValue(resourceModifiers.m_poison);
+
+            if (damages.m_spirit > 0)
+                effectiveness += damages.m_spirit * GetDamageModifierValue(resourceModifiers.m_spirit);
+
+            return effectiveness;
+        }
+
+        private float CalculateEfficiency(string category, int minAmount, int maxAmount, float health, float weaponEffectiveness, float distance)
+        {
+            float avgAmount = (minAmount + maxAmount) / 2f;
+
+            if (weaponEffectiveness == 0)
+            {
+                if (category == "ItemDrop" || category == "Pickable")
+                    return avgAmount / (1 + distance / 50);
+                else
+                    return 0;
+            }
+
+            float baseEfficiency = avgAmount / (health / weaponEffectiveness);
+
+            if (category == "ItemDrop" || category == "Pickable")
+            {
+                baseEfficiency = 1;
+            }
+            else if (category == "DropOnDestroyed")
+            {
+                baseEfficiency *= avgAmount;
+            }
+            else if (category == "TreeLog" || category == "TreeBase" || category == "MineRock" || category == "MineRock5")
+            {
+                if (weaponEffectiveness <= 5)
+                    return 0;
+                baseEfficiency *= avgAmount;
+            }
+            else if (category == "CharacterDrop")
+            {
+                baseEfficiency *= 0.5f;
+            }
+
+            // Adjust efficiency based on distance
+            float distanceFactor = 1 / (1 + distance / 10);
+
+            return baseEfficiency * distanceFactor;
+        }
+
+        private List<(string Category, string Name, float Efficiency, float Distance, int Depth)> FindResourceSourcesRecursive(string resource, ItemDrop.ItemData weapon, int depth = 0, int maxDepth = 3)
+        {
+            var sources = new List<(string, string, float, float, int)>();
+            if (!resourceDatabase.ContainsKey(resource) || depth > maxDepth)
+                return sources;
+
+            GetNearbyResources(Player.m_localPlayer.gameObject);
+
+            foreach (var category in resourceDatabase[resource])
+            {
+                foreach (var item in category.Value)
+                {
+                    if (nearbyResourcesDistance.TryGetValue(item.Name, out float distance))
+                    {
+                        //float distance = Vector3.Distance(Player.m_localPlayer.transform.position, position);
+                        
+                        float weaponEffectiveness = CalculateWeaponEffectiveness(weapon, item.DamageModifiers);
+                        LogError($"CalculateWeaponEffectiveness for {weapon.m_shared.m_name} {weaponEffectiveness}");
+                        float efficiency = CalculateEfficiency(category.Key, item.MinAmount, item.MaxAmount, item.Health, weaponEffectiveness, distance);
+                        sources.Add((category.Key, item.Name, efficiency, distance, depth));
+                    }
+
+                    // Recursively search for parent resources
+                    /*var parentSources = FindResourceSourcesRecursive(item.Name, weapon, depth + 1, maxDepth);
+                    sources.AddRange(parentSources);*/
+                }
+            }
+
+            return sources;
+        }
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(MonsterAI), "UpdateAI")]
@@ -1903,7 +2012,6 @@ namespace ValheimAIModLoader
 
 
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
-            GameObject newfollow = null;
 
 
             NPCCommand command = instance.commandManager.GetNextCommand();
@@ -1942,7 +2050,8 @@ namespace ValheimAIModLoader
             }
 
 
-            /*if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && 
+            /* auto pickup
+             * if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && 
                 !(instance.NPCCurrentMode == NPCMode.Defensive && enemyList.Count > 0) && 
                 instance.NPCCurrentCommand != NPCCommand.CommandType.CombatAttack)
                 //&& instance.NPCCurrentCommand != NPCCommand.CommandType.HarvestResource)
@@ -1959,19 +2068,6 @@ namespace ValheimAIModLoader
                         return true;
                     }
                 }
-
-                *//*newfollow = FindClosestItemDrop(__instance.gameObject);
-
-                if (newfollow != null && newfollow != __instance.m_follow && newfollow.transform.position.DistanceTo(__instance.transform.position) < 7f)
-                {
-                    ItemDrop itemDrop = newfollow.GetComponent<ItemDrop>();
-                    if (humanoidNPC.m_inventory.CanAddItem(itemDrop.m_itemData) && itemDrop.m_itemData.GetWeight() + humanoidNPC.m_inventory.GetTotalWeight() < humanoidNPC.GetMaxCarryWeight())
-                    {
-                        Debug.Log($"Going to pickup nearby dropped item on the ground {newfollow.name}");
-                        __instance.SetFollowTarget(newfollow);
-                        return true;
-                    }
-                }*//*
             }*/
 
             if (instance.NPCCurrentCommand == NPCCommand.CommandType.PatrolArea && instance.patrol_position != Vector3.zero)
@@ -5119,12 +5215,13 @@ namespace ValheimAIModLoader
                     .Where(go => go != null && 
                     go.transform.position.DistanceTo(p) < 300 && 
                     !blacklistedItems.Contains(go) &&
-                    go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Character", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5"))
+                    (HasAnyChildComponent(go, new List<Type>{typeof(Character), typeof(BaseAI)}) || 
+                    go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5")))
                     .ToArray();
                     //.ToList();
             instance.AllGOInstancesLastRefresh = Time.time;
 
-            //LogInfo($"RefreshAllGameObjectInstances len {instance.AllGOInstances.Count()}");
+            LogInfo($"Refresh nearby objects, len {instance.AllGOInstances.Count()}, 300 units from {(PlayerNPC != null ? "thrall" : "player")}");
 
             RefreshPickables();
         }
@@ -5232,8 +5329,8 @@ namespace ValheimAIModLoader
         }
 
         private static float nearbyResourcesLastRefresh = 0f;
-        Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
-        Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
+        private static Dictionary<string, int> nearbyResources = new Dictionary<string, int>();
+        private static Dictionary<string, float> nearbyResourcesDistance = new Dictionary<string, float>();
 
         public static string CleanKey(string key)
         {
@@ -5261,36 +5358,55 @@ namespace ValheimAIModLoader
 
         private static Dictionary<string, int> GetNearbyResources(GameObject source)
         {
-            if (instance.nearbyResources.Count > 0 && Time.time - nearbyResourcesLastRefresh < 10) return instance.nearbyResources;
+            //if (nearbyResources.Count > 0 && Time.time - nearbyResourcesLastRefresh < 10) return nearbyResources;
+
+            nearbyResources.Clear();
 
             void ProcessResource(GameObject resource, string key)
             {
                 key = CleanKey(key);
 
-                if (instance.nearbyResources.ContainsKey(key))
-                    instance.nearbyResources[key]++;
+                if (nearbyResources.ContainsKey(key))
+                    nearbyResources[key]++;
                 else
-                    instance.nearbyResources[key] = 1;
+                    nearbyResources[key] = 1;
 
                 float distance = resource.transform.position.DistanceTo(source.transform.position);
-                if (instance.nearbyResourcesDistance.ContainsKey(key))
-                    instance.nearbyResourcesDistance[key] = Mathf.Min(instance.nearbyResourcesDistance[key], distance);
+                if (nearbyResourcesDistance.ContainsKey(key))
+                {
+                    /*if (nearbyResourcesDistance[key] > distance)
+                    {
+                        LogError($"found closer {resource.name}, old: {nearbyResourcesDistance[key]}, new: {distance}");
+                        nearbyResourcesDistance[key] = distance;
+                        
+                    }*/
+                        
+
+                    nearbyResourcesDistance[key] = Mathf.Min(nearbyResourcesDistance[key], distance);
+                }
                 else
-                    instance.nearbyResourcesDistance[key] = distance;
+                    nearbyResourcesDistance[key] = distance;
             }
 
-            if (instance.AllGOInstances.Length == 0)
+            RefreshAllGameObjectInstances();
+
+            /*if (instance.AllGOInstances.Length == 0)
             {
-                RefreshAllGameObjectInstances();
-            }
+                
+            }*/
 
             foreach (GameObject co in instance.AllGOInstances)
                 if (co != null)
                     ProcessResource(co, co.name);
 
-            //Debug.Log($"Populated nearbyResources {instance.nearbyResources.Count} {instance.nearbyResourcesDistance.Count}");
+            //Debug.Log($"Populated nearbyResources {nearbyResources.Count} {nearbyResourcesDistance.Count}");
 
-            return instance.nearbyResources;
+            /*foreach (var s in nearbyResources)
+            {
+                LogError($"nearbyResource {s.Key} {s.Value}");
+            }*/
+
+            return nearbyResources;
         }
 
         private string GetNearbyResourcesJSON(GameObject source)
@@ -5299,17 +5415,17 @@ namespace ValheimAIModLoader
 
             var jarray = new JsonArray();
 
-            foreach (var kvp in instance.nearbyResources)
+            foreach (var kvp in nearbyResources)
             {
                 JsonObject thisJobject = new JsonObject();
                 thisJobject["name"] = kvp.Key;
                 thisJobject["quantity"] = kvp.Value;
-                thisJobject["nearestDistance"] = instance.nearbyResourcesDistance[kvp.Key];
+                thisJobject["nearestDistance"] = nearbyResourcesDistance[kvp.Key];
 
                 jarray.Add(thisJobject);
             }
 
-            int totalResources = instance.nearbyResources.Values.Sum();
+            int totalResources = nearbyResources.Values.Sum();
             
 
             string json = SimpleJson.SimpleJson.SerializeObject(jarray);

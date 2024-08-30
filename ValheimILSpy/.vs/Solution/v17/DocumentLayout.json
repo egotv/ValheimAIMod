@@ -47,8 +47,7 @@
               "ViewState": "AQIAADYAAAAAAAAAAAAvwFIAAAAVAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-08-24T00:02:38.292Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Bookmark",
@@ -64,8 +63,7 @@
               "RelativeToolTip": "assembly_valheim\\MonsterAI.cs",
               "ViewState": "AQIAAHEBAAAAAAAAAIAwwJkBAAApAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-29T23:35:25.911Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-29T23:35:25.911Z"
             },
             {
               "$type": "Document",
@@ -77,8 +75,7 @@
               "RelativeToolTip": "assembly_valheim\\ItemDrop.cs",
               "ViewState": "AQIAAJwDAAAAAAAAAAAwwM8DAAARAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-29T18:04:52.497Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-29T18:04:52.497Z"
             },
             {
               "$type": "Document",
@@ -90,8 +87,7 @@
               "RelativeToolTip": "assembly_valheim\\Player.cs",
               "ViewState": "AQIAAFgXAAAAAAAAAAAgwGcXAAARAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-29T03:57:46.974Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-29T03:57:46.974Z"
             },
             {
               "$type": "Document",
@@ -103,8 +99,7 @@
               "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAA4AAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-16T17:55:50.021Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-16T17:55:50.021Z"
             },
             {
               "$type": "Document",
@@ -114,7 +109,7 @@
               "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
               "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAAPkHAAAAAAAAAIAwwBoIAAAdAAAA",
+              "ViewState": "AQIAAFcIAAAAAAAAAAAwwHMIAAAeAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-05-29T19:47:42.829Z",
               "EditorCaption": ""
@@ -128,8 +123,7 @@
               "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\APIEncryptionTool.csproj",
               "RelativeToolTip": "..\\APIEncryptionTool\\APIEncryptionTool.csproj",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2024-08-22T18:30:49.254Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-22T18:30:49.254Z"
             }
           ]
         }
