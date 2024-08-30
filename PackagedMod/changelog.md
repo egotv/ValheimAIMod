@@ -3,6 +3,17 @@
 
 All notable changes to Thrall will be documented in this file.
 
+## [1.0.6] - 2024-08-29
+
+### Fixed
+
+- 	Combat with long ranged weapons
+- 	More bug fixes
+
+### Added
+
+-   New resource gathering algorithm
+
 ## [1.0.5] - 2024-08-29
 
 ### Fixed
