@@ -77,6 +77,7 @@ namespace ValheimAIModLoader
 
         private static GameObject PlayerNPC;
         private static HumanoidNPC humanoid_PlayerNPC;
+        private static MonsterAI monster_PlayerNPC;
 
 
         public NPCMode NPCCurrentMode { get; private set; }
@@ -86,15 +87,13 @@ namespace ValheimAIModLoader
             NPCCurrentMode = NPCMode.Passive; // Default mode
         }*/
 
-        private GameObject[] AllPlayerNPCInstances;
-        private float AllPlayerNPCInstancesLastRefresh = 0f;
 
         private GameObject[] AllEnemiesInstances;
         private float AllEnemiesInstancesLastRefresh = 0f;
 
         //private List<GameObject> AllGOInstances = new List<GameObject>();
-        private GameObject[] AllGOInstances = {};
-        private float AllGOInstancesLastRefresh = 0f;
+        private static GameObject[] AllGOInstances = {};
+        private static float AllGOInstancesLastRefresh = 0f;
 
         private List<GameObject> AllTreeInstances = new List<GameObject>();
         //private float AllTreeInstancesLastRefresh = 0f;
@@ -302,7 +301,7 @@ namespace ValheimAIModLoader
 
             
 
-            instance.FindPlayerNPCs();
+            FindPlayerNPC();
             if (PlayerNPC)
             {
                 HumanoidNPC npc = PlayerNPC.GetComponent<HumanoidNPC>();
@@ -317,7 +316,7 @@ namespace ValheimAIModLoader
 
             PopulateDatabase();
             //PopulateAllWeapons();
-            PopulateAllItems();
+            //PopulateAllItems();
 
             ModInitComplete = true;
 
@@ -488,7 +487,7 @@ namespace ValheimAIModLoader
                 LogInfo("Skipping Thrall mod init because it is already initialized.");
             }
 
-            instance.FindPlayerNPCs();
+            FindPlayerNPC();
 
             if (!PlayerNPC)
             {
@@ -653,7 +652,7 @@ namespace ValheimAIModLoader
             //SortDatabase();
 
 
-            SaveDatabaseToJson();
+            //SaveDatabaseToJson();
         }
 
         /*private void SortDatabase()
@@ -771,7 +770,7 @@ namespace ValheimAIModLoader
                         }
                         else
                         {
-                            LogError($"sublogprefab is null for {treelog.name}");
+                            //LogError($"sublogprefab is null for {treelog.name}");
                         }
                     }
 
@@ -1222,7 +1221,7 @@ namespace ValheimAIModLoader
                 if (__instance == Player.m_localPlayer || __instance is HumanoidNPC)
                 {
                     //Debug.Log("__instance == Player.m_localPlayer || __instance is HumanoidNPC");
-                    MonsterAI monsterAI = PlayerNPC.GetComponent<MonsterAI>();
+                    /*MonsterAI monsterAI = PlayerNPC.GetComponent<MonsterAI>();
                     SetMonsterAIAggravated(monsterAI, true);
                     Character character = FindClosestEnemy(__instance.gameObject);
                     if (character)
@@ -1235,12 +1234,12 @@ namespace ValheimAIModLoader
                         //monsterAI.SetFollowTarget(closestEnemy);
 
                         LogError("Character_OnDamaged_Prefix, findclosestenemy returned null");
-                    }
+                    }*/
 
                     Character attacker = hit.GetAttacker();
-                    if (attacker != null)
+                    if (attacker != null && !enemyList.Contains(attacker))
                     {
-                        enemyList.Add(attacker.gameObject);
+                        enemyList.Add(attacker);
                         //Debug.Log($"attacker {attacker.gameObject.name}");
                     }
                     else
@@ -1355,6 +1354,8 @@ namespace ValheimAIModLoader
         {
             //LogError($"__instance.m_autoPickupMask: {__instance.m_autoPickupMask}");
 
+            FindPlayerNPC();
+
             if (EventSystem.current.currentSelectedGameObject != null && EventSystem.current.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>())
             {
                 //Debug.Log("Ignoring input: a text field is in focus");
@@ -1462,24 +1463,16 @@ namespace ValheimAIModLoader
 
             if (ZInput.GetKeyDown(instance.spawnKey.Value))
             {
-                GameObject[] allNpcs = instance.FindPlayerNPCs();
-                if (allNpcs.Length > 0)
+                FindPlayerNPC();
+                if (PlayerNPC)
                 {
-                    //LogInfo("Keybind: Dismiss Companion");
-
-                    foreach (GameObject aNpc in allNpcs)
-                    {
-                        if (aNpc != null)
-                        {
-                            SaveNPCData(aNpc);
-                            HumanoidNPC humanoidNPC = aNpc.GetComponent<HumanoidNPC>();
-                            humanoidNPC.AddPoisonDamage(100000);
-                            /*humanoidNPC.AddFireDamage(100000);
-                            humanoidNPC.AddFrostDamage(100000);
-                            humanoidNPC.AddLightningDamage(100000);
-                            humanoidNPC.AddSpiritDamage(100000);*/
-                        }
-                    }
+                   
+                    SaveNPCData(PlayerNPC);
+                    humanoid_PlayerNPC.AddPoisonDamage(100000);
+                    /*humanoidNPC.AddFireDamage(100000);
+                    humanoidNPC.AddFrostDamage(100000);
+                    humanoidNPC.AddLightningDamage(100000);
+                    humanoidNPC.AddSpiritDamage(100000);*/
 
                     MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, $"Thrall left the world!");
                     /*PlayerNPC = null;
@@ -1746,7 +1739,8 @@ namespace ValheimAIModLoader
         }
 
         NPCCommand currentcommand = null;
-        private static List<GameObject> enemyList = new List<GameObject>();
+        //private static List<GameObject> enemyList = new List<GameObject>();
+        private static HashSet<Character> enemyList = new HashSet<Character>();
 
 
         private static HitData.DamageModifiers targetDamageModifiers = new HitData.DamageModifiers();
@@ -1839,6 +1833,9 @@ namespace ValheimAIModLoader
             {
                 HitData.DamageTypes weaponDamages = tool.m_shared.m_damages;
                 float totalDamage = 0f;
+
+                if (tool.m_shared.m_skillType == Skills.SkillType.Bows)
+                    return 0f;
 
                 totalDamage += ApplyDamageModifier(weaponDamages.m_blunt, resourceDamageModifiers.m_blunt);
                 totalDamage += ApplyDamageModifier(weaponDamages.m_slash, resourceDamageModifiers.m_slash);
@@ -1988,7 +1985,7 @@ namespace ValheimAIModLoader
                         //float distance = Vector3.Distance(Player.m_localPlayer.transform.position, position);
                         
                         float weaponEffectiveness = CalculateWeaponEffectiveness(weapon, item.DamageModifiers);
-                        LogError($"CalculateWeaponEffectiveness for {weapon.m_shared.m_name} {weaponEffectiveness}");
+                        //LogError($"CalculateWeaponEffectiveness for {weapon.m_shared.m_name} {weaponEffectiveness}");
                         float efficiency = CalculateEfficiency(category.Key, item.MinAmount, item.MaxAmount, item.Health, weaponEffectiveness, distance);
                         sources.Add((category.Key, item.Name, efficiency, distance, depth));
                     }
@@ -2002,6 +1999,10 @@ namespace ValheimAIModLoader
             return sources;
         }
 
+
+        private static List<ItemDrop> closestItemDrops = new List<ItemDrop>();
+        private static float closestItemDropsLastRefresh = 0;
+
         [HarmonyPrefix]
         [HarmonyPatch(typeof(MonsterAI), "UpdateAI")]
         private static bool MonsterAI_CustomFixedUpdate_Prefix(MonsterAI __instance)
@@ -2012,6 +2013,72 @@ namespace ValheimAIModLoader
 
 
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
+
+
+            //LogError($"following {(__instance.m_follow ? __instance.m_follow.name : "null")} {(__instance.m_follow ? __instance.m_follow.transform.position.DistanceTo(__instance.transform.position).ToString() : "0")} target {(__instance.m_targetCreature ? __instance.m_targetCreature.name : "null")} {(__instance.m_targetCreature ? __instance.m_targetCreature.transform.position.DistanceTo(__instance.transform.position).ToString() : "0")}");
+
+
+            if (instance.NPCCurrentMode != NPCMode.Passive)
+            {
+                //EnemyListNullCheck();
+
+                if (enemyList.Count > 0)
+                {
+                    __instance.m_viewRange = 80;
+                    if (__instance.m_targetCreature == null || !enemyList.Contains(__instance.m_targetCreature))
+                    {
+                        if (__instance.m_targetCreature == null)
+                        {
+                            LogError("__instance.m_targetCreature == null");
+                        }
+                        else if (!enemyList.Contains(__instance.m_targetCreature))
+                        {
+                            LogError($"{enemyList.Count} !enemyList.Contains(__instance.m_targetCreature.gameObject)");
+                        }
+
+                        enemyList.Where(go => go != null).OrderBy(go => go.transform.position.DistanceTo(__instance.transform.position));
+
+                        //Character character = enemyList[0].GetComponent<Character>();
+
+                        foreach (var go in enemyList.ToArray())
+                        {
+                            if (!go) continue;
+
+                            //Character character = GetCharacterFromGameObject(go);
+                            Character character = go;
+
+                            if (character != null)
+                            {
+                                //__instance.SetFollowTarget(null);
+                                //__instance.m_targetCreature = character;
+
+                                __instance.m_targetCreature = null;
+                                __instance.SetTarget(character);
+                                __instance.m_updateTargetTimer = 1000000f;
+                                LogError($"New enemy in defensive mode: {character.name}");
+
+                                __instance.m_alerted = false;
+                                __instance.m_aggravatable = true;
+                                __instance.SetHuntPlayer(true);
+
+                                //break;
+                                return true;
+                            }
+                            else
+                            {
+                                LogError("Defensive mode enemy from enemyList wasn't a character");
+                            }
+                        }
+
+                        if (!__instance.m_targetCreature && enemyList.Count > 0)
+                        {
+                            enemyList.Clear();
+                            LogError("enemy list cleared");
+                        }
+                    }
+                }
+            }
+
 
 
             NPCCommand command = instance.commandManager.GetNextCommand();
@@ -2048,7 +2115,6 @@ namespace ValheimAIModLoader
                 FollowAction followAction = new FollowAction();
                 instance.commandManager.AddCommand(followAction);
             }
-
 
             /* auto pickup
              * if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && 
@@ -2152,77 +2218,73 @@ namespace ValheimAIModLoader
 
             else if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource && (enemyList.Count == 0))
             {
-                ItemDrop.ItemData currentWeaponData = humanoidNPC.GetCurrentWeapon();
-                bool HasCurrentWeapon = (currentWeaponData != null && currentWeaponData.m_shared.m_name != "Unarmed");
-
-                if (__instance.m_follow == null || 
-                    //__instance.m_follow.HasAnyComponent("Character", "Humanoid") || 
-                    (__instance.m_follow.HasAnyComponent("Character", "Humanoid") && !ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name))) || 
-                    __instance == Player.m_localPlayer || 
-                    (!ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name)) && !__instance.m_follow.HasAnyComponent("Pickable", "ItemDrop")))
+                if ((__instance.m_follow == null && __instance.m_targetCreature == null) ||
+                    !ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name)) || 
+                    __instance.m_follow == Player.m_localPlayer)
                 {
                     //comehere
-                    List<ItemDrop> closestItemDrops = SphereSearchForGameObjectsWithComponent<ItemDrop>(__instance.transform.position, 7);
-                    foreach(ItemDrop closestItemDrop in closestItemDrops)
+
+
+                    if (Time.time - closestItemDropsLastRefresh > 3 || closestItemDrops.Count < 1)
                     {
-                        if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow && IsStringEqual(closestItemDrop.name, CurrentHarvestResourceName, true))
+                        closestItemDrops = SphereSearchForGameObjectsWithComponent<ItemDrop>(__instance.transform.position, 7);
+                        foreach (ItemDrop closestItemDrop in closestItemDrops)
                         {
-                            if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData))
+                            if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow && IsStringEqual(closestItemDrop.name, CurrentHarvestResourceName, true))
                             {
-                                LogMessage($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
-                                __instance.SetFollowTarget(closestItemDrop.gameObject);
-                                return true;
+                                if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData))
+                                {
+                                    LogMessage($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
+                                    __instance.SetFollowTarget(closestItemDrop.gameObject);
+                                    return true;
+                                }
                             }
                         }
                     }
 
-                    LogInfo($"Querying for resource: {CurrentHarvestResourceName} weapon: {HasCurrentWeapon}");
 
+                    ItemDrop.ItemData currentWeaponData = humanoidNPC.GetCurrentWeapon();
+                    var sources = instance.FindResourceSourcesRecursive(CurrentHarvestResourceName, currentWeaponData);
+                    sources = sources.OrderByDescending(s => s.Efficiency).ToList();
+                    GameObject resource;
                     bool success = false;
-                    /*foreach(List<Resource> queriesOfType in ResourceNodes.Values)
-                    {*/
 
-                    /*foreach (string s in ResourceNodesOneArray)
+                    foreach (var source in sources)
                     {
-                        LogError($"queryResources for {CurrentHarvestResourceName}: {s}");
-                    }*/
+                        if (success) continue;
 
-                    List<Resource> commonElements = FindCommonResources(ResourceNodes.Values.SelectMany(innerList => innerList).ToList(), GetNearbyResources(__instance.gameObject).Keys.ToList());
-                    /*foreach (Resource r in commonElements)
-                    {
-                        LogError($"commonElements for {CurrentHarvestResourceName}: {r.Name}");
-                    }*/
+                        resource = FindClosestResource(PlayerNPC, source.Name, false);
 
-                    Dictionary<Resource, GameObject> ResourcesToGameObjects = new Dictionary<Resource, GameObject>();
-                    for (int r = 0; r < commonElements.Count; r++)
-                    {
-                        GameObject resource = FindClosestResource(PlayerNPC, commonElements[r].Name, false);
-                        if (resource == null && !blacklistedItems.Contains(resource))
+                        if (resource != null)
                         {
-                            LogInfo($"Couldn't find resource {commonElements[r].Name} nearby!");
-                            continue;
+                            if (source.Category == "CharacterDrop")
+                            {
+                                Character targetCharacter = GetCharacterFromGameObject(resource);
+                                if (targetCharacter != null) 
+                                {
+                                    //__instance.SetTarget(targetCharacter);
+                                    //__instance.m_targetCreature = targetCharacter;
+
+                                    __instance.m_targetCreature = null;
+                                    __instance.SetTarget(targetCharacter);
+                                    __instance.m_updateTargetTimer = 1000000f;
+                                    LogMessage($"{humanoidNPC.m_name} is going to harvest {resource.name} by killing {targetCharacter.name}");
+                                    success = true;
+                                }
+                                else
+                                {
+                                    LogError("Harvesting failed! Closest resource was a CharacterDrop but has no Character component");
+                                }
+                                
+                            }
+                            else
+                            {
+                                __instance.SetFollowTarget(resource);
+                                LogMessage($"{humanoidNPC.m_name} is going to harvest {resource.name}");
+                                success = true;
+                            }
                         }
-                        ResourcesToGameObjects[commonElements[r]] = resource;
                     }
-                    //NewFollowTargetLastRefresh = Time.time;
-
-                    List<GameObject> sortedResources = SortResourcesByEase(ResourcesToGameObjects, PlayerNPC.transform.position, HasCurrentWeapon);
-                    /*foreach (GameObject s in sortedResources)
-                    {
-                        LogError($"sorted harvesting options: {s.name}");
-                    }*/
-
-                    if (sortedResources.Count > 0)
-                    {
-                        //GameObject go = GetClosestFromArray(resources, PlayerNPC.transform.position);
-                        GameObject go = sortedResources[0];
-                        __instance.SetFollowTarget(go);
-                        LogMessage($"{humanoidNPC.m_name} is going to harvest {go.name}");
-
-                        success = true;
-                        //break;
-                    }
-                    //}
 
                     if (!success)
                     {
@@ -2237,25 +2299,30 @@ namespace ValheimAIModLoader
             else if (instance.NPCCurrentCommand == NPCCommand.CommandType.CombatAttack)
             {
                 //if (__instance.m_follow == null || !__instance.m_follow.HasAnyComponent("Character", "Humanoid", "BaseAI", "MonsterAI", "AnimalAI"))
-                if (!__instance.GetTargetCreature())
+                if (__instance.m_targetCreature == null || (!IsStringStartingWith(CurrentEnemyName, __instance.m_targetCreature.name, true) && !enemyList.Contains(__instance.m_targetCreature)))
                 {
                     Character character = FindClosestEnemy(__instance.gameObject, CurrentEnemyName);
                     if (character)
                     {
-                        __instance.SetFollowTarget(null);
+                        //__instance.SetFollowTarget(null);
+                        //__instance.SetTarget(character);
+                        __instance.m_targetCreature = null;
                         __instance.SetTarget(character);
-                        LogError($"CommandType.CombatAttack new target {character.name} set ");
+                        __instance.m_updateTargetTimer = 1000000f;
+                        //__instance.m_timeSinceAttacking = 0;
+                        LogMessage($"CombatAttack new target set: {CleanKey(character.name)}");
                     }
                     else
                     {
-                        LogError("CommandType.CombatAttack, findclosestenemy returned null");
+                        instance.commandManager.RemoveCommand(0);
+                        LogError("CommandType.CombatAttack, findclosestenemy returned null. Probably no more targets in the area. Removing combat command");
                     }
                 }
             }
 
             else if (instance.NPCCurrentCommand == NPCCommand.CommandType.FollowPlayer)
             {
-                if (__instance.m_follow && __instance.m_follow != Player.m_localPlayer.gameObject && !__instance.m_follow.HasAnyComponent("ItemDrop", "Pickable") && !enemyList.Contains(__instance.m_follow))
+                if (__instance.m_follow && __instance.m_follow != Player.m_localPlayer.gameObject && !__instance.m_follow.HasAnyComponent("ItemDrop", "Pickable") && (enemyList.Count == 0))
                 {
                     __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
                     LogMessage("Following player again ");
@@ -2267,8 +2334,12 @@ namespace ValheimAIModLoader
                 }
             }
 
+
+
             if (instance.NPCCurrentMode == NPCMode.Passive)
             {
+                //LogError("Passive");
+
                 //SetMonsterAIAggravated(__instance, false);
                 __instance.m_aggravatable = false;
                 __instance.m_alerted = false;
@@ -2280,47 +2351,22 @@ namespace ValheimAIModLoader
             }
             else if (instance.NPCCurrentMode == NPCMode.Defensive)
             {
-                EnemyListNullCheck();
-
-                if (enemyList.Count > 0)
-                {
-                    __instance.m_viewRange = 80;
-                    if (__instance.m_targetCreature == null || !enemyList.Contains(__instance.m_targetCreature.gameObject))
-                    {
-                        enemyList.OrderBy(go => go.transform.position.DistanceTo(__instance.transform.position));
-
-                        //Character character = enemyList[0].GetComponent<Character>();
-                        Character character = GetCharacterFromGameObject(enemyList[0]);
-
-                        SetMonsterAIAggravated(__instance, true);
-                        __instance.SetAggravated(true, BaseAI.AggravatedReason.Damage);
-                        __instance.SetAlerted(true);
-                        __instance.SetHuntPlayer(true);
-                        if (character != null)
-                        {
-                            //__instance.SetFollowTarget(null);
-                            __instance.SetTarget(character);
-                            LogError($"New enemy in defensive mode: {character.name}");
-                        }
-                        else
-                        {
-                            //__instance.SetFollowTarget(enemyList[0]);
-                            LogError("Defensive mode enemy from enemyList wasn't a character");
-                        }
-                        //LogMessage($"New enemy in defensive mode: {__instance.m_follow.name}");
-                    }
-
-                }
-                else if (instance.NPCCurrentCommand == NPCCommand.CommandType.CombatAttack)
+                if (instance.NPCCurrentCommand == NPCCommand.CommandType.CombatAttack)
                 {
                     //SetMonsterAIAggravated(__instance, true);
+                    //__instance.m_aggravatable = true;
+                    //__instance.m_alerted = true;
+                    //__instance.m_aggravated = true;
+                    //__instance.SetHuntPlayer(true);
+
+                    __instance.m_alerted = false;
                     __instance.m_aggravatable = true;
-                    __instance.m_alerted = true;
-                    __instance.m_aggravated = true;
                     __instance.SetHuntPlayer(true);
+
+
                     __instance.m_viewRange = 80;
                 }
-                else
+                /*else
                 {
                     //SetMonsterAIAggravated(__instance, false);
                     __instance.m_aggravatable = false;
@@ -2329,7 +2375,7 @@ namespace ValheimAIModLoader
                     __instance.m_targetCreature = null;
                     __instance.SetHuntPlayer(false);
                     __instance.m_viewRange = 0;
-                }
+                }*/
             }
             else if (instance.NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
             {
@@ -2339,6 +2385,7 @@ namespace ValheimAIModLoader
                 __instance.SetHuntPlayer(true);
                 __instance.m_viewRange = 80;
             }
+
 
 
             return true;
@@ -2383,9 +2430,7 @@ namespace ValheimAIModLoader
             if (enemyList.Count == 0)
                 return;
 
-            enemyList = enemyList
-                .Where(go => go != null)
-                .ToList();
+            enemyList = enemyList;
         }
 
         private static bool IsRangedWeapon(ItemDrop.ItemData item)
@@ -2414,16 +2459,16 @@ namespace ValheimAIModLoader
 
             if (arrows.Any())
             {
-                Debug.Log($"Player has {arrows.Count} types of arrows:");
+                //Debug.Log($"Player has {arrows.Count} types of arrows:");
                 foreach (var arrow in arrows)
                 {
-                    Debug.Log($"- {arrow.m_shared.m_name}: {arrow.m_stack}");
+                    //Debug.Log($"- {arrow.m_shared.m_name}: {arrow.m_stack}");
                 }
                 return arrows.Count;
             }
             else
             {
-                Debug.Log("Player has no arrows!");
+                //Debug.Log("Player has no arrows!");
                 return 0;
             }
         }
@@ -2434,6 +2479,151 @@ namespace ValheimAIModLoader
         }
 
         private static HitData NPCLastHitData = null;
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(BaseAI), "FindRandomStaticTarget")]
+        private static bool BaseAI_FindRandomStaticTarget_Prefix(BaseAI __instance, float maxDistance, StaticTarget __result)
+        {
+            if (!IsStringEqual(__instance.name, NPCPrefabName, true)) return true;
+
+            __result = null;
+            return false;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(BaseAI), "FindClosestStaticPriorityTarget")]
+        private static bool BaseAI_FindClosestStaticPriorityTarget_Prefix(BaseAI __instance, StaticTarget __result)
+        {
+            if (!IsStringEqual(__instance.name, NPCPrefabName, true)) return true;
+
+            __result = null;
+            return false;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Humanoid), "EquipBestWeapon")]
+        private static bool Humanoid_EquipBestWeapon_Prefix(Humanoid __instance, Character targetCreature, StaticTarget targetStatic, Character hurtFriend, Character friend)
+        {
+            List<ItemDrop.ItemData> allItems = __instance.m_inventory.GetAllItems();
+            if (allItems.Count == 0 || __instance.InAttack())
+            {
+                return false;
+            }
+            float num = 0f;
+            if ((bool)targetCreature)
+            {
+                float radius = targetCreature.GetRadius();
+                num = Vector3.Distance(targetCreature.transform.position, __instance.transform.position) - radius;
+            }
+            else if ((bool)targetStatic)
+            {
+                num = Vector3.Distance(targetStatic.transform.position, __instance.transform.position);
+            }
+            float time = Time.time;
+            __instance.IsFlying();
+            __instance.IsSwimming();
+            Humanoid.optimalWeapons.Clear();
+            Humanoid.outofRangeWeapons.Clear();
+            Humanoid.allWeapons.Clear();
+            foreach (ItemDrop.ItemData item in allItems)
+            {
+                if (!item.IsWeapon() || !__instance.m_baseAI.CanUseAttack(item) || (IsRangedWeapon(item) && CheckArrows(__instance.m_inventory) == 0))
+                {
+                    continue;
+                }
+                if (item.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.Enemy)
+                {
+                    if (num < item.m_shared.m_aiAttackRangeMin)
+                    {
+                        continue;
+                    }
+                    Humanoid.allWeapons.Add(item);
+                    if ((targetCreature == null && targetStatic == null) || time - item.m_lastAttackTime < item.m_shared.m_aiAttackInterval)
+                    {
+                        continue;
+                    }
+                    if (num > item.m_shared.m_aiAttackRange)
+                    {
+                        Humanoid.outofRangeWeapons.Add(item);
+                        continue;
+                    }
+                    if (item.m_shared.m_aiPrioritized)
+                    {
+                        __instance.EquipItem(item);
+                        return false;
+                    }
+                    Humanoid.optimalWeapons.Add(item);
+                }
+                else if (item.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.FriendHurt)
+                {
+                    if (!(hurtFriend == null) && !(time - item.m_lastAttackTime < item.m_shared.m_aiAttackInterval))
+                    {
+                        if (item.m_shared.m_aiPrioritized)
+                        {
+                            __instance.EquipItem(item);
+                            return false;
+                        }
+                        Humanoid.optimalWeapons.Add(item);
+                    }
+                }
+                else if (item.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.Friend && !(friend == null) && !(time - item.m_lastAttackTime < item.m_shared.m_aiAttackInterval))
+                {
+                    if (item.m_shared.m_aiPrioritized)
+                    {
+                        __instance.EquipItem(item);
+                        return false;
+                    }
+                    Humanoid.optimalWeapons.Add(item);
+                }
+            }
+            if (Humanoid.optimalWeapons.Count > 0)
+            {
+                foreach (ItemDrop.ItemData optimalWeapon in Humanoid.optimalWeapons)
+                {
+                    if (optimalWeapon.m_shared.m_aiPrioritized)
+                    {
+                        __instance.EquipItem(optimalWeapon);
+                        return false;
+                    }
+                }
+                __instance.EquipItem(Humanoid.optimalWeapons[UnityEngine.Random.Range(0, Humanoid.optimalWeapons.Count)]);
+            }
+            else if (Humanoid.outofRangeWeapons.Count > 0)
+            {
+                foreach (ItemDrop.ItemData outofRangeWeapon in Humanoid.outofRangeWeapons)
+                {
+                    if (outofRangeWeapon.m_shared.m_aiPrioritized)
+                    {
+                        __instance.EquipItem(outofRangeWeapon);
+                        return false;
+                    }
+                }
+                __instance.EquipItem(Humanoid.outofRangeWeapons[UnityEngine.Random.Range(0, Humanoid.outofRangeWeapons.Count)]);
+            }
+            else if (Humanoid.allWeapons.Count > 0)
+            {
+                foreach (ItemDrop.ItemData allWeapon in Humanoid.allWeapons)
+                {
+                    if (allWeapon.m_shared.m_aiPrioritized)
+                    {
+                        __instance.EquipItem(allWeapon);
+                        return false;
+                    }
+                }
+                __instance.EquipItem(Humanoid.allWeapons[UnityEngine.Random.Range(0, Humanoid.allWeapons.Count)]);
+            }
+            else
+            {
+                ItemDrop.ItemData currentWeapon = __instance.GetCurrentWeapon();
+                __instance.UnequipItem(currentWeapon, triggerEquipEffects: false);
+            }
+
+
+            return false;
+        }
+
+
+
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(HumanoidNPC), "CustomFixedUpdate")]
@@ -2472,7 +2662,7 @@ namespace ValheimAIModLoader
                 followTargetCharacter = followTarget.gameObject.GetComponent<Character>();
 
 
-            if (monsterAIcomponent.m_targetCreature && IsRangedWeapon(__instance.GetCurrentWeapon()))
+            if (monsterAIcomponent.m_targetCreature && IsRangedWeapon(__instance.GetCurrentWeapon()) && CheckArrows(__instance.m_inventory) > 0)
                 return;
 
 
@@ -2490,7 +2680,7 @@ namespace ValheimAIModLoader
                 if (instance.NPCCurrentCommand == NPCCommand.CommandType.HarvestResource &&
                     followTarget.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5") &&
                             (Time.time - NewFollowTargetLastRefresh > MaxChaseTimeForOneFollowTarget && NewFollowTargetLastRefresh != 0) || 
-                            (Time.time - __instance.LastMovedAtTime > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 5))
+                            (Time.time - __instance.LastMovedAtTime > MaxChaseTimeForOneFollowTarget && distanceBetweenTargetAndSelf < 8))
                 {
                     // time for new follow target
                     LogMessage($"NPC seems to be stuck for >20s while trying to harvest {followTarget.gameObject.name}, evading task!");
@@ -2511,15 +2701,17 @@ namespace ValheimAIModLoader
                     else if (followTarget.HasAnyComponent("TreeBase"))
                         MinDistanceAllowed = 1.25f;
 
-                    if (distanceBetweenTargetAndSelf < instance.FollowUntilDistance + MinDistanceAllowed)
-                    //if (PerformRaycast(__instance) == followTarget.gameObject)
+                    if (distanceBetweenTargetAndSelf < instance.FollowUntilDistance + MinDistanceAllowed + 6)
                     {
                         if (NewFollowTargetLastRefresh == 0)
                         {
                             NewFollowTargetLastRefresh = Time.time;
                             //LogError($"NewFollowTargetLastRefresh set to {Time.time}");
                         }
-
+                    }
+                    if (distanceBetweenTargetAndSelf < instance.FollowUntilDistance + MinDistanceAllowed)
+                    //if (PerformRaycast(__instance) == followTarget.gameObject)
+                    {
                         if (followTarget.HasAnyComponent("ItemDrop"))
                         {
                             instance.PickupItemDrop(__instance, monsterAIcomponent);
@@ -3405,16 +3597,10 @@ namespace ValheimAIModLoader
         {
             if (__instance == Player.m_localPlayer)
             {
-                GameObject[] allNpcs = instance.FindPlayerNPCs();
-                foreach (GameObject npc in allNpcs)
+                FindPlayerNPC();
+                if (PlayerNPC)
                 {
-                    MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                    ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-
-                    if (humanoidComponent != null)
-                    {
-                        humanoidComponent.HideHandItems();
-                    }
+                    humanoid_PlayerNPC.HideHandItems();
                 }
             }
         }
@@ -3426,16 +3612,10 @@ namespace ValheimAIModLoader
         {
             if (__instance == Player.m_localPlayer)
             {
-                GameObject[] allNpcs = instance.FindPlayerNPCs();
-                foreach (GameObject npc in allNpcs)
+                FindPlayerNPC();
+                if (PlayerNPC)
                 {
-                    MonsterAI monsterAIcomponent = npc.GetComponent<MonsterAI>();
-                    ValheimAIModLoader.HumanoidNPC humanoidComponent = npc.GetComponent<ValheimAIModLoader.HumanoidNPC>();
-
-                    if (humanoidComponent != null)
-                    {
-                        humanoidComponent.ShowHandItems();
-                    }
+                    humanoid_PlayerNPC.ShowHandItems();
                 }
             }
         }
@@ -3846,8 +4026,8 @@ namespace ValheimAIModLoader
         Talker NPCTalker = null;
         private void SpawnCompanion()
         {
-            GameObject[] npcs = FindPlayerNPCs();
-            if (npcs.Length > 0)
+            FindPlayerNPC();
+            if (PlayerNPC)
             {
                 LogError("Spawning more than one NPC is disabled");
                 return;
@@ -3899,9 +4079,21 @@ namespace ValheimAIModLoader
             monsterAIcomp.MakeTame();
             monsterAIcomp.SetFollowTarget(localPlayer.gameObject);
             monsterAIcomp.m_viewRange = 80f;
+            monsterAIcomp.m_alertRange = 800f;
+            //monsterAIcomp.m_updateTargetTimer = 1000000f;
+            monsterAIcomp.m_maxChaseDistance = 500f;
             monsterAIcomp.m_fleeIfLowHealth = 0;
             monsterAIcomp.m_fleeIfNotAlerted = false;
             monsterAIcomp.m_fleeIfHurtWhenTargetCantBeReached = false;
+
+
+            // passive stuf
+            monsterAIcomp.m_aggravatable = false;
+            monsterAIcomp.m_alerted = false;
+            monsterAIcomp.m_aggravated = false;
+            monsterAIcomp.m_targetCreature = null;
+            monsterAIcomp.SetHuntPlayer(false);
+            monsterAIcomp.m_viewRange = 0;
 
             instance.NPCCurrentMode = NPCMode.Defensive;
 
@@ -4077,11 +4269,17 @@ namespace ValheimAIModLoader
                 if (character)
                 {
                     monsterAIcomponent.SetFollowTarget(null);
+                    //monsterAIcomponent.SetTarget(character);
+                    //monsterAIcomponent.m_targetCreature = character;
+
+                    monsterAIcomponent.m_targetCreature = null;
                     monsterAIcomponent.SetTarget(character);
+                    monsterAIcomponent.m_updateTargetTimer = 1000000f;
                 }
                 else
                 {
                     LogError("Combat_StartAttacking, findclosestenemy returned null");
+                    return;
                 }
             }
             else
@@ -4113,9 +4311,9 @@ namespace ValheimAIModLoader
             }*/
             
 
-            monsterAIcomponent.m_alerted = false;
-            monsterAIcomponent.m_aggravatable = true;
-            monsterAIcomponent.SetHuntPlayer(true);
+            //monsterAIcomponent.m_alerted = false;
+            //monsterAIcomponent.m_aggravatable = true;
+            //monsterAIcomponent.SetHuntPlayer(true);
 
             if (NPCDialogueMessage != "")
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -4380,7 +4578,7 @@ namespace ValheimAIModLoader
                 instance.StopRecording();
             }
 
-            //GameObject[] allNpcs = FindPlayerNPCs();
+            //GameObject[] allNpcs = FindPlayerNPC();
             if (PlayerNPC)
             {
                 MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
@@ -4847,7 +5045,7 @@ namespace ValheimAIModLoader
                                     {
                                         ResourceName = parameters[x];
                                     }
-                                    else if (int.TryParse(parameters[x], out int quantity))
+                                    else if (int.TryParse(parameters[x].Trim('\''), out int quantity))
                                     {
                                         ResourceQuantity = quantity;
                                     }
@@ -4908,17 +5106,17 @@ namespace ValheimAIModLoader
                                     if (x == 0)
                                     {
                                         TargetName = parameters[x];
-                                        //Debug.Log($"target name {x} {parameters[x]}");
+                                        //LogError($"target name {x} {parameters[x]}");
                                     }
-                                    else if (int.TryParse(parameters[x], out int quantity))
+                                    else if (int.TryParse(parameters[x].Trim('\''), out int quantity))
                                     {
                                         TargetQty = quantity;
-                                        //Debug.Log($"target qty {x} {parameters[x]}");
+                                        //LogError($"target qty {x} {parameters[x]}");
                                     }
                                     else
                                     {
                                         WeaponName = parameters[x];
-                                        //Debug.Log($"weapon name {x} {parameters[x]}");
+                                        //LogError($"weapon name {x} {parameters[x]}");
                                     }
                                 }
 
@@ -5160,45 +5358,52 @@ namespace ValheimAIModLoader
             return GetCharacterFromGameObject(res);
         }
 
-        private GameObject[] FindPlayerNPCs()
+        private static GameObject FindPlayerNPC()
         {
-            if (Time.time - AllPlayerNPCInstancesLastRefresh < 1f)
-            {
-                return instance.AllPlayerNPCInstances;
-            }
-            instance.AllPlayerNPCInstances = GameObject.FindObjectsOfType<GameObject>(true)
+            HumanoidNPC[] humanoidNPCs = GameObject.FindObjectsOfType<HumanoidNPC>(true)
                     .Where(go => go != null && go.name.Contains(NPCPrefabName))
                     .ToArray();
-            AllPlayerNPCInstancesLastRefresh = Time.time;
-            if (instance.AllPlayerNPCInstances.Length > 0)
+
+            if (humanoidNPCs.Length > 0)
             {
-                PlayerNPC = instance.AllPlayerNPCInstances[0];
+                PlayerNPC = humanoidNPCs[0].gameObject;
                 humanoid_PlayerNPC = PlayerNPC.GetComponent<HumanoidNPC>();
+                monster_PlayerNPC = PlayerNPC.GetComponent<MonsterAI>();
             }
-            if (instance.AllPlayerNPCInstances.Length > 1)
+            if (humanoidNPCs.Length > 1)
             {
-                for (int i = 0; i < instance.AllPlayerNPCInstances.Length; i++)
+                for (int i = 0; i < humanoidNPCs.Length; i++)
                 {
-                    UnityEngine.Object.Destroy(instance.AllPlayerNPCInstances[i]);
+                    Destroy(humanoidNPCs[i]);
                 }
             }
-            return instance.AllPlayerNPCInstances;
+            return PlayerNPC;
         }
 
-        static int AllGOInstancesRefreshRate = 4;
+        static int AllGOInstancesRefreshRate = 3;
         private static bool CanAccessAllGameInstances()
         {
-            if (Time.time > instance.AllGOInstancesLastRefresh + AllGOInstancesRefreshRate || instance.AllGOInstancesLastRefresh == 0)
+            if (Time.time > AllGOInstancesLastRefresh + AllGOInstancesRefreshRate || AllGOInstancesLastRefresh == 0)
             {
                 RefreshAllGameObjectInstances();
             }
 
-            if (instance.AllGOInstances.Length > 0)
+            if (AllGOInstances.Length > 0)
             {
                 return true;
             }
 
             return false;
+        }
+
+        private static GameObject[] GetAllGameObjectInstances()
+        {
+            if (CanAccessAllGameInstances())
+            {
+                return AllGOInstances;
+            }
+
+            return null;
         }
 
         private static void RefreshAllGameObjectInstances()
@@ -5211,7 +5416,7 @@ namespace ValheimAIModLoader
 
             Vector3 p = PlayerNPC != null ? PlayerNPC.transform.position : Player.m_localPlayer.transform.position;
 
-            instance.AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
+            AllGOInstances = GameObject.FindObjectsOfType<GameObject>(false)
                     .Where(go => go != null && 
                     go.transform.position.DistanceTo(p) < 300 && 
                     !blacklistedItems.Contains(go) &&
@@ -5219,16 +5424,16 @@ namespace ValheimAIModLoader
                     go.HasAnyComponent("ItemDrop", "CharacterDrop", "DropOnDestroyed", "Pickable", "Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5")))
                     .ToArray();
                     //.ToList();
-            instance.AllGOInstancesLastRefresh = Time.time;
+            AllGOInstancesLastRefresh = Time.time;
 
-            LogInfo($"Refresh nearby objects, len {instance.AllGOInstances.Count()}, 300 units from {(PlayerNPC != null ? "thrall" : "player")}");
+            LogInfo($"Refresh nearby objects, len {AllGOInstances.Count()}, 300 units from {(PlayerNPC != null ? "thrall" : "player")}");
 
             RefreshPickables();
         }
 
         private static void RefreshPickables()
         {
-            instance.AllPickableInstances = instance.AllGOInstances.Where(go => go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")).ToList();
+            instance.AllPickableInstances = AllGOInstances.Where(go => go.HasAnyComponent("Pickable") || go.HasAnyComponent("ItemDrop")).ToList();
         }
 
         private static GameObject FindClosestPickableResource(GameObject character, Vector3 p_position, float radius)
@@ -5256,7 +5461,7 @@ namespace ValheimAIModLoader
 
             if (CanAccessAllGameInstances())
             {
-                return instance.AllGOInstances
+                return AllGOInstances
                     //.Where(go => go.name.Contains(ResourceName) && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                     //.Where(go => go != null && CleanKey(go.name.ToLower()) == ResourceName.ToLower() && go.HasAnyComponent("Pickable", "Destructible", "TreeBase", "ItemDrop"))
                     .Where(go => go != null && IsStringEqual(go.name, ResourceName, true) && (UnderwaterAllowed || !IsUnderwater(go.transform.position) || go.HasAnyComponent("ItemDrop", "Pickable")))
@@ -5290,7 +5495,7 @@ namespace ValheimAIModLoader
             {
                 instance.LastFindClosestItemDropTime = Time.time;
 
-                GameObject[] allItemDrops = instance.AllGOInstances.Where(go => go != null && go.HasAnyComponent("ItemDrop"))
+                GameObject[] allItemDrops = AllGOInstances.Where(go => go != null && go.HasAnyComponent("ItemDrop"))
                     .OrderBy(t => Vector3.Distance(character.transform.position, t.transform.position))
                     .ToArray();
                 if (allItemDrops.Length > 0)
@@ -5309,7 +5514,7 @@ namespace ValheimAIModLoader
         {
             if (CanAccessAllGameInstances())
             {
-                return instance.AllGOInstances
+                return AllGOInstances
                     .OrderBy(t => Vector3.Distance(go.transform.position, t.transform.position))
                     .FirstOrDefault();
             }
@@ -5388,14 +5593,12 @@ namespace ValheimAIModLoader
                     nearbyResourcesDistance[key] = distance;
             }
 
-            RefreshAllGameObjectInstances();
-
-            /*if (instance.AllGOInstances.Length == 0)
+            /*if (AllGOInstances.Length == 0)
             {
                 
             }*/
 
-            foreach (GameObject co in instance.AllGOInstances)
+            foreach (GameObject co in GetAllGameObjectInstances())
                 if (co != null)
                     ProcessResource(co, co.name);
 
