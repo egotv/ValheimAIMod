@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using UnityEngine;
@@ -71,29 +69,11 @@ namespace ValheimAIModLoader
         private static readonly int s_animatorTagCrouch = ZSyncAnimation.GetHash("crouch");
 
         public Vector3 LastPosition;
-        public float LastPositionDelta;
-
-        //public ValheimAIModLoader.NPCMode eNPCMode;
-        //public NPCCommand.CommandType CurrentCommand;
+        public float LastMovedAtTime;
 
         public Vector3 patrol_position;
-
         public Minimap.PinData npcPinData;
-
         public Container inventoryContainer;
-
-
-        /*protected override void Start()
-        {
-            Debug.Log("HumanoidNPC Start");
-        }*/
-
-        // Update is called once per frame
-        /*void Update()
-        {
-            //Debug.Log("HumanoidNPC");
-            UpdateCrouch(Time.deltaTime);
-        }*/
 
         public override void CustomFixedUpdate(float fixedDeltaTime)
         {
@@ -105,7 +85,7 @@ namespace ValheimAIModLoader
             UpdateCrouch(fixedDeltaTime);
             //AutoPickup(fixedDeltaTime);
 
-            UpdateLastPosition(fixedDeltaTime);
+            UpdateLastPosition();
             UpdatePin();
 
             //Debug.Log(IsCrouching());
@@ -123,8 +103,6 @@ namespace ValheimAIModLoader
                 return;
             }
             m_timeSinceDeath += dt;
-            //UpdateModifiers();
-            //UpdateFood(dt, forceUpdate: false);
             bool flag = this.IsEncumbered();
             float maxStamina = m_maxStamina;
             float num = 1f;
@@ -157,17 +135,7 @@ namespace ValheimAIModLoader
             {
                 num3 = 0f;
             }
-            /*float num4 = (m_eiterRegen + (1f - m_eitr / maxEitr) * m_eiterRegen) * num3;
-            float eitrMultiplier = 1f;
-            m_humanoid.m_seman.ModifyEitrRegen(ref eitrMultiplier);
-            eitrMultiplier += GetEquipmentEitrRegenModifier();
-            num4 *= eitrMultiplier;
-            m_eitrRegenTimer -= dt;
-            if (m_eitr < maxEitr && m_eitrRegenTimer <= 0f)
-            {
-                m_eitr = Mathf.Min(maxEitr, m_eitr + num4 * dt);
-            }*/
-            //m_humanoid.m_nview.GetZDO().Set(ZDOVars.s_eitr, m_eitr);
+
             if (flag)
             {
                 if (this.m_moveDir.magnitude > 0.1f)
@@ -175,7 +143,6 @@ namespace ValheimAIModLoader
                     UseStamina(m_encumberedStaminaDrain * dt);
                 }
                 this.m_seman.AddStatusEffect(SEMan.s_statusEffectEncumbered);
-                //ShowTutorial("encumbered");
             }
             /*else if (m_humanoid.CheckRun(m_humanoid.m_moveDir, dt))
             {
@@ -192,8 +159,7 @@ namespace ValheimAIModLoader
             else
             {
                 m_humanoid.m_seman.RemoveStatusEffect(SEMan.s_statusEffectSoftDeath);
-            }
-            UpdateEnvStatusEffects(dt);*/
+            }*/
 
             UpdateEnvStatusEffects(dt);
         }
@@ -294,16 +260,12 @@ namespace ValheimAIModLoader
             npcPinData = Minimap.instance.AddPin(this.transform.position, Minimap.PinType.Player, m_name, false, false, 9990, "NPC");
         }
 
-        public void UpdateLastPosition(float fixedDeltaTime)
+        public void UpdateLastPosition()
         {
-            if (this.transform.position.DistanceTo(LastPosition) < .15f)
-            {
-                LastPositionDelta += fixedDeltaTime;
-            }
-            else
+            if (this.transform.position.DistanceTo(LastPosition) > .15f)
             {
                 LastPosition = this.transform.position;
-                LastPositionDelta = 0f;
+                LastMovedAtTime = Time.time;
             }
         }
 
@@ -315,8 +277,8 @@ namespace ValheimAIModLoader
         public override void Awake()
         {
             base.Awake();
-            m_autoPickupMask = LayerMask.GetMask("item");
 
+            m_autoPickupMask = LayerMask.GetMask("item");
             m_nview = GetComponent<ZNetView>();
 
             if (m_nview == null)
@@ -324,6 +286,8 @@ namespace ValheimAIModLoader
                 Debug.LogError("PersistentNPC: Missing ZNetView component");
                 return;
             }
+
+            Debug.Log($"m_autoPickupMask: {m_autoPickupMask}");
 
             // Set the persistent flag
             m_nview.m_persistent = true;
@@ -354,19 +318,6 @@ namespace ValheimAIModLoader
             // Check if the total amount is greater than or equal to the required amount
             return totalAmount >= requiredAmount;
         }
-
-        /*public void SetCurrentCommand(NPCCommand.CommandType NewCommand)
-        {
-            CurrentCommand = NewCommand;
-            if (NewCommand == NPCCommand.CommandType.PatrolArea)
-            {
-                patrol_position = transform.position;
-            }
-            else
-            {
-                patrol_position = Vector3.zero;
-            }
-        }*/
 
         public override bool IsCrouching()
         {
@@ -531,374 +482,6 @@ namespace ValheimAIModLoader
                     itemData.m_durability = Mathf.Max(0f, itemData.m_durability - num);
                 }
             }
-        }
-
-        /*
-         * 
-         * Auto Pickup System from Player
-         * 
-         */
-        private void AutoPickup(float dt)
-        {
-            if (IsTeleporting() || !m_enableAutoPickup)
-            {
-                return;
-            }
-            Vector3 vector = base.transform.position + Vector3.up;
-            Collider[] array = Physics.OverlapSphere(vector, m_autoPickupRange, m_autoPickupMask);
-            foreach (Collider collider in array)
-            {
-                if (!collider.attachedRigidbody)
-                {
-                    continue;
-                }
-                ItemDrop component = collider.attachedRigidbody.GetComponent<ItemDrop>();
-                FloatingTerrainDummy floatingTerrainDummy = null;
-                if (component == null && (bool)(floatingTerrainDummy = collider.attachedRigidbody.gameObject.GetComponent<FloatingTerrainDummy>()) && (bool)floatingTerrainDummy)
-                {
-                    component = floatingTerrainDummy.m_parent.gameObject.GetComponent<ItemDrop>();
-                }
-                if (component == null || !component.m_autoPickup || HaveUniqueKey(component.m_itemData.m_shared.m_name) || !component.GetComponent<ZNetView>().IsValid())
-                {
-                    continue;
-                }
-                //Debug.Log("autopickup itemdrop is near");
-                if (!component.CanPickup())
-                {
-                    Debug.Log("RequestOwn");
-                    component.RequestOwn();
-                }
-                else
-                {
-                    if (component.InTar())
-                    {
-                        Debug.Log("InTar");
-                        continue;
-                    }
-                    component.Load();
-                    if (!m_inventory.CanAddItem(component.m_itemData) || component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight())
-                    {
-                        Debug.Log("!CanAddItem");
-                        Debug.Log($"!m_inventory.CanAddItem(component.m_itemData) {!m_inventory.CanAddItem(component.m_itemData)}");
-                        Debug.Log($"component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight() {component.m_itemData.GetWeight() + m_inventory.GetTotalWeight() > GetMaxCarryWeight()}");
-                        continue;
-                    }
-                    float num = Vector3.Distance(component.transform.position, vector);
-                    if (num > m_autoPickupRange)
-                    {
-                        Debug.Log("num > m_autoPickupRange");
-                        continue;
-                    }
-                    if (num < 0.8f)
-                    {
-                        Debug.Log("Picking up " + component.name);
-                        Pickup(component.gameObject);
-
-                        if (component == null)
-                        {
-                            return;
-                        }
-                        if ((component.m_itemData.m_shared.m_icons == null || component.m_itemData.m_shared.m_icons.Length == 0 || component.m_itemData.m_variant >= component.m_itemData.m_shared.m_icons.Length))
-                        {
-                            return;
-                        }
-                        if (!component.CanPickup(true))
-                        {
-                            return;
-                        }
-                        if (m_inventory.ContainsItem(component.m_itemData))
-                        {
-                            return;
-                        }
-                        if (component.m_itemData.m_shared.m_questItem && HaveUniqueKey(component.m_itemData.m_shared.m_name))
-                        {
-                            Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name}");
-                            return;
-                        }
-                        int stack = component.m_itemData.m_stack;
-                        bool flag = m_inventory.AddItem(component.m_itemData);
-                        if (m_nview.GetZDO() == null)
-                        {
-                            UnityEngine.Object.Destroy(component.gameObject);
-                            return;
-                        }
-                        if (!flag)
-                        {
-                            Debug.Log($"NPC can't pickup item {component.GetHoverName()} {component.name} because no room");
-                            //Message(MessageHud.MessageType.Center, "$msg_noroom");
-                            return;
-                        }
-                        if (component.m_itemData.m_shared.m_questItem)
-                        {
-                            AddUniqueKey(component.m_itemData.m_shared.m_name);
-                        }
-                        ZNetScene.instance.Destroy(component.gameObject);
-                        if (flag && component.m_itemData.IsWeapon() && m_rightItem == null && m_hiddenRightItem == null && (m_leftItem == null || !m_leftItem.IsTwoHanded()) && (m_hiddenLeftItem == null || !m_hiddenLeftItem.IsTwoHanded()))
-                        {
-                            EquipItem(component.m_itemData);
-                        }
-                        m_pickupEffects.Create(base.transform.position, Quaternion.identity);
-
-
-                        //m_inventory.AddItem(component.m_itemData); // if pickup is not adding to inventory
-                        continue;
-                    }
-
-                    //Debug.Log("floatingTerrainDummy");
-                    Vector3 vector2 = Vector3.Normalize(vector - component.transform.position);
-                    float num2 = 15f;
-                    Vector3 vector3 = vector2 * num2 * dt;
-                    component.transform.position += vector3;
-                    if ((bool)floatingTerrainDummy)
-                    {
-                        floatingTerrainDummy.transform.position += vector3;
-                    }
-                }
-            }
-        }
-
-        /*
-         * 
-         * Food System from Player
-         * 
-         */
-        private bool CanEat(ItemDrop.ItemData item, bool showMessages)
-        {
-            foreach (Player.Food food in m_foods)
-            {
-                if (food.m_item.m_shared.m_name == item.m_shared.m_name)
-                {
-                    if (food.CanEatAgain())
-                    {
-                        return true;
-                    }
-                    //Message(MessageHud.MessageType.Center, Localization.instance.Localize("$msg_nomore", item.m_shared.m_name));
-                    return false;
-                }
-            }
-            foreach (Player.Food food2 in m_foods)
-            {
-                if (food2.CanEatAgain())
-                {
-                    return true;
-                }
-            }
-            if (m_foods.Count >= 3)
-            {
-                Message(MessageHud.MessageType.Center, "$msg_isfull");
-                return false;
-            }
-            return true;
-        }
-
-        private Player.Food GetMostDepletedFood()
-        {
-            Player.Food food = null;
-            foreach (Player.Food food2 in m_foods)
-            {
-                if (food2.CanEatAgain() && (food == null || food2.m_time < food.m_time))
-                {
-                    food = food2;
-                }
-            }
-            return food;
-        }
-
-        public void ClearFood()
-        {
-            m_foods.Clear();
-        }
-
-        public bool RemoveOneFood()
-        {
-            if (m_foods.Count == 0)
-            {
-                return false;
-            }
-            m_foods.RemoveAt(UnityEngine.Random.Range(0, m_foods.Count));
-            return true;
-        }
-
-        private bool EatFood(ItemDrop.ItemData item)
-        {
-            if (!CanEat(item, showMessages: false))
-            {
-                return false;
-            }
-            string text = "";
-            if (item.m_shared.m_food > 0f)
-            {
-                text = text + " +" + item.m_shared.m_food + " $item_food_health ";
-            }
-            if (item.m_shared.m_foodStamina > 0f)
-            {
-                text = text + " +" + item.m_shared.m_foodStamina + " $item_food_stamina ";
-            }
-            if (item.m_shared.m_foodEitr > 0f)
-            {
-                text = text + " +" + item.m_shared.m_foodEitr + " $item_food_eitr ";
-            }
-            //Message(MessageHud.MessageType.Center, text);
-            foreach (Player.Food food2 in m_foods)
-            {
-                if (food2.m_item.m_shared.m_name == item.m_shared.m_name)
-                {
-                    if (food2.CanEatAgain())
-                    {
-                        food2.m_time = item.m_shared.m_foodBurnTime;
-                        food2.m_health = item.m_shared.m_food;
-                        food2.m_stamina = item.m_shared.m_foodStamina;
-                        food2.m_eitr = item.m_shared.m_foodEitr;
-                        UpdateFood(0f, forceUpdate: true);
-                        return true;
-                    }
-                    return false;
-                }
-            }
-            if (m_foods.Count < 3)
-            {
-                Player.Food food = new Player.Food();
-                food.m_name = item.m_dropPrefab.name;
-                food.m_item = item;
-                food.m_time = item.m_shared.m_foodBurnTime;
-                food.m_health = item.m_shared.m_food;
-                food.m_stamina = item.m_shared.m_foodStamina;
-                food.m_eitr = item.m_shared.m_foodEitr;
-                m_foods.Add(food);
-                UpdateFood(0f, forceUpdate: true);
-                return true;
-            }
-            Player.Food mostDepletedFood = GetMostDepletedFood();
-            if (mostDepletedFood != null)
-            {
-                mostDepletedFood.m_name = item.m_dropPrefab.name;
-                mostDepletedFood.m_item = item;
-                mostDepletedFood.m_time = item.m_shared.m_foodBurnTime;
-                mostDepletedFood.m_health = item.m_shared.m_food;
-                mostDepletedFood.m_stamina = item.m_shared.m_foodStamina;
-                UpdateFood(0f, forceUpdate: true);
-                return true;
-            }
-            Game.instance.IncrementPlayerStat(PlayerStatType.FoodEaten);
-            return false;
-        }
-
-        private void UpdateFood(float dt, bool forceUpdate)
-        {
-            m_foodUpdateTimer += dt;
-            if (m_foodUpdateTimer >= 1f || forceUpdate)
-            {
-                m_foodUpdateTimer -= 1f;
-                foreach (Player.Food food in m_foods)
-                {
-                    food.m_time -= 1f;
-                    float f = Mathf.Clamp01(food.m_time / food.m_item.m_shared.m_foodBurnTime);
-                    f = Mathf.Pow(f, 0.3f);
-                    food.m_health = food.m_item.m_shared.m_food * f;
-                    food.m_stamina = food.m_item.m_shared.m_foodStamina * f;
-                    food.m_eitr = food.m_item.m_shared.m_foodEitr * f;
-                    if (food.m_time <= 0f)
-                    {
-                        Message(MessageHud.MessageType.Center, "$msg_food_done");
-                        m_foods.Remove(food);
-                        break;
-                    }
-                }
-                GetTotalFoodValue(out var hp, out var stamina, out var eitr);
-                SetMaxHealth(hp);
-                /*SetMaxStamina(stamina, flashBar: true);
-                SetMaxEitr(eitr, flashBar: true);*/
-                /*if (eitr > 0f)
-                {
-                    ShowTutorial("eitr");
-                }*/
-            }
-            if (forceUpdate)
-            {
-                return;
-            }
-            m_foodRegenTimer += dt;
-            if (!(m_foodRegenTimer >= 10f))
-            {
-                return;
-            }
-            m_foodRegenTimer = 0f;
-            float num = 0f;
-            foreach (Player.Food food2 in m_foods)
-            {
-                num += food2.m_item.m_shared.m_foodRegen;
-            }
-            if (num > 0f)
-            {
-                float regenMultiplier = 1f;
-                m_seman.ModifyHealthRegen(ref regenMultiplier);
-                num *= regenMultiplier;
-                Heal(num);
-            }
-        }
-
-        private void GetTotalFoodValue(out float hp, out float stamina, out float eitr)
-        {
-            hp = m_baseHP;
-            stamina = m_baseStamina;
-            eitr = 0f;
-            foreach (Player.Food food in m_foods)
-            {
-                hp += food.m_health;
-                stamina += food.m_stamina;
-                eitr += food.m_eitr;
-            }
-        }
-
-        public float GetBaseFoodHP()
-        {
-            return m_baseHP;
-        }
-
-        public List<Player.Food> GetFoods()
-        {
-            return m_foods;
-        }
-
-        public override bool CanConsumeItem(ItemDrop.ItemData item, bool checkWorldLevel = false)
-        {
-            /*if (!base.CanConsumeItem(item, checkWorldLevel))
-            {
-                return false;
-            }
-            if (item.m_shared.m_food > 0f && !CanEat(item, showMessages: true))
-            {
-                return false;
-            }
-            if ((bool)item.m_shared.m_consumeStatusEffect)
-            {
-                StatusEffect consumeStatusEffect = item.m_shared.m_consumeStatusEffect;
-                if (m_seman.HaveStatusEffect(item.m_shared.m_consumeStatusEffect.NameHash()) || m_seman.HaveStatusEffectCategory(consumeStatusEffect.m_category))
-                {
-                    Message(MessageHud.MessageType.Center, "$msg_cantconsume");
-                    return false;
-                }
-            }*/
-            return true;
-        }
-
-        public override bool ConsumeItem(Inventory inventory, ItemDrop.ItemData item, bool checkWorldLevel = false)
-        {
-            if (!CanConsumeItem(item, checkWorldLevel))
-            {
-                return false;
-            }
-            if ((bool)item.m_shared.m_consumeStatusEffect)
-            {
-                _ = item.m_shared.m_consumeStatusEffect;
-                m_seman.AddStatusEffect(item.m_shared.m_consumeStatusEffect, resetTime: true);
-            }
-            if (item.m_shared.m_food > 0f)
-            {
-                EatFood(item);
-            }
-            inventory.RemoveOneItem(item);
-            return true;
         }
     }
 }
