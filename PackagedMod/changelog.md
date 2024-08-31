@@ -3,7 +3,13 @@
 
 All notable changes to Thrall will be documented in this file.
 
-## [1.0.6] - 2024-08-29
+## [1.0.7] - 2024-08-31
+
+### Fixed
+
+- 	Resource database hotfix
+
+## [1.0.6] - 2024-08-30
 
 ### Fixed
 

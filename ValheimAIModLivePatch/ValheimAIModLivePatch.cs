@@ -119,7 +119,7 @@ namespace ValheimAIModLoader
         public bool patrol_harvest = false;
         public static string CurrentEnemyName = "Greyling";
 
-        public static string CurrentHarvestResourceName = "Beech";
+        public static string CurrentHarvestResourceName = "Wood";
         private static Dictionary<string, List<Resource>> ResourceNodes = new Dictionary<string, List<Resource>>();
         private static List<List<string>> ResourceNodesNamesOnly = new List<List<string>>();
         private static List<string> ResourceNodesOneArray = new List<string>();
@@ -456,8 +456,7 @@ namespace ValheimAIModLoader
             {
                 item.m_shared.m_aiAttackRange = 20;
                 //LogError("bow range set to 20");
-            }
-                
+            }  
         }
 
 
@@ -640,14 +639,15 @@ namespace ValheimAIModLoader
                     CheckMineRock5(prefab);
                 if (prefab.HasAnyComponent("Destructible"))
                     CheckDestructibles(prefab);
+                else if (prefab.HasAnyComponent("DropOnDestroyed"))
+                    CheckDropOnDestroyed(prefab);
 
                 if (prefab.HasAnyComponent("CharacterDrop"))
                     CheckCharacterDrop(prefab);
-                if (prefab.HasAnyComponent("DropOnDestroyed"))
-                    CheckDropOnDestroyed(prefab);
+                
             }
 
-            AddTreeRelationships();
+            AddResourceRelationships();
 
             //SortDatabase();
 
@@ -675,7 +675,7 @@ namespace ValheimAIModLoader
             }
         }*/
 
-        private void AddTreeRelationships()
+        private void AddResourceRelationships()
         {
             foreach (var kvp in resourceDatabase)
             {
@@ -684,7 +684,6 @@ namespace ValheimAIModLoader
                 // Add logs that drop sub logs that drop this resource
                 List<Resource> newLogs = new List<Resource>();
                 newLogs.AddRange(resources["TreeLog"]);
-
                 foreach (Resource r in resources["TreeLog"])
                 {
                     if (logToLogMap.ContainsKey(r.Name))
@@ -693,41 +692,39 @@ namespace ValheimAIModLoader
                         //Debug.Log($"adding {logToLogMap[r].Count} tree logs to {kvp.Key}");
                     }
                 }
-
                 resourceDatabase[kvp.Key]["TreeLog"] = newLogs.ToList();
+
                 newLogs.Clear();
                 newLogs.AddRange(resources["TreeBase"]);
-
                 // add trees that drop logs that drop this resource
                 foreach (Resource r in resources["TreeLog"])
                 {
                     if (logToTreeMap.ContainsKey(r.Name))
                     {
-
                         newLogs.AddRange(logToTreeMap[r.Name]);
+                    }
+                }
+                resourceDatabase[kvp.Key]["TreeBase"] = newLogs.ToList();
 
-
-                        /*resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[r]);
-                        //Debug.Log($"adding {logToTreeMap[r].Count} treebases to {kvp.Key}");
-
-                        foreach (string x in logToTreeMap[r])
-                        {
-                            if (logToTreeMap.ContainsKey(x))
-                            {
-                                resourceDatabase[kvp.Key]["TreeBase"].AddRange(logToTreeMap[x]);
-                                //Debug.Log($"adding {logToTreeMap[x].Count} treebases to {kvp.Key}");
-                            }
-                        }*/
+                newLogs.Clear();
+                newLogs.AddRange(resources["MineRock5"]);
+                foreach (Resource r in resources["MineRock5"])
+                {
+                    if (destructibleToSpawnMap.ContainsKey(r.Name))
+                    {
+                        newLogs.AddRange(destructibleToSpawnMap[r.Name]);
+                        //LogError($"newlogs destructibleToSpawnMap {destructibleToSpawnMap[r.Name]}");
                     }
                 }
 
-                resourceDatabase[kvp.Key]["TreeBase"] = newLogs.ToList();
+                resourceDatabase[kvp.Key]["MineRock5"] = newLogs.ToList();
             }
         }
 
 
         private Dictionary<string, List<Resource>> logToTreeMap = new Dictionary<string, List<Resource>>();
         private Dictionary<string, List<Resource>> logToLogMap = new Dictionary<string, List<Resource>>();
+        private Dictionary<string, List<Resource>> destructibleToSpawnMap = new Dictionary<string, List<Resource>>();
 
         private void CheckTreeBase(GameObject prefab)
         {
@@ -774,10 +771,10 @@ namespace ValheimAIModLoader
                         }
                     }
 
-                    int min = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMin * .3f) : 1;
-                    int max = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMax * .3f) : 1;
+                    int min = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMin * .6f) : 1;
+                    int max = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMax * .6f) : 1;
 
-                    Resource sourceResource = new Resource(prefab.name, min, max, treeBase.m_health);
+                    Resource sourceResource = new Resource(prefab.name, min, max, treeBase.m_health, treeBase.m_damageModifiers);
                     AddToDatabase(treeBase.m_logPrefab.name, "TreeBase", sourceResource);
 
                     if (!logToTreeMap.ContainsKey(treeBase.m_logPrefab.name))
@@ -813,10 +810,10 @@ namespace ValheimAIModLoader
                 if (treeBase.m_subLogPrefab != null)
                 {
                     TreeLog subLog = treeBase.m_subLogPrefab.GetComponent<TreeLog>();
-                    int min = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMin * .6f) : 1;
-                    int max = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMax * .6f) : 1;
+                    int min = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMin * .8f) : 1;
+                    int max = subLog ? (int)(subLog.m_dropWhenDestroyed.m_dropMax * .8f) : 1;
 
-                    Resource sourceResource = new Resource(prefab.name, min, max, treeBase.m_health);
+                    Resource sourceResource = new Resource(prefab.name, min, max, treeBase.m_health, treeBase.m_damages);
                     AddToDatabase(treeBase.m_subLogPrefab.name, "TreeLog", sourceResource);
 
                     if (!logToLogMap.ContainsKey(treeBase.m_subLogPrefab.name))
@@ -940,10 +937,36 @@ namespace ValheimAIModLoader
 
                 resourceQuantityMap[prefab.name] = 1;
 
+                int min = 1;
+                int max = 1;
+
+                DropOnDestroyed dropOnDestroyed = prefab.GetComponent<DropOnDestroyed>();
+                if (dropOnDestroyed != null && dropOnDestroyed.m_dropWhenDestroyed != null)
+                {
+                    foreach (DropTable.DropData drop in dropOnDestroyed.m_dropWhenDestroyed.m_drops)
+                    {
+                        resourceQuantityMap[prefab.name] = dropOnDestroyed.m_dropWhenDestroyed.m_dropMax;
+
+                        min = dropOnDestroyed.m_dropWhenDestroyed.m_dropMin;
+                        max = dropOnDestroyed.m_dropWhenDestroyed.m_dropMax;
+
+                        Resource sourceResource = new Resource(prefab.name, min, max, resourceHealthMap[prefab.name], destructible.m_damages);
+                        if (drop.m_item)
+                            AddToDatabase(drop.m_item.name, "Destructible", sourceResource);
+
+                        /*if (destructible.m_spawnWhenDestroyed)
+                            AddToDatabase(destructible.m_spawnWhenDestroyed.name, "Destructible", sourceResource);*/
+                    }
+                }
+
                 if (destructible.m_spawnWhenDestroyed != null)
                 {
-                    Resource sourceResource = new Resource(prefab.name, 1, 1, resourceHealthMap[prefab.name], destructible.m_damages);
-                    AddToDatabase(destructible.m_spawnWhenDestroyed.name, "Destructible", sourceResource);
+                    Resource sourceResource = new Resource(prefab.name, min, max, destructible.m_health, destructible.m_damages);
+                    //AddToDatabase(treeBase.m_logPrefab.name, "TreeBase", sourceResource);
+
+                    if (!destructibleToSpawnMap.ContainsKey(destructible.m_spawnWhenDestroyed.name))
+                        destructibleToSpawnMap[destructible.m_spawnWhenDestroyed.name] = new List<Resource>();
+                    destructibleToSpawnMap[destructible.m_spawnWhenDestroyed.name].Add(sourceResource);
                 }
             }
         }
@@ -1346,6 +1369,7 @@ namespace ValheimAIModLoader
             }
         }
 
+        private static bool FindPlayerNPCTimer = false;
 
         // PROCESS PLAYER INPUT
         [HarmonyPostfix]
@@ -1354,7 +1378,16 @@ namespace ValheimAIModLoader
         {
             //LogError($"__instance.m_autoPickupMask: {__instance.m_autoPickupMask}");
 
-            FindPlayerNPC();
+            if (!FindPlayerNPCTimer) 
+            {
+                instance.SetTimer(0.5f, () =>
+                {
+                    FindPlayerNPC();
+                    FindPlayerNPCTimer = false;
+                });
+
+                FindPlayerNPCTimer = true;
+            }
 
             if (EventSystem.current.currentSelectedGameObject != null && EventSystem.current.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>())
             {
@@ -1574,7 +1607,7 @@ namespace ValheimAIModLoader
             if (ZInput.GetKeyDown(KeyCode.P))
             {
 
-                var resourceName = "Wood";
+                var resourceName = CurrentHarvestResourceName;
                 var sources = instance.FindResourceSourcesRecursive(resourceName, __instance.GetCurrentWeapon());
 
                 sources = sources.OrderByDescending(s => s.Efficiency).ToList();
@@ -1929,11 +1962,11 @@ namespace ValheimAIModLoader
             return effectiveness;
         }
 
-        private float CalculateEfficiency(string category, int minAmount, int maxAmount, float health, float weaponEffectiveness, float distance)
+        private float CalculateEfficiency(string name, string category, int minAmount, int maxAmount, float health, float weaponEffectiveness, float distance)
         {
             float avgAmount = (minAmount + maxAmount) / 2f;
 
-            if (weaponEffectiveness == 0)
+            if (weaponEffectiveness <= 5)
             {
                 if (category == "ItemDrop" || category == "Pickable")
                     return avgAmount / (1 + distance / 50);
@@ -1951,11 +1984,16 @@ namespace ValheimAIModLoader
             {
                 baseEfficiency *= avgAmount;
             }
-            else if (category == "TreeLog" || category == "TreeBase" || category == "MineRock" || category == "MineRock5")
+            else if (category == "TreeLog" || category == "TreeBase" || category == "MineRock" || category == "MineRock5" || category == "Destructible")
             {
                 if (weaponEffectiveness <= 5)
                     return 0;
                 baseEfficiency *= avgAmount;
+
+                if (name.ToLower().Contains("log"))
+                    baseEfficiency *= 1.1f;
+                if (name.ToLower().Contains("half"))
+                    baseEfficiency *= 1.1f;
             }
             else if (category == "CharacterDrop")
             {
@@ -1985,8 +2023,8 @@ namespace ValheimAIModLoader
                         //float distance = Vector3.Distance(Player.m_localPlayer.transform.position, position);
                         
                         float weaponEffectiveness = CalculateWeaponEffectiveness(weapon, item.DamageModifiers);
-                        //LogError($"CalculateWeaponEffectiveness for {weapon.m_shared.m_name} {weaponEffectiveness}");
-                        float efficiency = CalculateEfficiency(category.Key, item.MinAmount, item.MaxAmount, item.Health, weaponEffectiveness, distance);
+                        //LogError($"CalculateWeaponEffectiveness for {weapon.m_shared.m_name} {weaponEffectiveness} {resource}");
+                        float efficiency = CalculateEfficiency(item.Name, category.Key, item.MinAmount, item.MaxAmount, item.Health, weaponEffectiveness, distance);
                         sources.Add((category.Key, item.Name, efficiency, distance, depth));
                     }
 
@@ -2777,13 +2815,13 @@ namespace ValheimAIModLoader
                             LogError($"Attacking resource {targetname}");
                         }
                     }
-                    /*else if (__instance.GetVelocity().magnitude < .2f && Time.time - __instance.LastMovedAtTime > 3f && !monsterAIcomponent.CanMove(__instance.transform.position - followTarget.transform.position, 1f, 1f))
+                    else if ((__instance.GetVelocity().magnitude < .2f && Time.time - __instance.LastMovedAtTime > 3f && !monsterAIcomponent.CanMove(__instance.transform.position - followTarget.transform.position, 1f, 1f)))// || CalculateXYDistance(followTarget.transform.position, __instance.transform.position) < 4)
                     {
                         monsterAIcomponent.LookAt(followTarget.transform.position);
                         __instance.StartAttack(followTargetCharacter ? followTargetCharacter : __instance, UnityEngine.Random.value > 0.5f);
 
                         // add random movement
-                    }*/
+                    }
                     /*else if (monsterAIcomponent.m_follow.HasAnyComponent("Character", "Humanoid") && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject && IsRangedWeapon(__instance.GetCurrentWeapon())
                         && distanceBetweenTargetAndSelf < 25)
                     {
@@ -2811,6 +2849,14 @@ namespace ValheimAIModLoader
                 }
             
             }
+        }
+
+
+        private static float CalculateXYDistance(Vector3 point1, Vector3 point2)
+        {
+            float deltaX = point2.x - point1.x;
+            float deltaY = point2.y - point1.y;
+            return Mathf.Sqrt(deltaX * deltaX + deltaY * deltaY);
         }
 
 
@@ -4446,7 +4492,7 @@ namespace ValheimAIModLoader
 
             CurrentWeaponName = ItemName;
 
-            //EquipItem(ItemName, humanoidnpc_component);
+            EquipItem(ItemName, humanoidnpc_component);
 
             //AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
@@ -5604,7 +5650,7 @@ namespace ValheimAIModLoader
 
             //Debug.Log($"Populated nearbyResources {nearbyResources.Count} {nearbyResourcesDistance.Count}");
 
-            /*foreach (var s in nearbyResources)
+            /*foreach (var s in nearbyResourcesDistance)
             {
                 LogError($"nearbyResource {s.Key} {s.Value}");
             }*/
