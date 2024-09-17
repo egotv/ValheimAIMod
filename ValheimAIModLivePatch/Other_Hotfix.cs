@@ -4,8 +4,6 @@ using Jotunn;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -497,6 +495,8 @@ namespace ValheimAIModLoader
             {
                 LogError("humanoidNpc_Component component not found on the instantiated ScriptNPC prefab!");
             }
+
+            //StartBrainPeriodicUpdateTimer();
         }
 
         protected virtual void OnNPCDeath()

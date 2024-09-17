@@ -4,8 +4,6 @@ using Jotunn;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 
@@ -1102,12 +1100,8 @@ namespace ValheimAIModLoader
                 AttackAction action = (AttackAction)NPCCurrentCommand;
                 if (IsStringEqual(__instance.gameObject.name, action.TargetName, true) && __instance.m_lastHit != null)
                 {
-                    Debug.LogError("target killed");
+                    Debug.LogError("target killed" + __instance.m_lastHit.ToString());
                     Character attacker = __instance.m_lastHit.GetAttacker();
-                    if (__instance.m_lastHit != null)
-                        Debug.LogError(__instance.m_lastHit.m_hitCollider.name);
-                    if (attacker)
-                        Debug.LogError(attacker.name);
                     if (attacker != null && attacker.gameObject != null && attacker.gameObject == PlayerNPC)
                     {
                         action.TargetQuantity = Math.Max(action.TargetQuantity - 1, 0);

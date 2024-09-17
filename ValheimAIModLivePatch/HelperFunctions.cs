@@ -1,15 +1,10 @@
 ﻿using BepInEx;
-using BepInEx.Configuration;
-using HarmonyLib;
 using Jotunn;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
+using SimpleJson;
 using UnityEngine;
 
 namespace ValheimAIModLoader
@@ -291,102 +286,7 @@ namespace ValheimAIModLoader
             return IndentJson(json);
         }
 
-        public static string GetJSONForBrain(GameObject character, bool includeRecordedAudio = true)
-        {
-            RefreshAllGameObjectInstances();
-
-            Dictionary<string, object> characterData = new Dictionary<string, object>();
-
-            HumanoidNPC humanoidNPC = character.GetComponent<HumanoidNPC>();
-            MonsterAI monsterAI = character.GetComponent<MonsterAI>();
-
-
-            var npcInventoryItems = new JsonArray();
-            //LogInfo("Thrall's inventory items:");
-            foreach (ItemDrop.ItemData item in humanoidNPC.m_inventory.m_inventory)
-            {
-                var itemData = new JsonObject
-                {
-                    ["name"] = item.m_dropPrefab ? item.m_dropPrefab.name : item.m_shared.m_name,
-                    ["amount"] = item.m_stack,
-                };
-
-                //LogInfo($"{item.m_shared.m_name} x{item.m_stack}");
-                npcInventoryItems.Add(itemData);
-            }
-
-            /*var playerInventoryItems = new JsonArray();
-            foreach (ItemDrop.ItemData item in Player.m_localPlayer.m_inventory.m_inventory)
-            {
-                var itemData = new JsonObject
-                {
-                    ["name"] = item.m_shared.m_name,
-                    ["amount"] = item.m_stack,
-                };
-                playerInventoryItems.Add(itemData);
-            }*/
-
-            var gameState = new JsonObject
-            {
-                ["Health"] = humanoidNPC.GetHealth(),
-                ["Stamina"] = humanoidNPC.m_stamina,
-                ["Inventory"] = npcInventoryItems,
-                //["PlayerInventory"] = playerInventoryItems,
-                //["position"] = humanoidNPC.transform.position.ToString(),
-
-
-                //["npcMode"] = humanoidNPC.CurrentCommand.ToString(),
-                ["NPC_Mode"] = NPCCurrentCommandType.ToString(),
-                ["Alerted"] = monsterAI.m_alerted,
-
-
-
-                ["IsCold"] = EnvMan.IsCold(),
-                ["IsFreezing"] = EnvMan.IsFreezing(),
-                ["IsWet"] = EnvMan.IsWet(),
-
-                ["currentTime"] = EnvMan.instance.GetDayFraction(),
-                ["currentWeather"] = EnvMan.instance.GetCurrentEnvironment().m_name,
-                ["currentBiome"] = Heightmap.FindBiome(character.transform.position).ToString(),
-
-                //["nearbyVegetationCount"] = instance.DetectVegetation(),
-                ["nearbyItems"] = instance.GetNearbyResourcesJSON(character),
-                ["nearbyEnemies"] = instance.GetNearbyEnemies(character),
-            };
-
-
-            var jsonObject = new JsonObject
-            {
-                //["player_id"] = humanoidNPC.GetZDOID().ToString(),
-                ["player_id"] = GetPlayerSteamID(),
-                ["agent_name"] = humanoidNPC.m_name,
-                ["game_state"] = gameState,
-                ["timestamp"] = Time.time,
-                ["personality"] = instance.npcPersonality,
-                ["voice"] = npcVoices[instance.npcVoice].ToLower(),
-                ["gender"] = instance.npcGender,
-            };
-
-            if (includeRecordedAudio)
-            {
-                jsonObject["player_instruction_audio_file_base64"] = instance.GetBase64FileData(instance.playerDialogueAudioPath);
-            }
-            else
-            {
-                jsonObject["player_instruction_text"] = GetChatInputText();
-            }
-            jsonObject["voice_or_text"] = includeRecordedAudio ? "voice" : "text";
-
-            string jsonString = SimpleJson.SimpleJson.SerializeObject(jsonObject);
-            jsonString = IndentJson(jsonString);
-
-            jsonObject["player_instruction_audio_file_base64"] = "";
-            string jsonString2 = SimpleJson.SimpleJson.SerializeObject(jsonObject);
-            jsonString2 = IndentJson(jsonString2);
-            LogInfo("Sending to brain: " + jsonString2);
-
-            return jsonString;
-        }
+        
 
         public static void SaveNPCData(GameObject character)
         {
