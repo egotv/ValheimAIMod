@@ -272,13 +272,14 @@ namespace ValheimAIModLoader
 
         private static void StartBrainPeriodicUpdateTimer()
         {
-            if (!PlayerNPC) return;
-
             instance.SetTimer(UnityEngine.Random.Range(5, 12), () =>
             {
-                if (!PlayerNPC) return;
                 Debug.LogError("BrainPeriodicUpdateTimer");
-                instance.BrainSendInstruction(PlayerNPC, false);
+                if (PlayerNPC && UnityEngine.Random.value > 0.5)
+                {
+                    instance.BrainSendInstruction(PlayerNPC, false);
+                }
+                
                 StartBrainPeriodicUpdateTimer();
             });
         }
@@ -335,7 +336,7 @@ namespace ValheimAIModLoader
 
         private void OnBrainSendInstructionResponse(object sender, UploadStringCompletedEventArgs e)
         {
-            if (e.Error == null)
+            if (e.Error == null && PlayerNPC)
             {
                 string responseJson = IndentJson(e.Result);
 
@@ -696,7 +697,7 @@ namespace ValheimAIModLoader
                 ["IsFreezing"] = EnvMan.IsFreezing(),
                 ["IsWet"] = EnvMan.IsWet(),
 
-                ["currentTime"] = EnvMan.instance.GetDayFraction(),
+                ["currentTime"] = EnvMan.instance.GetDayFraction() * 24,
                 ["currentWeather"] = EnvMan.instance.GetCurrentEnvironment().m_name,
                 ["currentBiome"] = Heightmap.FindBiome(character.transform.position).ToString(),
 
@@ -704,6 +705,13 @@ namespace ValheimAIModLoader
                 ["nearbyItems"] = instance.GetNearbyResourcesJSON(character),
                 ["nearbyEnemies"] = instance.GetNearbyEnemies(character),
             };
+
+            Character targetCreature = monsterAI.GetTargetCreature();
+
+            if (targetCreature)
+                gameState["targetCreature"] = targetCreature.m_name;
+            else if (monsterAI.m_follow)
+                gameState["followTarget"] = monsterAI.m_follow.name;
 
 
             var jsonObject = new JsonObject

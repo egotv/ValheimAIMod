@@ -15,12 +15,18 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(MonsterAI), "UpdateAI")]
         private static bool MonsterAI_UpdateAI_Prefix(MonsterAI __instance)
         {
+            //Debug.LogError("1");
+
             if (!Player.m_localPlayer || !__instance) return true;
 
             if (!__instance.name.Contains("HumanoidNPC")) return true;
 
+            //Debug.LogError("2");
+
 
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
+
+            //Debug.LogError("3");
 
 
             //LogError($"following {(__instance.m_follow ? __instance.m_follow.name : "null")} {(__instance.m_follow ? __instance.m_follow.transform.position.DistanceTo(__instance.transform.position).ToString() : "0")} target {(__instance.m_targetCreature ? __instance.m_targetCreature.name : "null")} {(__instance.m_targetCreature ? __instance.m_targetCreature.transform.position.DistanceTo(__instance.transform.position).ToString() : "0")}");
@@ -87,7 +93,7 @@ namespace ValheimAIModLoader
                 }
             }
 
-
+            //Debug.LogError("4");
 
             NPCCommand command = instance.commandManager.GetNextCommand();
 
