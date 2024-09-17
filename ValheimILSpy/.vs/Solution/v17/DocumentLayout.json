@@ -3,28 +3,40 @@
   "WorkspaceRootPath": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\uifunctions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\braininterface.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\other_hotfix.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\helperfunctions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\valheimaimodlivepatch.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\valheimaimodloader.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\humanoidnpc_hotfix.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\monsterai.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|solutionrelative:assembly_valheim\\monsterai.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\valheimdatabase.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D47E3316-6632-4C43-8296-A64AB0C0D703}|..\\ValheimAIModLoader\\ValheimAIModLoader.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodloader\\humanoidnpc.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\audiofunctions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|solutionrelative:assembly_valheim\\player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\definition.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}|..\\APIEncryptionTool\\APIEncryptionTool.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\apiencryptiontool\\apiencryptiontool.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\braincommands.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\itemdrop.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{ABF73AF4-3C8E-4AAA-B090-CAA30075B825}|assembly_valheim\\assembly_valheim.csproj|solutionrelative:assembly_valheim\\itemdrop.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\utilityfunctions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D0F5469C-3DB9-4874-86E8-35B484BF63D1}|..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.csproj|c:\\users\\hunda\\onedrive\\documents\\valheimmods\\valheimaimodlivepatch\\logger.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -34,97 +46,166 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 6,
+          "SelectedChildIndex": 2,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "HumanoidNPC.cs",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\HumanoidNPC.cs",
-              "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\HumanoidNPC.cs",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\HumanoidNPC.cs",
-              "RelativeToolTip": "..\\ValheimAIModLoader\\HumanoidNPC.cs",
-              "ViewState": "AQIAADYAAAAAAAAAAAAvwFIAAAAVAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-24T00:02:38.292Z",
-              "IsPinned": true
-            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "MonsterAI.cs",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\MonsterAI.cs",
-              "RelativeDocumentMoniker": "assembly_valheim\\MonsterAI.cs",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\MonsterAI.cs",
-              "RelativeToolTip": "assembly_valheim\\MonsterAI.cs",
-              "ViewState": "AQIAANcAAAAAAAAAAAApwAIBAAAnAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-29T23:35:25.911Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "ItemDrop.cs",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\ItemDrop.cs",
-              "RelativeDocumentMoniker": "assembly_valheim\\ItemDrop.cs",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\ItemDrop.cs",
-              "RelativeToolTip": "assembly_valheim\\ItemDrop.cs",
-              "ViewState": "AQIAAJwDAAAAAAAAAAAwwM8DAAARAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-29T18:04:52.497Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "Player.cs",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\Player.cs",
-              "RelativeDocumentMoniker": "assembly_valheim\\Player.cs",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimILSpy\\assembly_valheim\\Player.cs",
-              "RelativeToolTip": "assembly_valheim\\Player.cs",
-              "ViewState": "AQIAAFgXAAAAAAAAAAAgwGcXAAARAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-29T03:57:46.974Z"
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "ValheimAIModLoader.cs",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "RelativeDocumentMoniker": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "RelativeToolTip": "..\\ValheimAIModLoader\\ValheimAIModLoader.cs",
-              "ViewState": "AQIAACsAAAAAAAAAAAAAwBMAAAA1AAAA",
+              "Title": "BrainInterface.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\BrainInterface.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\BrainInterface.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\BrainInterface.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\BrainInterface.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAB0AAAAQAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-08-16T17:55:50.021Z",
+              "WhenOpened": "2024-09-17T21:02:22.128Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "ValheimAIModLivePatch.cs",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
-              "ViewState": "AQIAAPQVAAAAAAAAAAAAAAIWAAAAAAAA",
+              "Title": "UIFunctions.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\UIFunctions.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\UIFunctions.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\UIFunctions.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\UIFunctions.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAwAAAASAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-29T19:47:42.829Z",
+              "WhenOpened": "2024-09-17T20:58:39.394Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "AudioFunctions.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\AudioFunctions.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\AudioFunctions.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\AudioFunctions.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\AudioFunctions.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAACIAAAAfAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T20:50:41.622Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "BrainCommands.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\BrainCommands.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\BrainCommands.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\BrainCommands.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\BrainCommands.cs",
+              "ViewState": "AQIAAAcBAAAAAAAAAAAUwBsBAAAhAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T20:27:49.905Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "UtilityFunctions.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\UtilityFunctions.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\UtilityFunctions.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\UtilityFunctions.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\UtilityFunctions.cs",
+              "ViewState": "AQIAAGMAAAAAAAAAAAAQwJ4AAAAJAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T19:46:52.917Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Other_Hotfix.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\Other_Hotfix.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\Other_Hotfix.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\Other_Hotfix.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\Other_Hotfix.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABEAAAAvAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:51:07.083Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 5,
-              "Title": "APIEncryptionTool",
-              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\APIEncryptionTool.csproj",
-              "RelativeDocumentMoniker": "..\\APIEncryptionTool\\APIEncryptionTool.csproj",
-              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\APIEncryptionTool\\APIEncryptionTool.csproj",
-              "RelativeToolTip": "..\\APIEncryptionTool\\APIEncryptionTool.csproj",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2024-08-22T18:30:49.254Z"
+              "Title": "HumanoidNPC_Hotfix.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\HumanoidNPC_Hotfix.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\HumanoidNPC_Hotfix.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\HumanoidNPC_Hotfix.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\HumanoidNPC_Hotfix.cs",
+              "ViewState": "AQIAAGcFAAAAAAAAAIA8wF0GAAAQAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:49:04.543Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "ValheimDatabase.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimDatabase.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimDatabase.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimDatabase.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimDatabase.cs",
+              "ViewState": "AQIAAKIBAAAAAAAAAAAkwAQCAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:46:27.061Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "Logger.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\Logger.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\Logger.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\Logger.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\Logger.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAsAAABAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:41:50.379Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "Definition.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\Definition.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\Definition.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\Definition.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\Definition.cs",
+              "ViewState": "AQIAADYAAAAAAAAAAAAcwEwAAAAIAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:38:12.508Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "HelperFunctions.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\HelperFunctions.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\HelperFunctions.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\HelperFunctions.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\HelperFunctions.cs",
+              "ViewState": "AQIAAEEDAAAAAAAAAAAawOgDAAAJAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-09-17T06:35:49.984Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "ValheimAIModLivePatch.cs",
+              "DocumentMoniker": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
+              "RelativeDocumentMoniker": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
+              "ToolTip": "C:\\Users\\hunda\\OneDrive\\Documents\\valheimmods\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
+              "RelativeToolTip": "..\\ValheimAIModLivePatch\\ValheimAIModLivePatch.cs",
+              "ViewState": "AQIAACAAAAAAAAAAAIA7wIQAAAAQAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-05-29T19:47:42.829Z",
+              "EditorCaption": ""
             }
           ]
         }

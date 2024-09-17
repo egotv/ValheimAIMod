@@ -22,8 +22,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLoader", "..\Va
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValheimAIModLivePatch", "..\ValheimAIModLivePatch\ValheimAIModLivePatch.csproj", "{D0F5469C-3DB9-4874-86E8-35B484BF63D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "APIEncryptionTool", "..\APIEncryptionTool\APIEncryptionTool.csproj", "{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|AnyCPU = Debug|AnyCPU
@@ -62,10 +60,6 @@ Global
 		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{D0F5469C-3DB9-4874-86E8-35B484BF63D1}.Release|AnyCPU.Build.0 = Release|Any CPU
-		{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{638DAAE2-05B8-4A43-ACF6-BC7DD4A03C2E}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

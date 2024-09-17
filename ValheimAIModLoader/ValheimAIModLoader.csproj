@@ -79,9 +79,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="HumanoidNPC.cs" />
-    <Compile Include="NPCCommand.cs" />
-    <Compile Include="NPCCommandQueue.cs" />
-    <Compile Include="NPCScript.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ValheimAIModLoader.cs" />
   </ItemGroup>
