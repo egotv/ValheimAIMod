@@ -1623,13 +1623,14 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(Chat), "InputText")]
         private static bool Chat_InputText_Prefix(Chat __instance)
         {
-            if (IsLocalSingleplayer() && PlayerNPC)
+            string text = GetChatInputText();
+            if (IsLocalSingleplayer() && PlayerNPC && !text.StartsWith("/"))
             {
                 /*string text = GetChatInputText();
                 LogError($"Just typed {text}");*/
                 instance.BrainSendInstruction(PlayerNPC, false);
                 if (Player.m_localPlayer)
-                    instance.AddChatTalk(Player.m_localPlayer, "NPC", GetChatInputText(), true);
+                    instance.AddChatTalk(Player.m_localPlayer, "NPC", text, true);
                 instance.AddChatTalk(humanoid_PlayerNPC, "NPC", "...", false);
             }
 
