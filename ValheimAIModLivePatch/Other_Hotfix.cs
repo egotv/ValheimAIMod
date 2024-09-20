@@ -403,27 +403,27 @@ namespace ValheimAIModLoader
             }
 
             // make the monster tame
-            MonsterAI monsterAIcomp = npcInstance.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = npcInstance.GetComponent<ThrallAI>();
 
-            SetMonsterAIAggravated(monsterAIcomp, false);
-            monsterAIcomp.MakeTame();
-            monsterAIcomp.SetFollowTarget(localPlayer.gameObject);
-            monsterAIcomp.m_viewRange = 80f;
-            monsterAIcomp.m_alertRange = 800f;
+            SetMonsterAIAggravated(thrallAIcomp, false);
+            thrallAIcomp.MakeTame();
+            thrallAIcomp.SetFollowTarget(localPlayer.gameObject);
+            thrallAIcomp.m_viewRange = 80f;
+            thrallAIcomp.m_alertRange = 800f;
             //monsterAIcomp.m_updateTargetTimer = 1000000f;
-            monsterAIcomp.m_maxChaseDistance = 500f;
-            monsterAIcomp.m_fleeIfLowHealth = 0;
-            monsterAIcomp.m_fleeIfNotAlerted = false;
-            monsterAIcomp.m_fleeIfHurtWhenTargetCantBeReached = false;
+            thrallAIcomp.m_maxChaseDistance = 500f;
+            thrallAIcomp.m_fleeIfLowHealth = 0;
+            thrallAIcomp.m_fleeIfNotAlerted = false;
+            thrallAIcomp.m_fleeIfHurtWhenTargetCantBeReached = false;
 
 
-            // passive stuf
-            monsterAIcomp.m_aggravatable = false;
-            monsterAIcomp.m_alerted = false;
-            monsterAIcomp.m_aggravated = false;
-            monsterAIcomp.m_targetCreature = null;
-            monsterAIcomp.SetHuntPlayer(false);
-            monsterAIcomp.m_viewRange = 0;
+            // passive stuff
+            thrallAIcomp.m_aggravatable = false;
+            thrallAIcomp.m_alerted = false;
+            thrallAIcomp.m_aggravated = false;
+            thrallAIcomp.m_targetCreature = null;
+            thrallAIcomp.SetHuntPlayer(false);
+            thrallAIcomp.m_viewRange = 0;
 
             NPCCurrentMode = NPCMode.Defensive;
 

@@ -107,7 +107,7 @@ namespace ValheimAIModLoader
             {
                 PlayerNPC = humanoidNPCs[0].gameObject;
                 humanoid_PlayerNPC = PlayerNPC.GetComponent<HumanoidNPC>();
-                monster_PlayerNPC = PlayerNPC.GetComponent<MonsterAI>();
+                thrallAI_PlayerNPC = PlayerNPC.GetComponent<ThrallAI>();
             }
             if (humanoidNPCs.Length > 1)
             {
@@ -291,7 +291,7 @@ namespace ValheimAIModLoader
         public static void SaveNPCData(GameObject character)
         {
             HumanoidNPC humanoidNPC = character.GetComponent<HumanoidNPC>();
-            MonsterAI monsterAI = character.GetComponent<MonsterAI>();
+            ThrallAI thrallAI = character.GetComponent<ThrallAI>();
 
             JsonObject data = new JsonObject();
 
@@ -494,6 +494,8 @@ namespace ValheimAIModLoader
                 instance.toggleMasculine.isOn = false;
                 instance.toggleFeminine.isOn = true;
             }
+            VisEquipment npcVisEquipment = npc.GetComponent<VisEquipment>();
+            npcVisEquipment.SetModel(instance.npcGender);
 
             npc.m_visEquipment.SetHairColor(new Vector3(
                 instance.hairColor.r,
@@ -949,23 +951,23 @@ namespace ValheimAIModLoader
             return false;
         }
 
-        private static void SetMonsterAIAggravated(MonsterAI monsterAIcomponent, bool Aggravated)
+        private static void SetMonsterAIAggravated(ThrallAI thrallAIcomp, bool Aggravated)
         {
             if (Aggravated)
             {
-                monsterAIcomponent.m_aggravatable = true;
+                thrallAIcomp.m_aggravatable = true;
             }
             else
             {
-                monsterAIcomponent.m_aggravated = false;
-                monsterAIcomponent.m_aggravatable = false;
-                monsterAIcomponent.m_alerted = false;
+                thrallAIcomp.m_aggravated = false;
+                thrallAIcomp.m_aggravatable = false;
+                thrallAIcomp.m_alerted = false;
 
-                monsterAIcomponent.m_eventCreature = false;
-                monsterAIcomponent.m_targetCreature = null;
-                monsterAIcomponent.m_targetStatic = null;
-                //monsterAIcomponent.m_viewRange = 0f;
-                monsterAIcomponent.SetHuntPlayer(false);
+                thrallAIcomp.m_eventCreature = false;
+                thrallAIcomp.m_targetCreature = null;
+                thrallAIcomp.m_targetStatic = null;
+                //thrallAIcomp.m_viewRange = 0f;
+                thrallAIcomp.SetHuntPlayer(false);
             }
         }
 

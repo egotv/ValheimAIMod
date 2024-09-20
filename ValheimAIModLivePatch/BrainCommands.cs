@@ -269,11 +269,11 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
-            SetMonsterAIAggravated(monsterAIcomponent, false);
-            monsterAIcomponent.SetFollowTarget(target);
+            SetMonsterAIAggravated(thrallAIcomp, false);
+            thrallAIcomp.SetFollowTarget(target);
 
             if (NPCDialogueMessage != "")
                 AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -290,11 +290,11 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
-            SetMonsterAIAggravated(monsterAIcomponent, false);
-            monsterAIcomponent.SetFollowTarget(null);
+            SetMonsterAIAggravated(thrallAIcomp, false);
+            thrallAIcomp.SetFollowTarget(null);
 
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
@@ -313,12 +313,12 @@ namespace ValheimAIModLoader
             if (NPCCurrentMode == NPCMode.Passive)
                 NPCCurrentMode = NPCMode.Defensive;
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             /*GameObject[] allEnemies = FindEnemies();
             GameObject nearestUntamedEnemy = allEnemies
-            .Where(enemy => enemy.GetComponent<MonsterAI>() != null && !enemy.GetComponent<MonsterAI>().m_character.m_tamed)
+            .Where(enemy => enemy.GetComponent<ThrallAI>() != null && !enemy.GetComponent<ThrallAI>().m_character.m_tamed)
             .OrderBy(enemy => Vector3.Distance(PlayerNPC.transform.position, enemy.transform.position))
             .FirstOrDefault();*/
 
@@ -332,13 +332,13 @@ namespace ValheimAIModLoader
                 Character character = FindClosestEnemy(humanoidnpc_component.gameObject);
                 if (character)
                 {
-                    monsterAIcomponent.SetFollowTarget(null);
-                    //monsterAIcomponent.SetTarget(character);
-                    //monsterAIcomponent.m_targetCreature = character;
+                    thrallAIcomp.SetFollowTarget(null);
+                    //thrallAIcomp.SetTarget(character);
+                    //thrallAIcomp.m_targetCreature = character;
 
-                    monsterAIcomponent.m_targetCreature = null;
-                    monsterAIcomponent.SetTarget(character);
-                    monsterAIcomponent.m_updateTargetTimer = 1000000f;
+                    thrallAIcomp.m_targetCreature = null;
+                    thrallAIcomp.SetTarget(character);
+                    thrallAIcomp.m_updateTargetTimer = 1000000f;
                 }
                 else
                 {
@@ -358,26 +358,26 @@ namespace ValheimAIModLoader
                 Character character = closestEnemy.GetComponent<Character>();
                 if (character)
                 {
-                    monsterAIcomponent.SetFollowTarget(null);
-                    monsterAIcomponent.SetTarget(character);
+                    thrallAIcomp.SetFollowTarget(null);
+                    thrallAIcomp.SetTarget(character);
                 }
                 else
                 {
-                    monsterAIcomponent.SetFollowTarget(closestEnemy);
+                    thrallAIcomp.SetFollowTarget(closestEnemy);
                 }
                 
                 LogInfo($"Combat_StartAttacking closestEnemy found! " + closestEnemy.name);
             }
             else
             {
-                monsterAIcomponent.SetFollowTarget(null);
+                thrallAIcomp.SetFollowTarget(null);
                 LogError("Combat_StartAttacking closestEnemy not found!");
             }*/
 
 
-            //monsterAIcomponent.m_alerted = false;
-            //monsterAIcomponent.m_aggravatable = true;
-            //monsterAIcomponent.SetHuntPlayer(true);
+            //thrallAIcomp.m_alerted = false;
+            //thrallAIcomp.m_aggravatable = true;
+            //thrallAIcomp.SetHuntPlayer(true);
 
             if (NPCDialogueMessage != "")
                 AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -394,14 +394,14 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             // disregard nearby enemies
-            monsterAIcomponent.SetFollowTarget(null);
-            monsterAIcomponent.m_alerted = false;
-            monsterAIcomponent.m_aggravatable = true;
-            monsterAIcomponent.SetHuntPlayer(true);
+            thrallAIcomp.SetFollowTarget(null);
+            thrallAIcomp.m_alerted = false;
+            thrallAIcomp.m_aggravatable = true;
+            thrallAIcomp.SetHuntPlayer(true);
             humanoidnpc_component.SetCrouch(true);
 
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -418,12 +418,12 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             // disregard nearby enemies
-            monsterAIcomponent.SetFollowTarget(null);
-            SetMonsterAIAggravated(monsterAIcomponent, false);
+            thrallAIcomp.SetFollowTarget(null);
+            SetMonsterAIAggravated(thrallAIcomp, false);
 
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
@@ -439,12 +439,12 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             // disregard nearby enemies
-            monsterAIcomponent.SetFollowTarget(null);
-            SetMonsterAIAggravated(monsterAIcomponent, false);
+            thrallAIcomp.SetFollowTarget(null);
+            SetMonsterAIAggravated(thrallAIcomp, false);
 
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
@@ -460,7 +460,7 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             DropAllItems(humanoidnpc_component);
@@ -479,7 +479,7 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             DropItem(ItemName, humanoidnpc_component);
@@ -498,7 +498,7 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
 
@@ -527,7 +527,7 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             CurrentHarvestResourceName = CleanKey(ResourceName);
@@ -554,10 +554,10 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
-            monsterAIcomponent.SetFollowTarget(null);
+            thrallAIcomp.SetFollowTarget(null);
 
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 
@@ -573,7 +573,7 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
             patrol_position = Player.m_localPlayer.transform.position;
@@ -581,9 +581,9 @@ namespace ValheimAIModLoader
 
             //Vector3 randLocation = GetRandomReachableLocationInRadius(humanoidNPC_component.patrol_position, patrol_radius);
 
-            monsterAIcomponent.SetFollowTarget(null);
-            SetMonsterAIAggravated(monsterAIcomponent, false);
-            SetMonsterAIAggravated(monsterAIcomponent, true);
+            thrallAIcomp.SetFollowTarget(null);
+            SetMonsterAIAggravated(thrallAIcomp, false);
+            SetMonsterAIAggravated(thrallAIcomp, true);
 
             if (NPCDialogueMessage != "")
                 AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
@@ -600,10 +600,10 @@ namespace ValheimAIModLoader
                 return;
             }
 
-            MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
             HumanoidNPC humanoidnpc_component = PlayerNPC.GetComponent<HumanoidNPC>();
 
-            monsterAIcomponent.SetFollowTarget(null);
+            thrallAIcomp.SetFollowTarget(null);
 
             AddChatTalk(humanoidnpc_component, "NPC", NPCDialogueMessage);
 

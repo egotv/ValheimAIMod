@@ -12,8 +12,8 @@ namespace ValheimAIModLoader
     public partial class ValheimAIModLivePatch : BaseUnityPlugin
     {
         [HarmonyPrefix]
-        [HarmonyPatch(typeof(MonsterAI), "UpdateAI")]
-        private static bool MonsterAI_UpdateAI_Prefix(MonsterAI __instance)
+        [HarmonyPatch(typeof(ThrallAI), "UpdateAI")]
+        private static bool MonsterAI_UpdateAI_Prefix(ThrallAI __instance)
         {
             //Debug.LogError("1");
 
@@ -391,10 +391,12 @@ namespace ValheimAIModLoader
                     __instance.m_viewRange = 0;
                 }*/
             }
-            else if (NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
+            //else if (NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
+            else if (NPCCurrentMode == NPCMode.Aggressive)
             {
                 SetMonsterAIAggravated(__instance, true);
-                __instance.SetAggravated(true, BaseAI.AggravatedReason.Theif);
+                //__instance.SetAggravated(true, BaseAI.AggravatedReason.Theif);
+                __instance.m_aggravated = true;
                 __instance.SetAlerted(true);
                 __instance.SetHuntPlayer(true);
                 __instance.m_viewRange = 80;
@@ -409,17 +411,17 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(HumanoidNPC), "CustomFixedUpdate")]
         private static void HumanoidNPC_CustomFixedUpdate_Postfix(HumanoidNPC __instance)
         {
-            MonsterAI monsterAIcomponent = __instance.GetComponent<MonsterAI>();
+            ThrallAI thrallAIcomp = __instance.GetComponent<ThrallAI>();
 
-            if (!monsterAIcomponent)
+            if (!thrallAIcomp)
             {
-                LogError("HumanoidNPC_CustomFixedUpdate_Postfix failed! monsterAIcomponent null");
+                //LogError("HumanoidNPC_CustomFixedUpdate_Postfix failed! thrallAIcomp null");
                 return;
             }
 
-            if (NPCCurrentCommandType == NPCCommand.CommandType.FollowPlayer && (Player.m_localPlayer == null || monsterAIcomponent.m_follow == null))
+            if (NPCCurrentCommandType == NPCCommand.CommandType.FollowPlayer && (Player.m_localPlayer == null || thrallAIcomp.m_follow == null))
             {
-                monsterAIcomponent.SetFollowTarget(null);
+                thrallAIcomp.SetFollowTarget(null);
                 return;
             }
 
@@ -436,13 +438,13 @@ namespace ValheimAIModLoader
                     __instance.LastPositionDelta += Time.deltaTime;*/
             }
 
-            GameObject followTarget = monsterAIcomponent.m_follow;
+            GameObject followTarget = thrallAIcomp.m_follow;
             Character followTargetCharacter = null;
             if (followTarget)
                 followTargetCharacter = followTarget.gameObject.GetComponent<Character>();
 
 
-            if (monsterAIcomponent.m_targetCreature && IsRangedWeapon(__instance.GetCurrentWeapon()) && CheckArrows(__instance.m_inventory) > 0)
+            if (thrallAIcomp.m_targetCreature && IsRangedWeapon(__instance.GetCurrentWeapon()) && CheckArrows(__instance.m_inventory) > 0)
                 return;
 
 
@@ -455,7 +457,7 @@ namespace ValheimAIModLoader
                 }
 
                 float distanceBetweenTargetAndSelf = followTarget.transform.position.DistanceTo(__instance.transform.position);
-                //float distanceBetweenTargetAndSelf = DistanceBetween(monsterAIcomponent.gameObject, __instance.gameObject);
+                //float distanceBetweenTargetAndSelf = DistanceBetween(thrallAIcomp.gameObject, __instance.gameObject);
 
                 if (NPCCurrentCommandType == NPCCommand.CommandType.HarvestResource &&
                     followTarget.HasAnyComponent("Destructible", "TreeBase", "TreeLog", "MineRock", "MineRock5") &&
@@ -467,7 +469,7 @@ namespace ValheimAIModLoader
                     blacklistedItems.Add(followTarget.gameObject);
                     __instance.LastMovedAtTime = Time.time;
                     RefreshAllGameObjectInstances();
-                    monsterAIcomponent.SetFollowTarget(null);
+                    thrallAIcomp.SetFollowTarget(null);
                     return;
                 }
 
@@ -494,19 +496,19 @@ namespace ValheimAIModLoader
                     {
                         if (followTarget.HasAnyComponent("ItemDrop"))
                         {
-                            instance.PickupItemDrop(__instance, monsterAIcomponent);
+                            instance.PickupItemDrop(__instance, thrallAIcomp);
 
                             if (!followTarget)
                             {
-                                ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 8);
+                                ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(thrallAIcomp.transform.position, 8);
                                 if (closestItemDrop != null)
                                 {
                                     LogInfo($"Found another nearby item drop {closestItemDrop.name}");
-                                    monsterAIcomponent.SetFollowTarget(closestItemDrop.gameObject);
+                                    thrallAIcomp.SetFollowTarget(closestItemDrop.gameObject);
                                 }
                                 else
                                 {
-                                    monsterAIcomponent.SetFollowTarget(null);
+                                    thrallAIcomp.SetFollowTarget(null);
                                     //LogMessage($"follow target set to null after picking up item drop");
                                 }
                             }
@@ -525,15 +527,15 @@ namespace ValheimAIModLoader
                             /*if (!followTarget)
                             {*/
 
-                            ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(monsterAIcomponent.transform.position, 8);
+                            ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(thrallAIcomp.transform.position, 8);
                             if (closestItemDrop != null)
                             {
-                                monsterAIcomponent.SetFollowTarget(closestItemDrop.gameObject);
+                                thrallAIcomp.SetFollowTarget(closestItemDrop.gameObject);
                                 LogInfo($"Found nearby item drop {closestItemDrop.name} after interacting with pickable");
                             }
                             else
                             {
-                                monsterAIcomponent.SetFollowTarget(null);
+                                thrallAIcomp.SetFollowTarget(null);
                                 LogInfo($"follow target set to null after interacting with pickable");
                             }
 
@@ -541,7 +543,7 @@ namespace ValheimAIModLoader
 
 
                         }
-                        //else if (monsterAIcomponent.m_follow.HasAnyComponent("Character") || monsterAIcomponent.m_follow.HasAnyComponent("Humanoid"))
+                        //else if (thrallAIcomp.m_follow.HasAnyComponent("Character") || thrallAIcomp.m_follow.HasAnyComponent("Humanoid"))
                         else if (followTarget != Player.m_localPlayer.gameObject && !HasAnyChildComponent(followTarget, new List<Type>() { typeof(Character) }))
                         {
                             bool secondaryAnimation = false;
@@ -550,35 +552,35 @@ namespace ValheimAIModLoader
                                 secondaryAnimation = true;
                             else if (followTarget.name.ToLower().Contains("log"))
                                 secondaryAnimation = UnityEngine.Random.value > 0.25f;
-                            monsterAIcomponent.LookAt(followTarget.transform.position);
+                            thrallAIcomp.LookAt(followTarget.transform.position);
                             //__instance.StartAttack(followTargetCharacter ? followTargetCharacter : __instance, UnityEngine.Random.value > 0.5f);
                             __instance.StartAttack(followTargetCharacter ? followTargetCharacter : __instance, secondaryAnimation);
 
                             LogError($"Attacking resource {targetname}");
                         }
                     }
-                    else if ((__instance.GetVelocity().magnitude < .2f && Time.time - __instance.LastMovedAtTime > 3f && !monsterAIcomponent.CanMove(__instance.transform.position - followTarget.transform.position, 1f, 1f)))// || CalculateXYDistance(followTarget.transform.position, __instance.transform.position) < 4)
+                    else if ((__instance.GetVelocity().magnitude < .2f && Time.time - __instance.LastMovedAtTime > 3f && !thrallAIcomp.CanMove(__instance.transform.position - followTarget.transform.position, 1f, 1f)))// || CalculateXYDistance(followTarget.transform.position, __instance.transform.position) < 4)
                     {
-                        monsterAIcomponent.LookAt(followTarget.transform.position);
+                        thrallAIcomp.LookAt(followTarget.transform.position);
                         __instance.StartAttack(followTargetCharacter ? followTargetCharacter : __instance, UnityEngine.Random.value > 0.5f);
 
                         // add random movement
                     }
-                    /*else if (monsterAIcomponent.m_follow.HasAnyComponent("Character", "Humanoid") && monsterAIcomponent.m_follow != Player.m_localPlayer.gameObject && IsRangedWeapon(__instance.GetCurrentWeapon())
+                    /*else if (thrallAIcomp.m_follow.HasAnyComponent("Character", "Humanoid") && thrallAIcomp.m_follow != Player.m_localPlayer.gameObject && IsRangedWeapon(__instance.GetCurrentWeapon())
                         && distanceBetweenTargetAndSelf < 25)
                     {
-                        Character character = monsterAIcomponent.m_follow.GetComponent<Character>();
-                        if (character && monsterAIcomponent.CanSeeTarget(character))
+                        Character character = thrallAIcomp.m_follow.GetComponent<Character>();
+                        if (character && thrallAIcomp.CanSeeTarget(character))
                         {
                             LogError("Can see target");
                             if (CheckArrows(__instance.GetInventory()) > 0)
                             {
-                                monsterAIcomponent.LookAt(character.transform.position);
+                                thrallAIcomp.LookAt(character.transform.position);
 
-                                if (monsterAIcomponent.IsLookingAt(character.transform.position, __instance.GetCurrentWeapon().m_shared.m_aiAttackMaxAngle, __instance.GetCurrentWeapon().m_shared.m_aiInvertAngleCheck))
+                                if (thrallAIcomp.IsLookingAt(character.transform.position, __instance.GetCurrentWeapon().m_shared.m_aiAttackMaxAngle, __instance.GetCurrentWeapon().m_shared.m_aiInvertAngleCheck))
                                 {
                                     LogError("Doing attack");
-                                    //monsterAIcomponent.DoAttack(character, isFriend: false);
+                                    //thrallAIcomp.DoAttack(character, isFriend: false);
                                     __instance.StartAttack(character, false);
                                 }
                                 //__instance.StartAttack(character, false);
@@ -594,8 +596,8 @@ namespace ValheimAIModLoader
         }
 
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(MonsterAI), "SetFollowTarget")]
-        private static void MonsterAI_SetFollowTarget_Postfix(MonsterAI __instance)
+        [HarmonyPatch(typeof(ThrallAI), "SetFollowTarget")]
+        private static void MonsterAI_SetFollowTarget_Postfix(ThrallAI __instance)
         {
             if (!IsStringEqual(__instance.name, NPCPrefabName, true)) { return; }
 
@@ -676,6 +678,11 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(Humanoid), "StartAttack")]
         private static bool Humanoid_StartAttack_Prefix(Humanoid __instance, Character target, bool secondaryAttack, bool __result)
         {
+            if (!IsStringEqual(NPCPrefabName, __instance.name))
+                return true;
+
+            lastAttackedObjectZDOID = target.GetZDOID().ToString();
+
             if ((__instance.InAttack() && !__instance.HaveQueuedChain()) || __instance.InDodge() || !__instance.CanMove() || __instance.IsKnockedBack() || __instance.IsStaggering() || __instance.InMinorAction())
             {
                 __result = false;
@@ -791,12 +798,12 @@ namespace ValheimAIModLoader
 
 
 
-        private void PickupItemDrop(HumanoidNPC __instance, MonsterAI monsterAIcomponent)
+        private void PickupItemDrop(HumanoidNPC __instance, ThrallAI thrallAIcomp)
         {
             //Debug.Log("PickupItemDrop");
-            __instance.DoInteractAnimation(monsterAIcomponent.m_follow.transform.position);
+            __instance.DoInteractAnimation(thrallAIcomp.m_follow.transform.position);
 
-            ItemDrop component = monsterAIcomponent.m_follow.GetComponent<ItemDrop>();
+            ItemDrop component = thrallAIcomp.m_follow.GetComponent<ItemDrop>();
             FloatingTerrainDummy floatingTerrainDummy = null;
 
             /*if (component == null && (bool)(floatingTerrainDummy = collider.attachedRigidbody.gameObject.GetComponent<FloatingTerrainDummy>()) && (bool)floatingTerrainDummy)
@@ -916,19 +923,19 @@ namespace ValheimAIModLoader
                 }*/
             }
 
-            /*Destroy(monsterAIcomponent.m_follow);
-            instance.AllPickableInstances.Remove(monsterAIcomponent.m_follow);
+            /*Destroy(thrallAIcomp.m_follow);
+            instance.AllPickableInstances.Remove(thrallAIcomp.m_follow);
 
             GameObject closestItemDrop = FindClosestItemDrop(__instance.gameObject);
             if (closestItemDrop && closestItemDrop.transform.position.DistanceTo(__instance.transform.position) < 5)
             {
-                monsterAIcomponent.SetFollowTarget(closestItemDrop);
+                thrallAIcomp.SetFollowTarget(closestItemDrop);
             }
             else
             {
-                monsterAIcomponent.SetFollowTarget(null);
-                monsterAIcomponent.m_targetCreature = null;
-                monsterAIcomponent.m_targetStatic = null;
+                thrallAIcomp.SetFollowTarget(null);
+                thrallAIcomp.m_targetCreature = null;
+                thrallAIcomp.m_targetStatic = null;
             }*/
         }
 
@@ -1104,15 +1111,12 @@ namespace ValheimAIModLoader
             {
                 Debug.LogError("is AttackAction");
                 AttackAction action = (AttackAction)NPCCurrentCommand;
-                if (IsStringEqual(__instance.gameObject.name, action.TargetName, true) && __instance.m_lastHit != null)
+                if (IsStringEqual(__instance.gameObject.name, action.TargetName, true) && __instance.GetZDOID().ToString() == lastAttackedObjectZDOID)
                 {
-                    Debug.LogError("target killed" + __instance.m_lastHit.ToString());
-                    Character attacker = __instance.m_lastHit.GetAttacker();
-                    if (attacker != null && attacker.gameObject != null && attacker.gameObject == PlayerNPC)
-                    {
-                        action.TargetQuantity = Math.Max(action.TargetQuantity - 1, 0);
-                        LogInfo($"{action.TargetQuantity} {action.TargetName} remaining to kill");
-                    }
+                    Debug.LogError($"target {action.TargetName} killed ");
+                    action.TargetQuantity = Math.Max(action.TargetQuantity - 1, 0);
+                    LogInfo($"{action.TargetQuantity} {action.TargetName} remaining to kill");
+
                 }
             }
         }

@@ -1,15 +1,15 @@
 ManifestFileVersion: 0
-CRC: 3016975374
+CRC: 3903062086
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: 53b1ebcb472dda189706aba55baf863f
+    Hash: 4f82cf0a2cd7642b36d08d4a444a3199
   TypeTreeHash:
     serializedVersion: 2
-    Hash: 800d31b9e22432a0d5be38a96cd43844
+    Hash: 1f29a1a9e9f614ef589b7bc22cd92726
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: 53b1ebcb472dda189706aba55baf863f
+    Hash: 4f82cf0a2cd7642b36d08d4a444a3199
 HashAppended: 0
 ClassTypes:
 - Class: 1
@@ -65,8 +65,6 @@ ClassTypes:
 - Class: 114
   Script: {fileID: 54271039, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
-  Script: {fileID: 11500000, guid: f847e42b40beff24fb04266428153db0, type: 3}
-- Class: 114
   Script: {fileID: 647644853, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
   Script: {fileID: -1044604064, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
@@ -84,6 +82,10 @@ ClassTypes:
   Script: {fileID: -415060008, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
 - Class: 114
   Script: {fileID: -917656959, guid: c1b78fa918b030faf1c1f6f6164daeb2, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: f847e42b40beff24fb04266428153db0, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 820bbc9082e01794e99f66bccc9e6403, type: 3}
 - Class: 115
   Script: {instanceID: 0}
 - Class: 134
@@ -131,4 +133,5 @@ SerializeReferenceClassIdentifiers:
   ClassName: VisEquipment/PlayerModel
 Assets:
 - Assets/CustomAssets/HumanoidNPC.prefab
+- Assets/CustomAssets/HumanoidNPC_Backup.prefab
 Dependencies: []

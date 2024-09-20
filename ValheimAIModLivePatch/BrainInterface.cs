@@ -23,7 +23,7 @@ namespace ValheimAIModLoader
             //GameObject[] allNpcs = FindPlayerNPC();
             if (PlayerNPC)
             {
-                MonsterAI monsterAIcomponent = PlayerNPC.GetComponent<MonsterAI>();
+                ThrallAI thrallAIcomp = PlayerNPC.GetComponent<ThrallAI>();
                 HumanoidNPC humanoidComponent = PlayerNPC.GetComponent<HumanoidNPC>();
 
                 //Debug.Log("BrainSendInstruction");
@@ -650,7 +650,7 @@ namespace ValheimAIModLoader
             Dictionary<string, object> characterData = new Dictionary<string, object>();
 
             HumanoidNPC humanoidNPC = character.GetComponent<HumanoidNPC>();
-            MonsterAI monsterAI = character.GetComponent<MonsterAI>();
+            ThrallAI thrallAI = character.GetComponent<ThrallAI>();
 
 
             var npcInventoryItems = new JsonArray();
@@ -689,7 +689,7 @@ namespace ValheimAIModLoader
 
                 //["npcMode"] = humanoidNPC.CurrentCommand.ToString(),
                 ["NPC_Mode"] = NPCCurrentCommandType.ToString(),
-                ["Alerted"] = monsterAI.m_alerted,
+                ["Alerted"] = thrallAI.m_alerted,
 
 
 
@@ -706,12 +706,12 @@ namespace ValheimAIModLoader
                 ["nearbyEnemies"] = instance.GetNearbyEnemies(character),
             };
 
-            Character targetCreature = monsterAI.GetTargetCreature();
+            Character targetCreature = thrallAI.GetTargetCreature();
 
             if (targetCreature)
                 gameState["targetCreature"] = targetCreature.m_name;
-            else if (monsterAI.m_follow)
-                gameState["followTarget"] = monsterAI.m_follow.name;
+            else if (thrallAI.m_follow)
+                gameState["followTarget"] = thrallAI.m_follow.name;
 
 
             var jsonObject = new JsonObject

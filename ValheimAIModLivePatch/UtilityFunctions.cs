@@ -120,7 +120,7 @@ namespace ValheimAIModLoader
 
 
 
-        public static bool IsStringEqual(string a, string b, bool bCleanKey)
+        public static bool IsStringEqual(string a, string b, bool bCleanKey = true)
         {
             if (bCleanKey)
                 return CleanKey(a).ToLower().Equals(CleanKey(b).ToLower());

@@ -26,7 +26,7 @@ namespace ValheimAIModLoader
         private static string NPCPrefabName = "HumanoidNPC";
         private static GameObject PlayerNPC;
         private static HumanoidNPC humanoid_PlayerNPC;
-        private static MonsterAI monster_PlayerNPC;
+        private static ThrallAI thrallAI_PlayerNPC;
 
 
         private static GameObject[] AllGOInstances = { };
@@ -60,7 +60,7 @@ namespace ValheimAIModLoader
         public static string CurrentWeaponName = "";
         private static ItemDrop.ItemData useWeapon = null;
 
-        private static string lastAttackedObjectName = "";
+        private static string lastAttackedObjectZDOID = "";
         private static HitData.DamageModifiers targetDamageModifiers = new HitData.DamageModifiers();
 
         private static List<ItemDrop> closestItemDrops = new List<ItemDrop>();

@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="HumanoidNPC.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ThrallAI.cs" />
     <Compile Include="ValheimAIModLoader.cs" />
   </ItemGroup>
   <ItemGroup>
