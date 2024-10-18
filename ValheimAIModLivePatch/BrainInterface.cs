@@ -121,7 +121,13 @@ namespace ValheimAIModLoader
             using (WebClient client = new WebClient())
             {
                 // Construct the URL with query parameters
-                string url = $"{GetBrainAPIAddress()}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}&player_id={GetPlayerSteamID()}";
+                string url;// = $"{GetBrainAPIAddress()}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}&player_id={GetPlayerSteamID()}";
+                if (cartesiaVoices.Contains(npcVoices[instance.npcVoice]))
+                    url = $"{GetBrainAPIAddress()}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(npcVoices[instance.npcVoice])}&use_cartesia=true&player_id={GetPlayerSteamID()}";
+                else
+                    url = $"{GetBrainAPIAddress()}/synthesize_audio?text={Uri.EscapeDataString(text)}&voice={Uri.EscapeDataString(voice)}&player_id={GetPlayerSteamID()}";
+
+                //LogError($"url is {url}");
 
                 client.DownloadStringCompleted += OnBrainSynthesizeAudioResponse;
                 client.DownloadStringAsync(new Uri(url));
@@ -549,7 +555,7 @@ namespace ValheimAIModLoader
             }
             else if (e.Error is WebException webException && webException.Status == WebExceptionStatus.ProtocolError && ((HttpWebResponse)webException.Response).StatusCode == HttpStatusCode.NotFound)
             {
-                LogError("Audio file does not exist.");
+                LogError("Audio file does not exist. Error: " + e.Error.Message);
             }
             else
             {
@@ -722,7 +728,8 @@ namespace ValheimAIModLoader
                 ["game_state"] = gameState,
                 ["timestamp"] = Time.time,
                 ["personality"] = instance.npcPersonality,
-                ["voice"] = npcVoices[instance.npcVoice].ToLower(),
+                ["voice"] = cartesiaVoices.Contains(npcVoices[instance.npcVoice]) ? npcVoices[instance.npcVoice] : npcVoices[instance.npcVoice].ToLower(),
+                ["use_cartesia"] = cartesiaVoices.Contains(npcVoices[instance.npcVoice]),
                 ["gender"] = instance.npcGender,
             };
 

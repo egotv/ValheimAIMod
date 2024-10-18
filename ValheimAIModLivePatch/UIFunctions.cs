@@ -1057,7 +1057,24 @@ namespace ValheimAIModLoader
             "Orpheus",
             "Angus",
             "Helios",
-            "Zeus"
+            "Zeus",
+            "1920s Radioman",
+            "ASMR Lady",
+            "Hinglish Speaking Lady",
+            "Madame Mischief",
+            "Pilot Over Intercom",
+            "Princess",
+            "Wizardman"
+        };
+
+        static public List<String> cartesiaVoices = new List<string> {
+            "1920s Radioman",
+            "ASMR Lady",
+            "Hinglish Speaking Lady",
+            "Madame Mischief",
+            "Pilot Over Intercom",
+            "Princess",
+            "Wizardman"
         };
 
         public void CreateMultilineInputField(Transform parent, string placeholder, int fontSize = 16, int width = 380, int height = 150)

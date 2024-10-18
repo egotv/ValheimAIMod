@@ -26,7 +26,7 @@ namespace ValheimAIModLoader
             }
 
             string micName = null;
-            if (instance.MicrophoneIndex < 0 || instance.MicrophoneIndex >= Microphone.devices.Count())
+            if (instance.MicrophoneIndex >= 0 && instance.MicrophoneIndex < Microphone.devices.Count())
                 micName = Microphone.devices[instance.MicrophoneIndex];
             recordedAudioClip = Microphone.Start(micName, false, recordingLength, sampleRate);
             IsRecording = true;
