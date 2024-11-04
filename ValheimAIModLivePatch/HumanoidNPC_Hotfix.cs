@@ -516,7 +516,7 @@ namespace ValheimAIModLoader
                         }
                         else if (followTarget.HasAnyComponent("Pickable"))
                         {
-                            __instance.DoInteractAnimation(followTarget.transform.position);
+                            __instance.O_DoInteractAnimation(followTarget.transform.position);
 
                             Pickable pick = followTarget.GetComponent<Pickable>();
                             pick.Interact(Player.m_localPlayer, false, false);
@@ -801,7 +801,7 @@ namespace ValheimAIModLoader
         private void PickupItemDrop(HumanoidNPC __instance, ThrallAI thrallAIcomp)
         {
             //Debug.Log("PickupItemDrop");
-            __instance.DoInteractAnimation(thrallAIcomp.m_follow.transform.position);
+            __instance.O_DoInteractAnimation(thrallAIcomp.m_follow.transform.position);
 
             ItemDrop component = thrallAIcomp.m_follow.GetComponent<ItemDrop>();
             FloatingTerrainDummy floatingTerrainDummy = null;

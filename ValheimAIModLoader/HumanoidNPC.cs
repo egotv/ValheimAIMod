@@ -140,7 +140,7 @@ namespace ValheimAIModLoader
             {
                 if (this.m_moveDir.magnitude > 0.1f)
                 {
-                    UseStamina(m_encumberedStaminaDrain * dt);
+                    //UseStamina(m_encumberedStaminaDrain * dt);
                 }
                 this.m_seman.AddStatusEffect(SEMan.s_statusEffectEncumbered);
             }
@@ -162,6 +162,61 @@ namespace ValheimAIModLoader
             }*/
 
             UpdateEnvStatusEffects(dt);
+        }
+
+        public void O_DoInteractAnimation(Vector3 target)
+        {
+            Vector3 forward = target - base.transform.position;
+            forward.y = 0f;
+            forward.Normalize();
+            base.transform.rotation = Quaternion.LookRotation(forward);
+            Physics.SyncTransforms();
+            m_zanim.SetTrigger("interact");
+        }
+
+        public override void UseStamina(float v, bool isHomeUsage = false)
+        {
+            if (v == 0f)
+            {
+                return;
+            }
+            v *= Game.m_staminaRate;
+            if (isHomeUsage)
+            {
+                v *= 1f + GetEquipmentHomeItemModifier();
+                m_seman.ModifyHomeItemStaminaUsage(v, ref v);
+            }
+            if (m_nview.IsValid())
+            {
+                if (m_nview.IsOwner())
+                {
+                    RPC_UseStamina(0L, v);
+                    return;
+                }
+                m_nview.InvokeRPC("UseStamina", v);
+            }
+        }
+
+        private void RPC_UseStamina(long sender, float v)
+        {
+            if (v != 0f)
+            {
+                m_stamina -= v;
+                if (m_stamina < 0f)
+                {
+                    m_stamina = 0f;
+                }
+                m_staminaRegenTimer = m_staminaRegenDelay;
+            }
+        }
+
+        public override bool HaveStamina(float amount = 0f)
+        {
+            if (m_nview.IsValid() && !m_nview.IsOwner())
+            {
+                return m_nview.GetZDO().GetFloat(ZDOVars.s_stamina, m_maxStamina) > amount;
+            }
+            return m_stamina > amount;
         }
 
         public bool InShelter()

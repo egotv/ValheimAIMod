@@ -160,7 +160,17 @@ All rights reserved.
 
 All notable changes to Thrall will be documented in this file.
 
-## [1.0.8] - UPDATE DATE
+## [1.0.9] - 2024-11-04
+
+### Fixed
+
+- 	Updated Thrall to work with latest version of Valheim
+
+## [1.0.8] - 2024-10-18
+
+### Added
+
+-	More AI voices powered by Cartesia
 
 ### Fixed
 
