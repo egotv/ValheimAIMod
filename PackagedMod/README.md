@@ -160,6 +160,18 @@ All rights reserved.
 
 All notable changes to Thrall will be documented in this file.
 
+## [1.0.11] - 2024-XX-XX
+
+### Fixed
+
+- 	Bug fixes
+
+## [1.0.10] - 2024-11-04
+
+### Fixed
+
+- 	Unable to use workbenches
+
 ## [1.0.9] - 2024-11-04
 
 ### Fixed

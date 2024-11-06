@@ -15,22 +15,11 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(ThrallAI), "UpdateAI")]
         private static bool MonsterAI_UpdateAI_Prefix(ThrallAI __instance)
         {
-            //Debug.LogError("1");
-
             if (!Player.m_localPlayer || !__instance) return true;
 
             if (!__instance.name.Contains("HumanoidNPC")) return true;
 
-            //Debug.LogError("2");
-
-
             HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
-
-            //Debug.LogError("3");
-
-
-            //LogError($"following {(__instance.m_follow ? __instance.m_follow.name : "null")} {(__instance.m_follow ? __instance.m_follow.transform.position.DistanceTo(__instance.transform.position).ToString() : "0")} target {(__instance.m_targetCreature ? __instance.m_targetCreature.name : "null")} {(__instance.m_targetCreature ? __instance.m_targetCreature.transform.position.DistanceTo(__instance.transform.position).ToString() : "0")}");
-
 
             if (NPCCurrentMode != NPCMode.Passive)
             {
@@ -233,12 +222,9 @@ namespace ValheimAIModLoader
             else if (NPCCurrentCommandType == NPCCommand.CommandType.HarvestResource && (enemyList.Count == 0))
             {
                 if ((__instance.m_follow == null && __instance.m_targetCreature == null) ||
-                    !ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name)) ||
+                    (__instance.m_follow && !ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name))) ||
                     __instance.m_follow == Player.m_localPlayer)
                 {
-                    //comehere
-
-
                     if (Time.time - closestItemDropsLastRefresh > 3 || closestItemDrops.Count < 1)
                     {
                         closestItemDrops = SphereSearchForGameObjectsWithComponent<ItemDrop>(__instance.transform.position, 7);
@@ -1340,7 +1326,7 @@ namespace ValheimAIModLoader
             }
         }
 
-        // NPC HIDES WEAPON WHEN PLAYER HIDES WEAPON
+        /*// NPC HIDES WEAPON WHEN PLAYER HIDES WEAPON
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Humanoid), "HideHandItems")]
         private static void Humanoid_HideHandItems_Postfix(Humanoid __instance)
@@ -1368,7 +1354,7 @@ namespace ValheimAIModLoader
                     humanoid_PlayerNPC.ShowHandItems();
                 }
             }
-        }
+        }*/
 
 
 
