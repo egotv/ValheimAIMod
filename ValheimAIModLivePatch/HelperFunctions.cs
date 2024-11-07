@@ -951,6 +951,45 @@ namespace ValheimAIModLoader
             return false;
         }
 
+
+
+        private static void SetPassiveMode(ThrallAI __instance)
+        {
+            __instance.m_aggravatable = false;
+            __instance.m_alerted = false;
+            __instance.m_aggravated = false;
+            __instance.m_targetCreature = null;
+            __instance.SetHuntPlayer(false);
+            __instance.m_viewRange = 0;
+        }
+
+        private static void SetDefensiveMode(ThrallAI __instance)
+        {
+            if (enemyList.Count > 0)
+            {
+                __instance.m_viewRange = 80;
+                Character character = enemyList.FirstOrDefault(go => go != null);
+                if (character != null)
+                {
+                    __instance.SetTarget(character);
+                    __instance.m_updateTargetTimer = float.MaxValue;
+                    LogError($"New enemy in defensive mode: {character.name}");
+                    __instance.m_aggravatable = true;
+                    __instance.SetHuntPlayer(true);
+                }
+            }
+        }
+
+        private static void SetAggressiveMode(ThrallAI __instance)
+        {
+            __instance.m_aggravatable = true;
+            __instance.m_alerted = true;
+            __instance.m_aggravated = true;
+            __instance.SetHuntPlayer(true);
+            __instance.m_viewRange = 80;
+        }
+
+
         private static void SetMonsterAIAggravated(ThrallAI thrallAIcomp, bool Aggravated)
         {
             if (Aggravated)
@@ -969,6 +1008,11 @@ namespace ValheimAIModLoader
                 //thrallAIcomp.m_viewRange = 0f;
                 thrallAIcomp.SetHuntPlayer(false);
             }
+        }
+
+        private static Player GetLocalPlayerOrNull()
+        {
+            return Player.m_localPlayer ? Player.m_localPlayer : null;
         }
 
         // TO READ NAMES OF ATTACK ANIMS

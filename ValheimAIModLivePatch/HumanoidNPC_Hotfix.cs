@@ -11,83 +11,88 @@ namespace ValheimAIModLoader
 {
     public partial class ValheimAIModLivePatch : BaseUnityPlugin
     {
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(ThrallAI), "UpdateAI")]
-        private static bool MonsterAI_UpdateAI_Prefix(ThrallAI __instance)
+        private static void AutoPickupItems()
         {
-            if (!Player.m_localPlayer || !__instance) return true;
-
-            if (!__instance.name.Contains("HumanoidNPC")) return true;
-
-            HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
-
-            if (NPCCurrentMode != NPCMode.Passive)
+            /* auto pickup
+             * if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && 
+                !(NPCCurrentMode == NPCMode.Defensive && enemyList.Count > 0) && 
+                NPCCurrentCommandType != NPCCommand.CommandType.CombatAttack)
+                //&& NPCCurrentCommandType != NPCCommand.CommandType.HarvestResource)
             {
-                //EnemyListNullCheck();
+                //Debug.Log("trying to find item drop");
 
-                if (enemyList.Count > 0)
+                ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(__instance.transform.position, 5);
+                if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow && closestItemDrop.transform.position.DistanceTo(__instance.transform.position) < 7f)
                 {
-                    __instance.m_viewRange = 80;
-                    if (__instance.m_targetCreature == null || !enemyList.Contains(__instance.m_targetCreature))
+                    if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData) && closestItemDrop.m_itemData.GetWeight() + humanoidNPC.m_inventory.GetTotalWeight() < humanoidNPC.GetMaxCarryWeight())
                     {
-                        if (__instance.m_targetCreature == null)
-                        {
-                            LogError("__instance.m_targetCreature == null");
-                        }
-                        else if (!enemyList.Contains(__instance.m_targetCreature))
-                        {
-                            LogError($"{enemyList.Count} !enemyList.Contains(__instance.m_targetCreature.gameObject)");
-                        }
-
-                        enemyList.Where(go => go != null).OrderBy(go => go.transform.position.DistanceTo(__instance.transform.position));
-
-                        //Character character = enemyList[0].GetComponent<Character>();
-
-                        foreach (var go in enemyList.ToArray())
-                        {
-                            if (!go) continue;
-
-                            //Character character = GetCharacterFromGameObject(go);
-                            Character character = go;
-
-                            if (character != null)
-                            {
-                                //__instance.SetFollowTarget(null);
-                                //__instance.m_targetCreature = character;
-
-                                __instance.m_targetCreature = null;
-                                __instance.SetTarget(character);
-                                __instance.m_updateTargetTimer = 1000000f;
-                                LogError($"New enemy in defensive mode: {character.name}");
-
-                                __instance.m_alerted = false;
-                                __instance.m_aggravatable = true;
-                                __instance.SetHuntPlayer(true);
-
-                                //break;
-                                return true;
-                            }
-                            else
-                            {
-                                LogError("Defensive mode enemy from enemyList wasn't a character");
-                            }
-                        }
-
-                        if (!__instance.m_targetCreature && enemyList.Count > 0)
-                        {
-                            enemyList.Clear();
-                            LogError("enemy list cleared");
-                        }
+                        LogInfo($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} in free time");
+                        __instance.SetFollowTarget(closestItemDrop.gameObject);
+                        return true;
                     }
+                }
+            }*/
+        }
+
+        private static bool HandleEnemies(ThrallAI __instance)
+        {
+            //LogWarning("HandleEnemies");
+            __instance.m_viewRange = 80;
+            if (__instance.m_targetCreature == null || !enemyList.Contains(__instance.m_targetCreature))
+            {
+                if (__instance.m_targetCreature == null)
+                {
+                    LogError("__instance.m_targetCreature == null");
+                }
+                else if (!enemyList.Contains(__instance.m_targetCreature))
+                {
+                    LogError($"{enemyList.Count} !enemyList.Contains(__instance.m_targetCreature.gameObject)");
+                }
+
+                enemyList.Where(go => go != null).OrderBy(go => go.transform.position.DistanceTo(__instance.transform.position));
+
+                foreach (var go in enemyList.ToArray())
+                {
+                    if (!go) continue;
+
+                    Character character = go;
+
+                    if (character != null)
+                    {
+                        __instance.m_targetCreature = null;
+                        __instance.SetTarget(character);
+                        __instance.m_updateTargetTimer = 1000000f;
+                        LogError($"New enemy in defensive mode: {character.name}");
+
+                        __instance.m_alerted = true;
+                        __instance.m_aggravatable = true;
+                        __instance.SetHuntPlayer(true);
+
+                        return true;
+                    }
+                    else
+                    {
+                        LogError("Defensive mode enemy from enemyList wasn't a character");
+                    }
+                }
+
+                if (!__instance.m_targetCreature && enemyList.Count > 0)
+                {
+                    enemyList.Clear();
+                    LogError("enemy list cleared");
                 }
             }
 
-            //Debug.LogError("4");
+            return false;
+        }
 
+        private static void PreProcessCommand()
+        {
+            //LogWarning("PreProcessCommand");
             NPCCommand command = instance.commandManager.GetNextCommand();
 
             //if (command != null)
-            if (NPCCurrentCommand == null || NPCCurrentCommand != command && command != null)
+            if (NPCCurrentCommand == null || command != null && NPCCurrentCommand != command)
             {
                 NPCCurrentCommand = command;
                 if (command is HarvestAction)
@@ -118,224 +123,210 @@ namespace ValheimAIModLoader
                 FollowAction followAction = new FollowAction();
                 instance.commandManager.AddCommand(followAction);
             }
+        }
 
-            /* auto pickup
-             * if (Time.time > instance.LastFindClosestItemDropTime + 1.5 && 
-                !(NPCCurrentMode == NPCMode.Defensive && enemyList.Count > 0) && 
-                NPCCurrentCommandType != NPCCommand.CommandType.CombatAttack)
-                //&& NPCCurrentCommandType != NPCCommand.CommandType.HarvestResource)
+        private static bool ProcessPatrolCommand(ThrallAI __instance, HumanoidNPC humanoidNPC)
+        {
+            //LogWarning("ProcessPatrolCommand");
+            float dist = __instance.transform.position.DistanceTo(patrol_position);
+
+            if (dist > chaseUntilPatrolRadiusDistance && !MovementLock)
             {
-                //Debug.Log("trying to find item drop");
+                SetMonsterAIAggravated(__instance, false);
+                MovementLock = true;
+                LogInfo($"{humanoidNPC.m_name} went too far ({chaseUntilPatrolRadiusDistance}m away) from patrol position, heading back now!");
+            }
+            else if (dist < instance.patrol_radius - 3f)
+            {
+                MovementLock = false;
+                __instance.m_lastKnownTargetPos = patrol_position;
+            }
+            else if (dist < instance.patrol_radius)
+            {
+                __instance.m_aggravatable = true;
+            }
 
-                ItemDrop closestItemDrop = SphereSearchForGameObjectWithComponent<ItemDrop>(__instance.transform.position, 5);
-                if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow && closestItemDrop.transform.position.DistanceTo(__instance.transform.position) < 7f)
+            if (MovementLock)
+            {
+                __instance.MoveTo(Time.deltaTime, patrol_position, 0f, false);
+                return false;
+            }
+
+            GameObject followtarget = __instance.m_follow;
+
+            if (followtarget != null && (followtarget.HasAnyComponent("Character") || followtarget.HasAnyComponent("Humanoid")))
+            {
+                // probably trying to kill an enemy
+                return true;
+            }
+
+            if (instance.patrol_harvest)
+            {
+                if (followtarget == null || followtarget.transform.position.DistanceTo(patrol_position) > chaseUntilPatrolRadiusDistance ||
+                                (!followtarget.HasAnyComponent("Pickable") && !followtarget.HasAnyComponent("ItemDrop")))
                 {
-                    if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData) && closestItemDrop.m_itemData.GetWeight() + humanoidNPC.m_inventory.GetTotalWeight() < humanoidNPC.GetMaxCarryWeight())
+                    List<Pickable> closestPickables = SphereSearchForGameObjectsWithComponent<Pickable>(patrol_position, chaseUntilPatrolRadiusDistance - 2);
+
+                    if (closestPickables.Count == 0)
                     {
-                        LogInfo($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} in free time");
-                        __instance.SetFollowTarget(closestItemDrop.gameObject);
+                        LogMessage($"{humanoidNPC.m_name} has picked up all dropped items around the patrolling area. Only keeping guard now!");
+                        instance.patrol_harvest = false;
                         return true;
                     }
-                }
-            }*/
 
-            if (NPCCurrentCommandType == NPCCommand.CommandType.PatrolArea && patrol_position != Vector3.zero)
-            {
-                float dist = __instance.transform.position.DistanceTo(patrol_position);
-
-                if (dist > chaseUntilPatrolRadiusDistance && !MovementLock)
-                {
-                    SetMonsterAIAggravated(__instance, false);
-                    MovementLock = true;
-                    LogInfo($"{humanoidNPC.m_name} went too far ({chaseUntilPatrolRadiusDistance}m away) from patrol position, heading back now!");
-                }
-                else if (dist < instance.patrol_radius - 3f)
-                {
-                    MovementLock = false;
-                    __instance.m_lastKnownTargetPos = patrol_position;
-                }
-                else if (dist < instance.patrol_radius)
-                {
-                    __instance.m_aggravatable = true;
-                }
-
-                if (MovementLock)
-                {
-                    __instance.MoveTo(Time.deltaTime, patrol_position, 0f, false);
-                    return false;
-                }
-
-                GameObject followtarget = __instance.m_follow;
-
-                if (followtarget != null && (followtarget.HasAnyComponent("Character") || followtarget.HasAnyComponent("Humanoid")))
-                {
-                    // probably trying to kill an enemy
-                    return true;
-                }
-
-                if (instance.patrol_harvest)
-                {
-                    if (followtarget == null || followtarget.transform.position.DistanceTo(patrol_position) > chaseUntilPatrolRadiusDistance ||
-                                    (!followtarget.HasAnyComponent("Pickable") && !followtarget.HasAnyComponent("ItemDrop")))
+                    foreach (Pickable closestPickable in closestPickables)
                     {
-                        List<Pickable> closestPickables = SphereSearchForGameObjectsWithComponent<Pickable>(patrol_position, chaseUntilPatrolRadiusDistance - 2);
-
-                        if (closestPickables.Count == 0)
+                        if (closestPickable == null)
                         {
                             LogMessage($"{humanoidNPC.m_name} has picked up all dropped items around the patrolling area. Only keeping guard now!");
                             instance.patrol_harvest = false;
                             return true;
                         }
 
-                        foreach (Pickable closestPickable in closestPickables)
+                        else if (closestPickable.transform.position.DistanceTo(patrol_position) < chaseUntilPatrolRadiusDistance)
                         {
-                            if (closestPickable == null)
-                            {
-                                LogMessage($"{humanoidNPC.m_name} has picked up all dropped items around the patrolling area. Only keeping guard now!");
-                                instance.patrol_harvest = false;
-                                return true;
-                            }
+                            LogMessage($"{humanoidNPC.m_name} is going to pickup {closestPickable.name} in patrol area, distance: {closestPickable.transform.position.DistanceTo(__instance.transform.position)}");
+                            __instance.SetFollowTarget(closestPickable.gameObject);
+                            return true;
+                        }
+                        else
+                        {
+                            LogInfo("Closest pickable's distance is too far!");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                //LogError("chilling in patrol area");
+                __instance.RandomMovementArroundPoint(Time.deltaTime, patrol_position, 7f, false);
+                return false;
+            }
 
-                            else if (closestPickable.transform.position.DistanceTo(patrol_position) < chaseUntilPatrolRadiusDistance)
+            return true;
+        }
+
+        private static void ProcessHarvestCommand(ThrallAI __instance, HumanoidNPC humanoidNPC)
+        {
+            //LogWarning("ProcessHarvestCommand");
+            if ((__instance.m_follow == null && __instance.m_targetCreature == null) ||
+                (__instance.m_follow && !ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name))) ||
+                __instance.m_follow == Player.m_localPlayer)
+            {
+                /*if (Time.time - closestItemDropsLastRefresh > 3 || closestItemDrops.Count < 1)
+                {
+                    closestItemDrops = SphereSearchForGameObjectsWithComponent<ItemDrop>(__instance.transform.position, 7);
+                    foreach (ItemDrop closestItemDrop in closestItemDrops)
+                    {
+                        if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow && IsStringEqual(closestItemDrop.name, CurrentHarvestResourceName, true))
+                        {
+                            if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData))
                             {
-                                LogMessage($"{humanoidNPC.m_name} is going to pickup {closestPickable.name} in patrol area, distance: {closestPickable.transform.position.DistanceTo(__instance.transform.position)}");
-                                __instance.SetFollowTarget(closestPickable.gameObject);
+                                LogMessage($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
+                                __instance.SetFollowTarget(closestItemDrop.gameObject);
                                 return true;
-                            }
-                            else
-                            {
-                                LogInfo("Closest pickable's distance is too far!");
                             }
                         }
                     }
+                }*/
+
+
+                ItemDrop.ItemData currentWeaponData = humanoidNPC.GetCurrentWeapon();
+                var sources = instance.FindResourceSourcesRecursive(CurrentHarvestResourceName, currentWeaponData);
+                sources = sources.OrderByDescending(s => s.Efficiency).ToList();
+                GameObject resource;
+                bool success = false;
+
+                foreach (var source in sources)
+                {
+                    if (success) continue;
+
+                    resource = FindClosestResource(PlayerNPC, source.Name, false);
+
+                    if (resource != null)
+                    {
+                        if (source.Category == "CharacterDrop")
+                        {
+                            Character targetCharacter = GetCharacterFromGameObject(resource);
+                            if (targetCharacter != null)
+                            {
+                                //__instance.SetTarget(targetCharacter);
+                                //__instance.m_targetCreature = targetCharacter;
+
+                                __instance.m_targetCreature = null;
+                                __instance.SetTarget(targetCharacter);
+                                __instance.m_updateTargetTimer = 1000000f;
+                                LogMessage($"{humanoidNPC.m_name} is going to harvest {resource.name} by killing {targetCharacter.name}");
+                                success = true;
+                            }
+                            else
+                            {
+                                LogError("Harvesting failed! Closest resource was a CharacterDrop but has no Character component");
+                            }
+
+                        }
+                        else
+                        {
+                            __instance.SetFollowTarget(resource);
+                            LogMessage($"{humanoidNPC.m_name} is going to harvest {resource.name}");
+                            success = true;
+                        }
+                    }
+                }
+
+                if (!success)
+                {
+                    LogMessage($"Couldnt find any resources to harvest for {CurrentHarvestResourceName}");
+                    LogInfo($"Removing harvest {CurrentHarvestResourceName} command");
+                    CurrentHarvestResourceName = "Wood";
+                    instance.commandManager.RemoveCommand(0);
+                }
+            }
+        }
+
+        private static void ProcessCombatCommand(ThrallAI __instance)
+        {
+            //LogWarning("ProcessCombatCommand");
+            //if (__instance.m_follow == null || !__instance.m_follow.HasAnyComponent("Character", "Humanoid", "BaseAI", "MonsterAI", "AnimalAI"))
+            if (__instance.m_targetCreature == null || (!IsStringStartingWith(CurrentEnemyName, __instance.m_targetCreature.name, true) && !enemyList.Contains(__instance.m_targetCreature)))
+            {
+                Character character = FindClosestEnemy(__instance.gameObject, CurrentEnemyName);
+                if (character)
+                {
+                    //__instance.SetFollowTarget(null);
+                    //__instance.SetTarget(character);
+                    __instance.m_targetCreature = null;
+                    __instance.SetTarget(character);
+                    __instance.m_updateTargetTimer = 1000000f;
+                    //__instance.m_timeSinceAttacking = 0;
+                    LogMessage($"CombatAttack new target set: {CleanKey(character.name)}");
                 }
                 else
                 {
-                    //LogError("chilling in patrol area");
-                    __instance.RandomMovementArroundPoint(Time.deltaTime, patrol_position, 7f, false);
-                    return false;
+                    instance.commandManager.RemoveCommand(0);
+                    LogError("CommandType.CombatAttack, findclosestenemy returned null. Probably no more targets in the area. Removing combat command");
                 }
-
-                return true;
             }
+        }
 
-            else if (NPCCurrentCommandType == NPCCommand.CommandType.HarvestResource && (enemyList.Count == 0))
+        private static void ProcessFollowCommand(ThrallAI __instance)
+        {
+            //LogWarning("ProcessFollowCommand");
+            if (__instance.m_follow && __instance.m_follow != Player.m_localPlayer.gameObject && !__instance.m_follow.HasAnyComponent("ItemDrop", "Pickable") && (enemyList.Count == 0))
             {
-                if ((__instance.m_follow == null && __instance.m_targetCreature == null) ||
-                    (__instance.m_follow && !ResourceNodesOneArray.Contains(CleanKey(__instance.m_follow.name))) ||
-                    __instance.m_follow == Player.m_localPlayer)
-                {
-                    if (Time.time - closestItemDropsLastRefresh > 3 || closestItemDrops.Count < 1)
-                    {
-                        closestItemDrops = SphereSearchForGameObjectsWithComponent<ItemDrop>(__instance.transform.position, 7);
-                        foreach (ItemDrop closestItemDrop in closestItemDrops)
-                        {
-                            if (closestItemDrop != null && closestItemDrop.gameObject != __instance.m_follow && IsStringEqual(closestItemDrop.name, CurrentHarvestResourceName, true))
-                            {
-                                if (humanoidNPC.m_inventory.CanAddItem(closestItemDrop.m_itemData))
-                                {
-                                    LogMessage($"{humanoidNPC.m_name} is going to pickup nearby dropped item on the ground {closestItemDrop.name} before harvesting");
-                                    __instance.SetFollowTarget(closestItemDrop.gameObject);
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-
-
-                    ItemDrop.ItemData currentWeaponData = humanoidNPC.GetCurrentWeapon();
-                    var sources = instance.FindResourceSourcesRecursive(CurrentHarvestResourceName, currentWeaponData);
-                    sources = sources.OrderByDescending(s => s.Efficiency).ToList();
-                    GameObject resource;
-                    bool success = false;
-
-                    foreach (var source in sources)
-                    {
-                        if (success) continue;
-
-                        resource = FindClosestResource(PlayerNPC, source.Name, false);
-
-                        if (resource != null)
-                        {
-                            if (source.Category == "CharacterDrop")
-                            {
-                                Character targetCharacter = GetCharacterFromGameObject(resource);
-                                if (targetCharacter != null)
-                                {
-                                    //__instance.SetTarget(targetCharacter);
-                                    //__instance.m_targetCreature = targetCharacter;
-
-                                    __instance.m_targetCreature = null;
-                                    __instance.SetTarget(targetCharacter);
-                                    __instance.m_updateTargetTimer = 1000000f;
-                                    LogMessage($"{humanoidNPC.m_name} is going to harvest {resource.name} by killing {targetCharacter.name}");
-                                    success = true;
-                                }
-                                else
-                                {
-                                    LogError("Harvesting failed! Closest resource was a CharacterDrop but has no Character component");
-                                }
-
-                            }
-                            else
-                            {
-                                __instance.SetFollowTarget(resource);
-                                LogMessage($"{humanoidNPC.m_name} is going to harvest {resource.name}");
-                                success = true;
-                            }
-                        }
-                    }
-
-                    if (!success)
-                    {
-                        LogMessage($"Couldnt find any resources to harvest for {CurrentHarvestResourceName}");
-                        LogInfo($"Removing harvest {CurrentHarvestResourceName} command");
-                        CurrentHarvestResourceName = "Wood";
-                        instance.commandManager.RemoveCommand(0);
-                    }
-                }
+                __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
+                LogMessage("Following player again ");
             }
-
-            else if (NPCCurrentCommandType == NPCCommand.CommandType.CombatAttack)
+            else if (!__instance.m_follow)
             {
-                //if (__instance.m_follow == null || !__instance.m_follow.HasAnyComponent("Character", "Humanoid", "BaseAI", "MonsterAI", "AnimalAI"))
-                if (__instance.m_targetCreature == null || (!IsStringStartingWith(CurrentEnemyName, __instance.m_targetCreature.name, true) && !enemyList.Contains(__instance.m_targetCreature)))
-                {
-                    Character character = FindClosestEnemy(__instance.gameObject, CurrentEnemyName);
-                    if (character)
-                    {
-                        //__instance.SetFollowTarget(null);
-                        //__instance.SetTarget(character);
-                        __instance.m_targetCreature = null;
-                        __instance.SetTarget(character);
-                        __instance.m_updateTargetTimer = 1000000f;
-                        //__instance.m_timeSinceAttacking = 0;
-                        LogMessage($"CombatAttack new target set: {CleanKey(character.name)}");
-                    }
-                    else
-                    {
-                        instance.commandManager.RemoveCommand(0);
-                        LogError("CommandType.CombatAttack, findclosestenemy returned null. Probably no more targets in the area. Removing combat command");
-                    }
-                }
+                __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
+                LogMessage("Following player again ");
             }
+        }
 
-            else if (NPCCurrentCommandType == NPCCommand.CommandType.FollowPlayer)
-            {
-                if (__instance.m_follow && __instance.m_follow != Player.m_localPlayer.gameObject && !__instance.m_follow.HasAnyComponent("ItemDrop", "Pickable") && (enemyList.Count == 0))
-                {
-                    __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
-                    LogMessage("Following player again ");
-                }
-                else if (!__instance.m_follow)
-                {
-                    __instance.SetFollowTarget(Player.m_localPlayer.gameObject);
-                    LogMessage("Following player again ");
-                }
-            }
-
-
-
+        private static void NPCCurrentModeUpdate(ThrallAI __instance)
+        {
+            //LogWarning("NPCCurrentModeUpdate");
             if (NPCCurrentMode == NPCMode.Passive)
             {
                 //LogError("Passive");
@@ -353,42 +344,60 @@ namespace ValheimAIModLoader
             {
                 if (NPCCurrentCommandType == NPCCommand.CommandType.CombatAttack)
                 {
-                    //SetMonsterAIAggravated(__instance, true);
-                    //__instance.m_aggravatable = true;
-                    //__instance.m_alerted = true;
-                    //__instance.m_aggravated = true;
-                    //__instance.SetHuntPlayer(true);
-
                     __instance.m_alerted = false;
                     __instance.m_aggravatable = true;
                     __instance.SetHuntPlayer(true);
 
-
                     __instance.m_viewRange = 80;
                 }
-                /*else
-                {
-                    //SetMonsterAIAggravated(__instance, false);
-                    __instance.m_aggravatable = false;
-                    __instance.m_alerted = false;
-                    __instance.m_aggravated = false;
-                    __instance.m_targetCreature = null;
-                    __instance.SetHuntPlayer(false);
-                    __instance.m_viewRange = 0;
-                }*/
             }
             //else if (NPCCurrentMode == NPCMode.Aggressive && !__instance.m_aggravated)
             else if (NPCCurrentMode == NPCMode.Aggressive)
             {
                 SetMonsterAIAggravated(__instance, true);
-                //__instance.SetAggravated(true, BaseAI.AggravatedReason.Theif);
                 __instance.m_aggravated = true;
                 __instance.SetAlerted(true);
                 __instance.SetHuntPlayer(true);
                 __instance.m_viewRange = 80;
             }
+        }
 
+        
 
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ThrallAI), "UpdateAI")]
+        private static bool MonsterAI_UpdateAI_Prefix(ThrallAI __instance)
+        {
+            if (!Player.m_localPlayer || !__instance) return true;
+
+            if (!__instance.name.Contains("HumanoidNPC")) return true;
+
+            HumanoidNPC humanoidNPC = __instance.gameObject.GetComponent<HumanoidNPC>();
+
+            if (NPCCurrentMode != NPCMode.Passive && enemyList.Count > 0)
+            {
+                if (HandleEnemies(__instance))
+                {
+                    return true;
+                }
+            }
+                    
+
+            PreProcessCommand();
+
+            if (NPCCurrentCommandType == NPCCommand.CommandType.PatrolArea && patrol_position != Vector3.zero)
+                return ProcessPatrolCommand(__instance, humanoidNPC);
+
+            if (NPCCurrentCommandType == NPCCommand.CommandType.HarvestResource && (enemyList.Count == 0))
+                ProcessHarvestCommand(__instance, humanoidNPC);
+
+            if (NPCCurrentCommandType == NPCCommand.CommandType.CombatAttack)
+                ProcessCombatCommand(__instance);
+
+            if (NPCCurrentCommandType == NPCCommand.CommandType.FollowPlayer)
+                ProcessFollowCommand(__instance);
+
+            NPCCurrentModeUpdate(__instance);
 
             return true;
         }
@@ -1066,15 +1075,16 @@ namespace ValheimAIModLoader
         [HarmonyPatch(typeof(Humanoid), "OnDamaged")]
         public static void Character_OnDamaged_Prefix(Humanoid __instance, HitData hit)
         {
+            Player player = GetLocalPlayerOrNull();
             //Debug.Log("Character_OnDamaged_Postfix");
             if (NPCCurrentMode != NPCMode.Passive && PlayerNPC)
             {
                 //Debug.Log("NPCCurrentMode == NPCMode.Defensive");
-                if (__instance == Player.m_localPlayer || __instance is HumanoidNPC)
+                if (__instance == player || __instance is HumanoidNPC)
                 {
 
                     Character attacker = hit.GetAttacker();
-                    if (attacker != null && !enemyList.Contains(attacker))
+                    if (attacker != null && !enemyList.Contains(attacker) && attacker != player)
                     {
                         enemyList.Add(attacker);
                     }
